@@ -6,8 +6,23 @@ import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
 import '../services/app_prefs.dart';
+import '../services/storage_access.dart';
 import '../services/vsid_service.dart';
 import '../theme/vice_theme.dart';
+import 'setup_wizard_screen.dart' show kGamesImportSubdir;
+
+/// One card in the playlist: the bundled Top-20 with their known titles and
+/// composers, plus every .sid the user has of their own.
+class SidTrack {
+  final String title;
+  final String artist;
+
+  /// Null only for a bundled tune whose file isn't on disk (extraction
+  /// failed) -- that card renders greyed out, as it always has.
+  final String? path;
+
+  const SidTrack(this.title, this.artist, this.path);
+}
 
 /// Port of MainActivity.createMusicContent's Top-10 SID playlist: a grid
 /// that fills the whole page (weight 1.0 -- explicitly NOT a side-by-side
@@ -60,11 +75,8 @@ class _MusicScreenState extends State<MusicScreen> {
 
   bool _loading = true;
 
-  /// Directories searched, in order, for each playlist filename. Normally
-  /// [the user's Music/ folder if there is one, the bundled/extracted SID
-  /// dir]; the bundled copy is always present so the Top-10 works out of
-  /// the box on Android (where there is no user Music/ folder at all).
-  List<String> _musicDirs = const [];
+  /// The playlist as shown: the bundled tunes first, then the user's own.
+  List<SidTrack> _tracks = const [];
   String? _nowPlayingTitle;
   String? _statusMessage;
   Timer? _pollTimer;
@@ -72,7 +84,7 @@ class _MusicScreenState extends State<MusicScreen> {
   @override
   void initState() {
     super.initState();
-    _resolveMusicDir();
+    _loadTracks();
     // Polls the real vsid state twice a second so the "PLAYING"/"PAUSED"
     // text and audio-level readout reflect what the native core is
     // actually doing, not just what button was last tapped.
@@ -87,39 +99,81 @@ class _MusicScreenState extends State<MusicScreen> {
     super.dispose();
   }
 
-  /// A user's own music folder -- a sibling `Music/` directory next to the
-  /// configured Games folder (e.g. Games folder .../Vice/Games ->
-  /// .../Vice/Music) -- still wins when it exists, so anyone who has
-  /// curated their own copies keeps them. Underneath it there is always the
-  /// bundled Top-10 extracted out of the app's own assets, which is what
-  /// makes the playlist work on Android (and on a fresh Linux install with
-  /// no Music/ folder anywhere).
-  Future<void> _resolveMusicDir() async {
+  /// Builds the playlist out of every place a .sid can come from:
+  ///
+  ///  - a sibling `Music/` directory next to the configured Games folder
+  ///    (e.g. .../Vice/Games -> .../Vice/Music), for anyone who curates
+  ///    their own collection on desktop;
+  ///  - the import directory, which is where iOS puts everything the user
+  ///    imports (there is no folder to point at on that platform);
+  ///  - the bundled Top-20 extracted from the app's own assets, which is
+  ///    what makes the playlist work out of the box everywhere.
+  ///
+  /// The bundled tunes keep their known titles and composers. Everything
+  /// else found in those directories is listed after them under its own
+  /// filename -- importing a .sid is all it takes to have it playable here.
+  Future<void> _loadTracks() async {
     final dirs = <String>[];
     final gamesFolder = await AppPrefs.getGamesFolderPath();
     if (gamesFolder != null) {
       final candidate = p.join(p.dirname(gamesFolder), 'Music');
       if (Directory(candidate).existsSync()) dirs.add(candidate);
     }
+    final importDir =
+        await StorageAccess.instance.importedDirectory(kGamesImportSubdir);
+    if (importDir != null) dirs.add(importDir);
     try {
       dirs.add(await ViceNativePaths.extractBundledSidDir());
     } catch (_) {
       // Extraction failure just means the bundled fallback is unavailable;
       // any user folder found above still works.
     }
+
+    String? pathFor(String filename) {
+      for (final dir in dirs) {
+        final path = p.join(dir, filename);
+        if (File(path).existsSync()) return path;
+      }
+      return null;
+    }
+
+    final tracks = <SidTrack>[];
+    final bundledNames = <String>{};
+    for (final (title, artist, filename) in MusicScreen.playlist) {
+      bundledNames.add(filename.toLowerCase());
+      tracks.add(SidTrack(title, artist, pathFor(filename)));
+    }
+
+    final seen = <String>{};
+    final own = <SidTrack>[];
+    for (final dir in dirs) {
+      final directory = Directory(dir);
+      if (!directory.existsSync()) continue;
+      for (final file in directory.listSync(recursive: true, followLinks: false)) {
+        if (file is! File) continue;
+        if (p.extension(file.path).toLowerCase() != '.sid') continue;
+        final name = p.basename(file.path);
+        final key = name.toLowerCase();
+        // The bundled twenty are already listed with better metadata, and
+        // the same tune found in two directories is still one tune.
+        if (bundledNames.contains(key) || !seen.add(key)) continue;
+        own.add(SidTrack(_titleFromFilename(name), 'Imported', file.path));
+      }
+    }
+    own.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+
     if (!mounted) return;
     setState(() {
-      _musicDirs = dirs;
+      _tracks = [...tracks, ...own];
       _loading = false;
     });
   }
 
-  String? _pathFor(String filename) {
-    for (final dir in _musicDirs) {
-      final path = p.join(dir, filename);
-      if (File(path).existsSync()) return path;
-    }
-    return null;
+  /// "Comic_Bakery.sid" -> "Comic Bakery". A filename is all the metadata
+  /// an imported SID comes with; the header is not parsed (yet).
+  static String _titleFromFilename(String filename) {
+    final stem = p.basenameWithoutExtension(filename).replaceAll('_', ' ').trim();
+    return stem.isEmpty ? filename : stem;
   }
 
   Future<void> _tap(String title, String? path) async {
@@ -205,7 +259,7 @@ class _MusicScreenState extends State<MusicScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Text(
-            'SID Workstation - ${MusicScreen.playlist.length} tunes',
+            'SID Workstation - ${_tracks.length} tunes',
             style: const TextStyle(
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
@@ -226,7 +280,7 @@ class _MusicScreenState extends State<MusicScreen> {
           // rather than the old fixed 2-up 200dp/64dp cells.
           child: LayoutBuilder(builder: (context, constraints) {
             final columns = (constraints.maxWidth / 150).floor().clamp(2, 6);
-            final rows = (MusicScreen.playlist.length / columns).ceil();
+            final rows = (_tracks.length / columns).ceil().clamp(1, 1 << 30);
             // Shrink rows to fit the available height when they otherwise
             // wouldn't, with a floor that still leaves the two text lines
             // room.
@@ -240,10 +294,12 @@ class _MusicScreenState extends State<MusicScreen> {
                 crossAxisSpacing: 6,
                 mainAxisSpacing: 6,
               ),
-              itemCount: MusicScreen.playlist.length,
+              itemCount: _tracks.length,
               itemBuilder: (context, i) {
-                final (title, artist, filename) = MusicScreen.playlist[i];
-                final path = _pathFor(filename);
+                final track = _tracks[i];
+                final title = track.title;
+                final artist = track.artist;
+                final path = track.path;
                 final available = path != null;
                 final playing = title == _nowPlayingTitle && _vsid.isRunning;
                 final paused = title == _nowPlayingTitle && _vsid.isPaused;

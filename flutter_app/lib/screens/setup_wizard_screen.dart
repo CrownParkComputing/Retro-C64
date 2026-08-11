@@ -11,9 +11,11 @@
 //     the sandbox.
 //
 // Validation-before-advance mirrors the Android version's canAdvance()/
-// goNext(): STEP_APP can't advance without an app folder (or, on iOS,
-// it's always satisfied), STEP_GAMES can't Finish without at least one
-// game/media file available.
+// goNext(): STEP_APP can't advance without an app folder, and STEP_GAMES
+// can't Finish without a games folder. On iOS both steps are always
+// satisfied -- there is nothing to pick for app storage, and gating Finish
+// on an import made the wizard a dead end for anyone whose files weren't
+// on the device yet (see _canAdvance).
 //
 // Presentation: the WHOLE wizard (Welcome and the App/Games questions
 // alike) is a single plain C64 screen with BASIC-program text typed out
@@ -130,9 +132,18 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         // iOS has nothing to pick here -- the sandbox always exists.
         return _isFolderScan ? _appFolderPath != null : true;
       case _WizardStep.games:
-        return _isFolderScan
-            ? _gamesFolderPath != null
-            : _importedGameFiles.isNotEmpty;
+        // Folder-scan platforms must choose a folder -- an empty one is
+        // fine, and picking one always succeeds, so this is a gate the
+        // user can always get through.
+        //
+        // File-import platforms must NOT be gated on having imported
+        // something. Someone opening the app for the first time may have
+        // no C64 files on the device yet, and getting them there means
+        // leaving for the Files app -- so requiring an import here locked
+        // them inside the wizard with no way forward. Importing is
+        // available from the Paths tab afterwards, and the bundled SID
+        // tunes work with nothing imported at all.
+        return _isFolderScan ? _gamesFolderPath != null : true;
     }
   }
 
@@ -282,7 +293,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
           return '$base\n? ${_importedGameFiles.length} FILE(S) IMPORTED';
         }
         if (_gamesPickCancelled) {
-          return '$base\n? (NOTHING IMPORTED - TAP TO RETRY)';
+          return '$base\n? (NOTHING IMPORTED - TAP TO RETRY, '
+              'OR FINISH AND IMPORT LATER)';
         }
         return base;
     }

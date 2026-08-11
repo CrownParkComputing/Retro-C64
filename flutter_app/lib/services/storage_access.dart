@@ -25,6 +25,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -60,7 +61,17 @@ const List<String> kGameFileExtensions = [
 ];
 
 abstract class StorageAccess {
-  static final StorageAccess instance = _createInstance();
+  static StorageAccess? _instance;
+
+  static StorageAccess get instance => _instance ??= _createInstance();
+
+  /// Substitutes the strategy, so a test can exercise the file-import
+  /// (iOS) path on whatever machine the suite happens to run on. Pass null
+  /// to restore the real one for this platform.
+  @visibleForTesting
+  static void setInstanceForTesting(StorageAccess? storage) {
+    _instance = storage;
+  }
 
   static StorageAccess _createInstance() {
     if (Platform.isIOS) return _IOSFileImportStorage();
@@ -99,6 +110,16 @@ abstract class StorageAccess {
   /// [destinationSubdir] from a previous session, so the wizard/Paths
   /// screen can show "N files imported" without re-picking.
   Future<List<ImportedFile>> listImported(String destinationSubdir);
+
+  /// File-import platforms only: the directory [pickAndImportFiles] copies
+  /// into, so the library can be scanned from it exactly as a folder-scan
+  /// platform scans the folder the user chose. Null on folder-scan
+  /// platforms, which have that real folder instead.
+  ///
+  /// Resolved on demand rather than stored in prefs on purpose: an iOS
+  /// sandbox path contains a container UUID that changes when the app is
+  /// reinstalled, so a remembered absolute path goes stale.
+  Future<String?> importedDirectory(String destinationSubdir);
 }
 
 /// Linux + Android: pick a real directory, scan it directly. `file_picker`'s
@@ -151,6 +172,9 @@ class _FolderScanStorage extends StorageAccess {
   @override
   Future<List<ImportedFile>> listImported(String destinationSubdir) async =>
       const [];
+
+  @override
+  Future<String?> importedDirectory(String destinationSubdir) async => null;
 }
 
 /// iOS: sandboxed, no persistent folder access. Steps through
@@ -189,18 +213,32 @@ class _IOSFileImportStorage extends StorageAccess {
     required String destinationSubdir,
     List<String> extensions = kGameFileExtensions,
   }) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: extensions,
-    );
+    // Deliberately NOT FileType.custom + allowedExtensions, which is the
+    // obvious way to write this and does not work here.
+    //
+    // file_picker's iOS side turns each extension into a UTI with
+    // UTTypeCreatePreferredIdentifierForTag and *skips* any that resolves
+    // to a dynamic one (see FileUtils.m resolveType:). iOS has no
+    // registered UTI for d64/t64/g64/tap/crt/prg/p00/sid, so every single
+    // extension gets skipped, and UIDocumentPickerViewController is then
+    // opened with an EMPTY document-type list -- a file browser in which
+    // nothing at all is selectable. The user could only cancel, which left
+    // the setup wizard's Finish button permanently disabled: no way into
+    // the app at all.
+    //
+    // So: open the picker on everything and enforce the extension list
+    // here, where we know what a C64 file looks like.
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return const [];
 
+    final wanted = extensions.map((e) => e.toLowerCase()).toSet();
     final destDir = await _destinationDir(destinationSubdir);
     final imported = <ImportedFile>[];
     for (final picked in result.files) {
       final sourcePath = picked.path;
       if (sourcePath == null) continue; // web-only field, never null on iOS
+      final ext = p.extension(picked.name).replaceFirst('.', '').toLowerCase();
+      if (!wanted.contains(ext)) continue;
       final source = File(sourcePath);
       if (!source.existsSync()) continue;
       final destPath = p.join(destDir.path, picked.name);
@@ -214,6 +252,10 @@ class _IOSFileImportStorage extends StorageAccess {
     }
     return imported;
   }
+
+  @override
+  Future<String?> importedDirectory(String destinationSubdir) async =>
+      (await _destinationDir(destinationSubdir)).path;
 
   @override
   Future<List<ImportedFile>> listImported(String destinationSubdir) async {

@@ -16,58 +16,34 @@
 //     below, which return null on Android on purpose.
 //   - iOS/macOS: build it into an .xcframework and link statically or via
 //     DynamicLibrary.process().
+//     DONE (iOS): libvicecore.a / libvicecore_vsid.a are built by
+//     native/vice_core/ios/build.sh and force-loaded into the Runner by
+//     ios/Flutter/VICECore.xcconfig, so both cores live in the app binary
+//     itself and are reached with DynamicLibrary.process() -- no path to
+//     find, which is why gameCoreLibraryPath/vsidCoreLibraryPath return null
+//     on iOS too.
 import 'dart:io';
 
 import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../services/rom_store.dart';
+
 class ViceNativePaths {
   ViceNativePaths._();
 
-  /// Marker file written after a successful first-run ROM extraction on
-  /// Android, so subsequent launches skip re-copying ~1.1MB of asset files
-  /// out of the APK on every startup. Named after the last file extraction
-  /// writes so a killed-mid-extraction run doesn't leave a false marker.
-  static const String _androidRomMarkerName = '.extracted';
-
-  /// Extracts assets/vice/{C64,DRIVES} (declared in pubspec.yaml, sourced
-  /// from VICEAndroid's proven-good ROM set) into a real filesystem
-  /// directory under the app's support dir, once. Safe to call every
-  /// launch -- it's a no-op after the first successful extraction (checked
-  /// via a marker file, not just kernal's existence, so a partial/failed
-  /// extraction is retried rather than silently left broken).
+  /// Where the user's own C64 ROMs live once imported, or null if the
+  /// machine cannot boot yet.
   ///
-  /// Returns the extracted C64/DRIVES root (i.e. the same shape devRomDir
-  /// returns on Linux: a directory containing a `C64/` subdir).
-  static Future<String> extractAndroidRomDir() async {
-    final supportDir = await getApplicationSupportDirectory();
-    final romRoot = p.join(supportDir.path, 'vice');
-    final marker = File(p.join(romRoot, _androidRomMarkerName));
-    if (marker.existsSync()) {
-      return romRoot;
-    }
-
-    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-    final assets = manifest
-        .listAssets()
-        .where((path) => path.startsWith('assets/vice/'));
-
-    for (final assetPath in assets) {
-      // assetPath looks like "assets/vice/C64/kernal-901227-03.bin" ->
-      // strip the "assets/vice/" prefix so it lands at romRoot/C64/....
-      final relative = assetPath.substring('assets/vice/'.length);
-      final outFile = File(p.join(romRoot, relative));
-      await outFile.parent.create(recursive: true);
-      final bytes = await rootBundle.load(assetPath);
-      await outFile.writeAsBytes(
-        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-        flush: true,
-      );
-    }
-
-    await marker.create(recursive: true);
-    return romRoot;
+  /// The app no longer ships Commodore's kernal/basic/chargen images (they
+  /// are third-party copyrighted code, and bundling them is the usual
+  /// reason an emulator is rejected from a store), so this can legitimately
+  /// be null on a fresh install: the Paths tab imports them, and RomStore
+  /// says what is still missing.
+  static Future<String?> installedRomDir() async {
+    final root = await RomStore.romRoot();
+    return RomStore.canBoot(root) ? root : null;
   }
 
   /// Marker for the bundled-SID extraction. Unlike the ROM marker this one
@@ -81,8 +57,8 @@ class ViceNativePaths {
   /// pubspec.yaml) into a real filesystem directory under the app's support
   /// dir, once, and returns that directory.
   ///
-  /// Unlike [extractAndroidRomDir] this runs on EVERY platform, not just
-  /// Android: the point is that the Music tab always has its Top-10
+  /// This runs on EVERY platform: the point is that the Music tab always
+  /// has its Top-20
   /// available out of the box. On Linux the Music screen still prefers a
   /// real user Music/ folder if one exists next to the configured Games
   /// folder, and only falls back here.
@@ -154,8 +130,10 @@ class ViceNativePaths {
   /// VICEAndroid app -- there is no repo-relative dev path to find on a
   /// real device. (_findRepoRoot() would also naturally fail to find
   /// native/vice_core under the app sandbox, but this is explicit.)
+  /// Always null on iOS too, for the stronger reason that there is no
+  /// library file at all: the core is linked into the app binary.
   static String? get gameCoreLibraryPath {
-    if (Platform.isAndroid) return null;
+    if (Platform.isAndroid || Platform.isIOS) return null;
     final root = _findRepoRoot();
     if (root == null) return null;
     final path = p.join(root.path, 'native', 'vice_core', 'linux', 'build',
@@ -164,7 +142,7 @@ class ViceNativePaths {
   }
 
   static String? get vsidCoreLibraryPath {
-    if (Platform.isAndroid) return null;
+    if (Platform.isAndroid || Platform.isIOS) return null;
     final root = _findRepoRoot();
     if (root == null) return null;
     final path = p.join(root.path, 'native', 'vice_core', 'linux', 'build',
@@ -173,18 +151,25 @@ class ViceNativePaths {
   }
 
   /// Async ROM-dir resolver that works on every platform this app targets:
-  /// Android extracts bundled assets to a real filesystem dir (once) and
-  /// returns that; everywhere else it's just [devRomDir] wrapped in a
-  /// completed Future. Use this from app startup instead of [devRomDir]
-  /// directly so the same call site works on both.
-  static Future<String?> resolveRomDir() {
-    if (Platform.isAndroid) return extractAndroidRomDir();
-    return Future.value(devRomDir);
+  /// the user's imported ROMs if they are there, and on a dev checkout the
+  /// test fixtures next to the native sources as a fallback, so
+  /// `flutter run -d linux` still boots without importing anything.
+  ///
+  /// Null means "no ROMs yet" -- a normal state on a fresh install now that
+  /// none are bundled, and one every caller has to handle by telling the
+  /// user rather than failing silently. [RomStore.describeMissing] says
+  /// which ones are absent.
+  static Future<String?> resolveRomDir() async {
+    final installed = await installedRomDir();
+    if (installed != null) return installed;
+    return devRomDir;
   }
 
   /// ROM directory (contains a C64/ subdir with kernal/basic/chargen) used
   /// for development. Points at the native test fixtures, which are
-  /// checked into the repo for exactly this purpose.
+  /// checked into the repo for exactly this purpose. Never present in a
+  /// packaged build -- there is no repo next to an installed app -- so it
+  /// cannot stand in for the user's own ROMs on a device.
   static String? get devRomDir {
     final root = _findRepoRoot();
     if (root == null) return null;

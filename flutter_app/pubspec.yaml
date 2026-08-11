@@ -40,6 +40,7 @@ dependencies:
   shared_preferences: ^2.3.5
   path_provider: ^2.1.5
   gamepads: ^0.1.10+5
+  archive: ^4.0.9
 
 dev_dependencies:
   flutter_test:
@@ -66,8 +67,10 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/retro_recomp_logo.png
-    - assets/vice/C64/
-    - assets/vice/DRIVES/
+    # The C64 ROMs are deliberately NOT bundled: kernal/basic/chargen are
+    # third-party copyrighted images, and shipping them is what gets an
+    # emulator rejected from a store. The user imports their own from the
+    # Paths tab -- see lib/services/rom_store.dart.
     # Top-10 SID tunes played by the Music tab (SID Workstation). Bundled
     # so the playlist works out of the box on every platform -- on Android
     # there's no user Music/ folder to find. ~64KB total.

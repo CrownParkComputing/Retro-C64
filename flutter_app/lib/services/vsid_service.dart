@@ -29,7 +29,7 @@ class VsidService {
   /// Safe to call repeatedly (no-op after the first successful or failed
   /// attempt). Returns true if the vsid core is ready to play.
   ///
-  /// Async because ROM-dir resolution is async on Android (first-run asset
+  /// Async because ROM-dir resolution is async on Android and iOS (first-run
   /// extraction -- see ViceNativePaths.resolveRomDir); on other platforms
   /// this just awaits an already-completed Future.
   Future<bool> ensureLoaded() async {

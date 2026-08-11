@@ -20,13 +20,16 @@ import 'music_screen.dart';
 import 'paths_settings_screen.dart';
 import 'resume_screen.dart';
 import 'settings_placeholder.dart';
+import 'setup_wizard_screen.dart' show kGamesImportSubdir;
 import 'video_settings_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/gamepad_service.dart';
 import '../services/library_scanner.dart';
 import '../services/permissions_service.dart';
 import '../services/platform_info.dart';
+import '../services/rom_store.dart';
 import '../services/save_state_service.dart';
+import '../services/storage_access.dart';
 import '../services/vsid_service.dart';
 
 /// Port of LauncherLayoutHelper.createLauncher's overall structure: a
@@ -49,6 +52,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// read (Android scoped storage). Surfaced as a banner with a way to fix
   /// it rather than silently hidden.
   int _unreadableCount = 0;
+
+  /// Whether the user's C64 ROMs are installed. False on a fresh install --
+  /// the app ships none -- and the whole emulator is inert until they are,
+  /// so the library says so rather than letting a launch fail mutely.
+  bool _romsReady = true;
   bool _inEmulator = false;
   String _emulatorLabel = '';
   String _lastMediaName = '';
@@ -81,7 +89,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   // emulator screen replaces this whole widget, but the timer is also
   // cancelled explicitly so a stray callback can't fire late and flip
   // _screensaverActive under a game).
-  static const _backdropIdleDelay = Duration(milliseconds: 30000);
+  static const _backdropIdleDelay = Duration(seconds: 20);
   Timer? _idleTimer;
   bool _screensaverActive = false;
 
@@ -89,6 +97,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   void initState() {
     super.initState();
     _scanLibrary();
+    _refreshRomState();
     _scheduleIdle();
     _loadInputPrefs();
     _gamepad.start();
@@ -151,9 +160,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// folder and plays them for real via the vsid core.
   Future<void> _scanLibrary() async {
     final configured = await AppPrefs.getGamesFolderPath();
+    // On iOS there is no games folder to configure -- the wizard and the
+    // Paths tab copy files into the sandbox instead, and that copy is the
+    // library. Without this the Game Library stayed empty no matter how
+    // many titles had been imported.
+    final importedDir =
+        await StorageAccess.instance.importedDirectory(kGamesImportSubdir);
     final scanDir = (configured != null && Directory(configured).existsSync())
         ? configured
-        : ViceNativePaths.devRomDir;
+        : (importedDir ?? ViceNativePaths.devRomDir);
 
     final result = scanDir == null
         ? LibraryScanResult.empty
@@ -163,6 +178,22 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       _library = result.entries;
       _unreadableCount = result.unreadableCount;
     });
+  }
+
+  Future<void> _refreshRomState() async {
+    final ready = RomStore.canBoot(await RomStore.romRoot());
+    if (!mounted || ready == _romsReady) return;
+    setState(() => _romsReady = ready);
+  }
+
+  /// After ROMs are imported the core still has to be pointed at them: it
+  /// was left uninitialised at startup precisely because there was nothing
+  /// to point it at.
+  Future<void> _romsInstalled() async {
+    final romDir = await ViceNativePaths.resolveRomDir();
+    if (romDir != null) widget.core.init(romDir);
+    await _refreshRomState();
+    await _scanLibrary();
   }
 
   /// Sends the user to the system "All files access" toggle and rescans
@@ -511,12 +542,17 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       // Media-format filtering lives inside LibraryGrid now (tabs across
       // the top), so there's nothing category-derived left to pass.
       final grid = LibraryGrid(allEntries: _library, onLaunch: _launch);
-      if (_unreadableCount == 0) return grid;
+      if (_unreadableCount == 0 && _romsReady) return grid;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _UnreadableBanner(
-              count: _unreadableCount, onGrant: _requestStorageAccess),
+          if (!_romsReady)
+            _MissingRomsBanner(
+                onImport: () =>
+                    setState(() => _category = WorkbenchCategory.paths)),
+          if (_unreadableCount > 0)
+            _UnreadableBanner(
+                count: _unreadableCount, onGrant: _requestStorageAccess),
           Expanded(child: grid),
         ],
       );
@@ -531,7 +567,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       case WorkbenchCategory.music:
         return const MusicScreen();
       case WorkbenchCategory.paths:
-        return PathsSettingsScreen(onLibraryShouldRescan: _scanLibrary);
+        return PathsSettingsScreen(
+          onLibraryShouldRescan: _scanLibrary,
+          onRomsChanged: _romsInstalled,
+        );
       case WorkbenchCategory.video:
         return const VideoSettingsScreen();
       case WorkbenchCategory.audio:
@@ -556,6 +595,44 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+
+/// Shown above the library when the C64 ROMs are not installed. The app
+/// deliberately ships none (they are Commodore's, not ours), so on a fresh
+/// install this is the first thing standing between the user and a working
+/// emulator -- and a launch that silently does nothing would be a far worse
+/// way to find that out.
+class _MissingRomsBanner extends StatelessWidget {
+  final VoidCallback onImport;
+
+  const _MissingRomsBanner({required this.onImport});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3A1616),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF8A2F2F)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.memory, color: Colors.redAccent, size: 20),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'No C64 ROMs installed -- nothing can run yet. '
+              'Import your own KERNAL, BASIC and character ROMs.',
+              style: TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+          TextButton(onPressed: onImport, child: const Text('Paths')),
+        ],
+      ),
+    );
   }
 }
 

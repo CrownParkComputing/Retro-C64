@@ -55,7 +55,16 @@ class ViceMetrics {
   static const double sidebarMinWidth = 118.0;
   static double sidebarMaxWidth(double screenWidth) {
     final quarter = screenWidth * 0.25;
-    return quarter < 190.0 ? quarter : 190.0;
+    final capped = quarter < 190.0 ? quarter : 190.0;
+    // Never below the minimum. A quarter of a phone-width screen (~100pt on
+    // an iPhone in portrait) is less than sidebarMinWidth, and the caller
+    // clamps the measured width between the two -- an inverted range there
+    // throws ArgumentError and takes the whole workbench down with it,
+    // which is exactly what happened on the first iPhone-sized screen this
+    // app was ever run on. The rail keeps its minimum usable width instead;
+    // it is a bigger share of a small screen, which is the right trade
+    // against not rendering at all.
+    return capped < sidebarMinWidth ? sidebarMinWidth : capped;
   }
 
   // LauncherLayoutHelper.createMenuButton: dp(36) height, 12sp text, 10dp

@@ -13,7 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vice_multiplatform/screens/emulator_screen.dart';
 import 'package:vice_multiplatform/screens/workbench_screen.dart';
 import 'package:vice_multiplatform/services/platform_info.dart';
+import 'package:vice_multiplatform/services/storage_access.dart';
 
+import '../fakes/fake_storage_access.dart';
 import '../fakes/fake_vice_core.dart';
 
 void main() {
@@ -94,5 +96,46 @@ void main() {
     // The title is named on the emulator screen, so it is obvious what is
     // loaded.
     expect(find.text('Boulder Dash.d64'), findsOneWidget);
+  });
+
+  testWidgets('renders on a phone-width screen', (tester) async {
+    // The sidebar measures itself and clamps between a minimum width and a
+    // quarter of the screen. On anything narrower than ~472pt -- i.e. every
+    // iPhone in portrait -- the quarter falls below the minimum, the clamp
+    // range inverts, and it threw ArgumentError and took the whole
+    // workbench down. Every screen this app had run on until then was wide.
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(home: WorkbenchScreen(core: FakeViceCore())));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Games'), findsWidgets);
+  });
+
+  testWidgets('on file-import platforms the library is the import directory',
+      (tester) async {
+    // iOS has no games folder to configure: the wizard and the Paths tab
+    // copy files into the sandbox instead. The workbench only ever looked
+    // at the configured folder, so on iOS the Game Library came up empty
+    // however many titles had been imported.
+    final sandbox = Directory.systemTemp.createTempSync('vice_imports_test');
+    addTearDown(() => sandbox.deleteSync(recursive: true));
+    final imports = Directory(p.join(sandbox.path, 'games'))..createSync();
+    File(p.join(imports.path, 'Paradroid.d64')).writeAsStringSync('C64');
+
+    SharedPreferences.setMockInitialValues({'setup_completed': true});
+    StorageAccess.setInstanceForTesting(
+        FakeFileImportStorage(importDir: sandbox.path));
+    addTearDown(() => StorageAccess.setInstanceForTesting(null));
+
+    await pumpWorkbench(tester, FakeViceCore());
+
+    expect(find.text('Paradroid'), findsOneWidget);
   });
 }

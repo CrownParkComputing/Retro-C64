@@ -80,11 +80,11 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
   Future<void> _loadCore() async {
     try {
       final libPath = ViceNativePaths.gameCoreLibraryPath;
-      // Android's ROM dir isn't known synchronously -- first launch has to
-      // extract the bundled assets/vice/{C64,DRIVES} out of the APK into a
-      // real filesystem path first (see extractAndroidRomDir). This must
-      // be awaited before core.init() runs, since VICE needs the ROM files
-      // on disk at init time.
+      // On Android and iOS the ROM dir isn't known synchronously -- first
+      // launch has to extract the bundled assets/vice/{C64,DRIVES} out of
+      // the app package into a real filesystem path first (see
+      // extractBundledRomDir). This must be awaited before core.init()
+      // runs, since VICE needs the ROM files on disk at init time.
       final romDir = await ViceNativePaths.resolveRomDir();
       // Bundled SID tunes are extracted in the background at startup rather
       // than on first tap of the Music tab, so the playlist is ready when
