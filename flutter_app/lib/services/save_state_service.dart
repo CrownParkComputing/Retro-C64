@@ -10,14 +10,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../data/category.dart';
 import '../ffi/vice_bindings.dart';
+import '../ffi/vice_core.dart';
 
 /// One resumable session.
 class SaveStateEntry {
@@ -179,7 +181,7 @@ class SaveStateService {
   /// One snapshot per title: re-playing a game replaces its previous save
   /// rather than filling the 5 slots with the same name.
   static Future<SaveStateEntry?> capture({
-    required ViceCoreBindings core,
+    required ViceCore core,
     required String title,
     required String mediaPath,
     required MediaFormatFilter mediaType,
@@ -269,11 +271,16 @@ class SaveStateService {
     }
   }
 
+  /// Forgets the cached state directory so a test can point the service at
+  /// a fresh temp directory. Not used by the app.
+  @visibleForTesting
+  static void resetForTests() => _dir = null;
+
   /// Encodes the current framebuffer as a PNG next to the snapshot.
   /// Returns the path, or null if there was no frame to capture or the
   /// encode failed -- the resume list falls back to an icon in that case.
   static Future<String?> _writeThumbnail(
-      ViceCoreBindings core, String outPath) async {
+      ViceCore core, String outPath) async {
     try {
       final frame = core.getFramebuffer();
       if (frame == null) return null;

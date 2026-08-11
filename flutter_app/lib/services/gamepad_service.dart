@@ -42,7 +42,7 @@ class GamepadService {
   Stream<int> get maskChanges => _maskController.stream;
 
   void start() {
-    _sub = Gamepads.normalizedEvents.listen(_onEvent, onError: (_) {
+    _sub = Gamepads.normalizedEvents.listen(handleEvent, onError: (_) {
       // Best-effort: some platforms/sandboxes may not support gamepad
       // enumeration at all (no /dev/input access, no permission, etc).
       // Swallow rather than crash the emulator screen.
@@ -67,7 +67,14 @@ class GamepadService {
     _maskController.add(_mask);
   }
 
-  void _onEvent(NormalizedGamepadEvent event) {
+  /// Folds one normalized pad event into the joystick mask.
+  ///
+  /// Public (and directly exercised by test/services/gamepad_service_test.dart)
+  /// because the axis convention here is the sort of thing that gets guessed
+  /// wrong -- the stick Y axis WAS guessed wrong, and up/down came out
+  /// swapped on every real pad until someone plugged one in.
+  @visibleForTesting
+  void handleEvent(NormalizedGamepadEvent event) {
     final button = event.button;
     if (button != null) {
       final down = event.value != 0;

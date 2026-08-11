@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import '../ffi/vice_bindings.dart';
+import '../ffi/vice_core.dart';
 import '../services/video_settings.dart';
 
 /// Live view of the C64 framebuffer.
@@ -25,7 +25,7 @@ import '../services/video_settings.dart';
 /// proves FFI + rendering end-to-end; swapping it for a real Texture is the
 /// next milestone's headline item.
 class FramebufferView extends StatefulWidget {
-  final ViceCoreBindings core;
+  final ViceCore core;
   final Duration pollInterval;
 
   const FramebufferView({

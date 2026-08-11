@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ffi/vice_bindings.dart';
+import '../ffi/vice_core.dart';
 import '../services/app_prefs.dart';
 import '../services/gamepad_service.dart';
 import '../theme/vice_theme.dart';
@@ -21,7 +22,7 @@ import '../widgets/framebuffer_view.dart';
 /// toggles + reset + back-to-library + close), each row showing its own
 /// current-state label like the Android version.
 class EmulatorScreen extends StatefulWidget {
-  final ViceCoreBindings core;
+  final ViceCore core;
   final String mediaLabel;
   final VoidCallback onBackToLibrary;
   final bool leftHanded;

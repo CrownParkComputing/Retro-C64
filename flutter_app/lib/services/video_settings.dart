@@ -117,6 +117,19 @@ class VideoSettings extends ChangeNotifier {
     _save((p) => p.setDouble(_keyScanline, _scanlineIntensity));
   }
 
+  /// Drops every value back to its default and forgets that [load] ran, so
+  /// each test starts from a clean singleton. Not used by the app.
+  @visibleForTesting
+  void resetForTests() {
+    _crt = false;
+    _bezel = false;
+    _aspect = AspectMode.authentic;
+    _smooth = false;
+    _rotationQuarterTurns = 0;
+    _scanlineIntensity = 0.35;
+    _loaded = false;
+  }
+
   /// Label used by the Quick Settings panel rows so the two UIs describe the
   /// same state in the same words.
   String get aspectLabel => _aspect.label;

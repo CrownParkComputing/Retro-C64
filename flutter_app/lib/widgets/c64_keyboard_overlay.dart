@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../ffi/vice_bindings.dart';
+import '../ffi/vice_core.dart';
 
 /// One key on the overlay: either a direct C64 keyboard-matrix key
 /// (row/column non-null, matching vice_bridge.h's vice_core_matrix_key_event
@@ -26,7 +26,7 @@ class _KeySpec {
 /// native "feed a string" entry point in this repo's bridge, unlike
 /// Android's C64Native.feedKeyboard) -- see [_typeString].
 class C64KeyboardOverlay extends StatelessWidget {
-  final ViceCoreBindings core;
+  final ViceCore core;
   final VoidCallback onClose;
 
   const C64KeyboardOverlay({super.key, required this.core, required this.onClose});
@@ -114,7 +114,7 @@ class C64KeyboardOverlay extends StatelessWidget {
 }
 
 class _KeyboardRow extends StatelessWidget {
-  final ViceCoreBindings core;
+  final ViceCore core;
   final List<_KeySpec> keys;
   const _KeyboardRow({required this.core, required this.keys});
 
@@ -141,7 +141,7 @@ class _KeyboardRow extends StatelessWidget {
 }
 
 class _MatrixKey extends StatefulWidget {
-  final ViceCoreBindings core;
+  final ViceCore core;
   final _KeySpec spec;
   const _MatrixKey({required this.core, required this.spec});
 

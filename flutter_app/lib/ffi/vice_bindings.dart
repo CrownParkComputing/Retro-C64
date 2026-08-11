@@ -17,6 +17,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
+import 'vice_core.dart';
+
 /// Snapshot result codes, mirroring the #defines in vice_bridge.h.
 class ViceSnapshotResult {
   static const int ok = 0;
@@ -96,7 +98,7 @@ class ViceJoyBits {
 /// binding here (see file header) -- add a sibling class for
 /// libvicecore_vsid.so, following vice_vsid_bridge.h, when the Music tab
 /// needs to actually play audio.
-class ViceCoreBindings {
+class ViceCoreBindings implements ViceCore {
   final DynamicLibrary _lib;
 
   late final _VoidInitDart _init;
@@ -188,6 +190,7 @@ class ViceCoreBindings {
     return ViceCoreBindings._(lib);
   }
 
+  @override
   void init(String romDir) {
     final p = romDir.toNativeUtf8();
     try {
@@ -198,6 +201,7 @@ class ViceCoreBindings {
   }
 
   /// Returns 0 on success, -1 if the core was already started.
+  @override
   int start({required int mediaType, String? mediaPath, String? commandLine}) {
     final pMedia = mediaPath?.toNativeUtf8() ?? nullptr;
     final pCmd = commandLine?.toNativeUtf8() ?? nullptr;
@@ -209,8 +213,10 @@ class ViceCoreBindings {
     }
   }
 
+  @override
   void stop() => _stop();
 
+  @override
   bool get isRunning => _isRunning() != 0;
 
   /// Mirrors the pause flag we've pushed into the core. The native side owns
@@ -219,21 +225,27 @@ class ViceCoreBindings {
   /// backgrounding the app must not un-pause a game the user had
   /// deliberately left paused in the workbench.
   bool _paused = false;
+  @override
   bool get isPaused => _paused;
 
+  @override
   void setPaused(bool paused) {
     _paused = paused;
     _setPaused(paused ? 1 : 0);
   }
 
+  @override
   void keyEvent(int key, bool pressed) => _keyEvent(key, pressed ? 1 : 0);
 
+  @override
   void matrixKeyEvent(int row, int column, bool pressed) =>
       _matrixKeyEvent(row, column, pressed ? 1 : 0);
 
   /// port: 1 or 2. mask: bitwise-or of ViceJoyBits.
+  @override
   void joystick(int port, int mask) => _joystick(port, mask);
 
+  @override
   int attachDisk(String path) {
     final p = path.toNativeUtf8();
     try {
@@ -243,6 +255,7 @@ class ViceCoreBindings {
     }
   }
 
+  @override
   int attachTape(String path) {
     final p = path.toNativeUtf8();
     try {
@@ -260,6 +273,7 @@ class ViceCoreBindings {
   /// a 10s timeout on the native side so this can never hang forever. In
   /// practice a C64 snapshot is a couple of hundred KB and completes within
   /// a frame or two.
+  @override
   int saveSnapshot(String path) {
     final p = path.toNativeUtf8();
     try {
@@ -273,6 +287,7 @@ class ViceCoreBindings {
   /// all. False means a later [saveSnapshot] will return
   /// [ViceSnapshotResult.unsupportedMedia], so the UI should offer a restart
   /// rather than a resume. Null when the core is not running (unknown).
+  @override
   bool? get canSnapshot => switch (_canSnapshot()) {
         1 => true,
         0 => false,
@@ -285,6 +300,7 @@ class ViceCoreBindings {
   /// On success the native side has already waited for the restored machine
   /// to draw fresh frames, so the framebuffer read straight after this call
   /// shows the restored picture rather than the one from before.
+  @override
   int loadSnapshot(String path) {
     final p = path.toNativeUtf8();
     try {
@@ -294,13 +310,16 @@ class ViceCoreBindings {
     }
   }
 
+  @override
   int get audioLevel => _getAudioLevel();
 
+  @override
   int get fps => _getFps();
 
   /// Snapshot of the current RGBA8888 framebuffer, copied into a Dart
   /// Uint32List (safe to keep after this call returns, unlike the raw
   /// pointer). Returns null until the core has rendered at least one frame.
+  @override
   FrameSnapshot? getFramebuffer() {
     final outW = malloc<Int32>();
     final outH = malloc<Int32>();

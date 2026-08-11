@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 
 import 'about_screen.dart';
 import '../data/c64_keys.dart';
 import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../ffi/vice_bindings.dart';
+import '../ffi/vice_core.dart';
 import '../ffi/vice_native_paths.dart';
 import '../theme/vice_theme.dart';
 import '../widgets/c64_background.dart';
@@ -23,6 +23,7 @@ import 'settings_placeholder.dart';
 import 'video_settings_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/gamepad_service.dart';
+import '../services/library_scanner.dart';
 import '../services/permissions_service.dart';
 import '../services/platform_info.dart';
 import '../services/save_state_service.dart';
@@ -32,7 +33,7 @@ import '../services/vsid_service.dart';
 /// FrameLayout stack (animated background behind), a horizontal row of
 /// sidebar + content, 12dp root padding, 12dp gap before the content panel.
 class WorkbenchScreen extends StatefulWidget {
-  final ViceCoreBindings core;
+  final ViceCore core;
 
   const WorkbenchScreen({super.key, required this.core});
 
@@ -132,23 +133,12 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// What the scroller says, read fresh each time the screensaver comes up
   /// -- a scroller that claims a game is loaded when none is would be
   /// worse than no scroller. Mirrors MainActivity.backdropInfoText().
-  String _backdropInfoText() {
-    // Names the OS this copy is actually running on rather than saying
-    // "multiplatform" -- see services/platform_info.dart.
-    final buf = StringBuffer(
-        'VICE ON ${platformName().toUpperCase()}   *   MACHINE C64 (X64SC)');
-    if (_lastMediaName.isNotEmpty) {
-      buf.write('   *   LOADED ${_lastMediaName.toUpperCase()}');
-    } else {
-      buf.write('   *   NO MEDIA LOADED');
-    }
-    buf.write('   *   ${_library.length} TITLES IN LIBRARY');
-    if (widget.core.isRunning) {
-      final fps = widget.core.fps;
-      if (fps > 0) buf.write('   *   $fps FPS');
-    }
-    return buf.toString();
-  }
+  String _backdropInfoText() => backdropInfoText(
+        platform: platformName(),
+        loadedMediaName: _lastMediaName,
+        libraryCount: _library.length,
+        fps: widget.core.isRunning ? widget.core.fps : 0,
+      );
 
   /// Scans the real, wizard-configured Games folder (AppPrefs.
   /// getGamesFolderPath(), set by SetupWizardScreen's real folder picker)
@@ -165,57 +155,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
         ? configured
         : ViceNativePaths.devRomDir;
 
-    final entries = <MediaEntry>[];
-    int unreadable = 0;
-    if (scanDir != null) {
-      final dir = Directory(scanDir);
-      if (dir.existsSync()) {
-        for (final f in dir.listSync(recursive: true)) {
-          if (f is! File) continue;
-          final ext = p.extension(f.path).replaceFirst('.', '');
-          if (ext.isEmpty) continue;
-          final filter = MediaEntry.filterForExtension(ext);
-          if (filter == MediaFormatFilter.none) continue;
-          // Only list what the app can actually OPEN. Android 11+ scoped
-          // storage happily lists a shared-storage directory the app has no
-          // read permission for, and every one of those entries would
-          // launch into a blank screen -- the exact bug this guards. A
-          // successful first-byte read is the cheapest honest proof.
-          if (!_isReadable(f)) {
-            unreadable++;
-            continue;
-          }
-          entries.add(
-            MediaEntry(
-              displayName: p.basename(f.path),
-              path: f.path,
-              mediaType: filter,
-            ),
-          );
-        }
-      }
-    }
+    final result = scanDir == null
+        ? LibraryScanResult.empty
+        : LibraryScanner.scan(scanDir);
     if (!mounted) return;
     setState(() {
-      _library = entries;
-      _unreadableCount = unreadable;
+      _library = result.entries;
+      _unreadableCount = result.unreadableCount;
     });
-  }
-
-  /// True if the file's bytes can actually be read, not merely listed.
-  static bool _isReadable(File f) {
-    try {
-      final handle = f.openSync();
-      try {
-        return handle.readSync(1).isNotEmpty;
-      } finally {
-        handle.closeSync();
-      }
-    } on FileSystemException {
-      return false;
-    } catch (_) {
-      return false;
-    }
   }
 
   /// Sends the user to the system "All files access" toggle and rescans
@@ -236,7 +183,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
     // if the bytes can't be read (scoped storage, removed media, bad
     // permissions) there is nothing for the core to boot.
     final file = File(entry.path);
-    if (entry.mediaType != MediaFormatFilter.none && !_isReadable(file)) {
+    if (entry.mediaType != MediaFormatFilter.none && !LibraryScanner.isReadable(file)) {
       _showLaunchError(
         'Cannot read ${entry.displayName}.',
         detail: PermissionsService.isRelevant
@@ -653,4 +600,31 @@ class _UnreadableBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The screensaver scroller's text.
+///
+/// A pure function of the four things it reports, so what it says can be
+/// checked without a running core. It says which OS this copy is running on
+/// (see services/platform_info.dart) -- it used to be a hardcoded "VICE
+/// ANDROID", which stayed behind after the app was renamed and was still
+/// claiming Android on a Linux desktop.
+String backdropInfoText({
+  required String platform,
+  required String loadedMediaName,
+  required int libraryCount,
+  int fps = 0,
+}) {
+  final buf = StringBuffer(
+      'VICE ON ${platform.toUpperCase()}   *   MACHINE C64 (X64SC)');
+  if (loadedMediaName.isNotEmpty) {
+    buf.write('   *   LOADED ${loadedMediaName.toUpperCase()}');
+  } else {
+    buf.write('   *   NO MEDIA LOADED');
+  }
+  buf.write('   *   $libraryCount TITLES IN LIBRARY');
+  // Only reported while the core is actually producing frames -- a "0 FPS"
+  // on the workbench backdrop reads as a fault rather than as "not running".
+  if (fps > 0) buf.write('   *   $fps FPS');
+  return buf.toString();
 }

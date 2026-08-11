@@ -43,8 +43,10 @@ jobs:
         run: flutter analyze
       - name: Unit tests
         working-directory: flutter_app
-        # Keeps passing when no tests exist yet rather than failing the build.
-        run: flutter test || [ $? -eq 79 ]
+        # The suite needs no device and no native core -- anything that would
+        # need libvicecore.so is faked (test/fakes/fake_vice_core.dart), so a
+        # failure here is a real failure and must fail the build.
+        run: flutter test
 
   android:
     name: Android (AAB + APK)

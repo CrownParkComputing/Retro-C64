@@ -23,14 +23,26 @@ class WobbleJoystick extends StatefulWidget {
 
 class _WobbleJoystickState extends State<WobbleJoystick>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _springController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 220),
-  );
+  // Built in initState rather than as a `late final` initialiser. A lazy
+  // one is not created until something first touches it -- and if nothing
+  // ever does (the player leaves the game without moving the stick, or the
+  // touch controls are hidden again) then dispose() is that first touch,
+  // which builds an AnimationController against an element that has already
+  // been deactivated and trips a framework assertion on the way out.
+  late final AnimationController _springController;
   Animation<Offset>? _springAnim;
 
   Offset _knobOffset = Offset.zero;
   bool _up = false, _down = false, _left = false, _right = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _springController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+  }
 
   @override
   void dispose() {

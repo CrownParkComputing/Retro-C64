@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/c64_keys.dart';
-import '../ffi/vice_bindings.dart';
+import '../ffi/vice_core.dart';
 import '../theme/vice_theme.dart';
 
 /// An extra on-screen button the user added themselves, bound to one C64
@@ -14,7 +14,7 @@ import '../theme/vice_theme.dart';
 /// including SPACE and RUN/STOP, which is what most games actually ask for.
 class CustomKeyButton extends StatefulWidget {
   final C64Key c64Key;
-  final ViceCoreBindings core;
+  final ViceCore core;
   final double size;
 
   const CustomKeyButton({
