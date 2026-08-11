@@ -1,0 +1,220 @@
+Initialising headless ui
+ 
+*** VICE Version 3.10 ***
+ 
+Welcome to vice_joystick_port_test, the free portable C64 Emulator.
+ 
+Current VICE team members:
+Pottendo, Marco van den Heuvel, Fabrizio Gennari, Groepaz, Errol Smith, 
+Ingo Korb, Olaf Seibert, Marcus Sutton, Kajtar Zsolt, AreaScout, Bas Wassink, 
+Michael C. Martin, Christopher Phillips, David Hogan, Empathic Qubit, 
+Roberto Muscedere, June Tate-Gans, Pablo Roldan.
+ 
+This is free software with ABSOLUTELY NO WARRANTY.
+See the "About VICE" command for more info.
+ 
+Main: random seed was: 0x6a7aaed5
+Main: command line was: x64sc -default -verbose +logcolorize +autostart-delay-random -soundrate 48000 -sounddev alsa -sidengine 1 -autostartprgmode 0 -directory /home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata +drive8truedrive -autostart /home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg
+Main: VICE system file directory: '/usr/local/share/vice'.
+Main: VICE system file search path: '/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata'.
+Sysfile: Loading `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/C64/kernal-901227-03.bin'.
+C64MEM: Kernal rev #3 ($03) Sum: 50954 ($C70A) SHA1: 1d503e56df85a62fee696e7618dc5b4e781df1bb.
+C64RES: set_kernal_revision(val:3) was kernal_revision: 3
+C64RES: set_kernal_revision found rev:3 name: kernal-901227-03.bin
+C64RES: set_kernal_rom_name val:kernal-901227-03.bin.
+C64RES: set_kernal_revision new kernal_revision: 3
+Sysfile: Loading `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/C64/basic-901226-01.bin'.
+Sysfile: Loading `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/C64/chargen-901225-01.bin'.
+Traps: Traps are disabled, trap 'SerialListen' not installed.
+Traps: Traps are disabled, trap 'SerialSaListen' not installed.
+Traps: Traps are disabled, trap 'SerialSendByte' not installed.
+Traps: Traps are disabled, trap 'SerialReceiveByte' not installed.
+Traps: Traps are disabled, trap 'SerialReady' not installed.
+Traps: Traps are disabled, trap 'TapeFindHeader' not installed.
+Traps: Traps are disabled, trap 'TapeReceive' not installed.
+DriveROM: Error - 2000 ROM image not found. Hardware-level 2000 emulation is not available.
+DriveROM: Error - 4000 ROM image not found. Hardware-level 4000 emulation is not available.
+DriveROM: Error - CMDHD ROM image not found. Hardware-level CMDHD emulation is not available.
+Sysfile: Loading `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/DRIVES/dos1541ii-251968-03.bin'.
+Drive: Finished loading ROM images.
+VIC-II: Initializing chip model "MOS8565" (63 cycles per line, 312 raster lines).
+VIC-II:                     BA
+VIC-II:   cycle  xpos vi M76543210   fetch    border gfx      sprite
+VIC-II:   1 Phi1 $194 -- ----**--- SprPtr(3)  -      -        -       
+VIC-II:  -- Phi2 $198 -- ----**--- SprDma0(3) -      -        -       
+VIC-II:   2 Phi1 $19c -- ---***--- SprDma1(3) -      -        -       
+VIC-II:  -- Phi2 $1a0 -- ---***--- SprDma2(3) -      -        -       
+VIC-II:   3 Phi1 $1a4 -- ---**---- SprPtr(4)  -      -        -       
+VIC-II:  -- Phi2 $1a8 -- ---**---- SprDma0(4) -      -        -       
+VIC-II:   4 Phi1 $1ac -- --***---- SprDma1(4) -      -        -       
+VIC-II:  -- Phi2 $1b0 -- --***---- SprDma2(4) -      -        -       
+VIC-II:   5 Phi1 $1b4 -- --**----- SprPtr(5)  -      -        -       
+VIC-II:  -- Phi2 $1b8 -- --**----- SprDma0(5) -      -        -       
+VIC-II:   6 Phi1 $1bc -- -***----- SprDma1(5) -      -        -       
+VIC-II:  -- Phi2 $1c0 -- -***----- SprDma2(5) -      -        -       
+VIC-II:   7 Phi1 $1c4 -- -**------ SprPtr(6)  -      -        -       
+VIC-II:  -- Phi2 $1c8 -- -**------ SprDma0(6) -      -        -       
+VIC-II:   8 Phi1 $1cc -- -**------ SprDma1(6) -      -        -       
+VIC-II:  -- Phi2 $1d0 -- -**------ SprDma2(6) -      -        -       
+VIC-II:   9 Phi1 $1d4 -- -*------- SprPtr(7)  -      -        -       
+VIC-II:  -- Phi2 $1d8 -- -*------- SprDma0(7) -      -        -       
+VIC-II:  10 Phi1 $1dc -- -*------- SprDma1(7) -      -        -       
+VIC-II:  -- Phi2 $1e0 -- -*------- SprDma2(7) -      -        -       
+VIC-II:  11 Phi1 $1e4 -- --------- Refresh    -      -        -       
+VIC-II:  -- Phi2 $1e8 -- --------- -          -      -        -       
+VIC-II:  12 Phi1 $1ec -- *-------- Refresh    -      -        -       
+VIC-II:  -- Phi2 $1f0 -- *-------- -          -      -        -       
+VIC-II:  13 Phi1 $1f4 -- *-------- Refresh    -      -        -       
+VIC-II:  -- Phi2 $000 -- *-------- -          -      -        -       
+VIC-II:  14 Phi1 $004 -- *-------- Refresh    -      -        -       
+VIC-II:  -- Phi2 $008 -- *-------- -          -      UpdateVc -       
+VIC-II:  15 Phi1 $00c -- *-------- Refresh    -      -        -       
+VIC-II:  -- Phi2 $010 -- *-------- FetchC     -      -        ChkSprCrunch
+VIC-II:  16 Phi1 $014 -- *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $018  0 *-------- FetchC     -      -        UpdateMcBase
+VIC-II:  17 Phi1 $01c  0 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $020  1 *-------- FetchC     ChkL1  -        -       
+VIC-II:  18 Phi1 $024  1 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $028  2 *-------- FetchC     ChkL0  -        -       
+VIC-II:  19 Phi1 $02c  2 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $030  3 *-------- FetchC     -      -        -       
+VIC-II:  20 Phi1 $034  3 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $038  4 *-------- FetchC     -      -        -       
+VIC-II:  21 Phi1 $03c  4 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $040  5 *-------- FetchC     -      -        -       
+VIC-II:  22 Phi1 $044  5 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $048  6 *-------- FetchC     -      -        -       
+VIC-II:  23 Phi1 $04c  6 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $050  7 *-------- FetchC     -      -        -       
+VIC-II:  24 Phi1 $054  7 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $058  8 *-------- FetchC     -      -        -       
+VIC-II:  25 Phi1 $05c  8 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $060  9 *-------- FetchC     -      -        -       
+VIC-II:  26 Phi1 $064  9 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $068 10 *-------- FetchC     -      -        -       
+VIC-II:  27 Phi1 $06c 10 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $070 11 *-------- FetchC     -      -        -       
+VIC-II:  28 Phi1 $074 11 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $078 12 *-------- FetchC     -      -        -       
+VIC-II:  29 Phi1 $07c 12 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $080 13 *-------- FetchC     -      -        -       
+VIC-II:  30 Phi1 $084 13 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $088 14 *-------- FetchC     -      -        -       
+VIC-II:  31 Phi1 $08c 14 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $090 15 *-------- FetchC     -      -        -       
+VIC-II:  32 Phi1 $094 15 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $098 16 *-------- FetchC     -      -        -       
+VIC-II:  33 Phi1 $09c 16 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0a0 17 *-------- FetchC     -      -        -       
+VIC-II:  34 Phi1 $0a4 17 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0a8 18 *-------- FetchC     -      -        -       
+VIC-II:  35 Phi1 $0ac 18 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0b0 19 *-------- FetchC     -      -        -       
+VIC-II:  36 Phi1 $0b4 19 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0b8 20 *-------- FetchC     -      -        -       
+VIC-II:  37 Phi1 $0bc 20 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0c0 21 *-------- FetchC     -      -        -       
+VIC-II:  38 Phi1 $0c4 21 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0c8 22 *-------- FetchC     -      -        -       
+VIC-II:  39 Phi1 $0cc 22 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0d0 23 *-------- FetchC     -      -        -       
+VIC-II:  40 Phi1 $0d4 23 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0d8 24 *-------- FetchC     -      -        -       
+VIC-II:  41 Phi1 $0dc 24 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0e0 25 *-------- FetchC     -      -        -       
+VIC-II:  42 Phi1 $0e4 25 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0e8 26 *-------- FetchC     -      -        -       
+VIC-II:  43 Phi1 $0ec 26 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0f0 27 *-------- FetchC     -      -        -       
+VIC-II:  44 Phi1 $0f4 27 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $0f8 28 *-------- FetchC     -      -        -       
+VIC-II:  45 Phi1 $0fc 28 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $100 29 *-------- FetchC     -      -        -       
+VIC-II:  46 Phi1 $104 29 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $108 30 *-------- FetchC     -      -        -       
+VIC-II:  47 Phi1 $10c 30 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $110 31 *-------- FetchC     -      -        -       
+VIC-II:  48 Phi1 $114 31 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $118 32 *-------- FetchC     -      -        -       
+VIC-II:  49 Phi1 $11c 32 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $120 33 *-------- FetchC     -      -        -       
+VIC-II:  50 Phi1 $124 33 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $128 34 *-------- FetchC     -      -        -       
+VIC-II:  51 Phi1 $12c 34 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $130 35 *-------- FetchC     -      -        -       
+VIC-II:  52 Phi1 $134 35 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $138 36 *-------- FetchC     -      -        -       
+VIC-II:  53 Phi1 $13c 36 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $140 37 *-------- FetchC     -      -        -       
+VIC-II:  54 Phi1 $144 37 *-------- FetchG     -      -        -       
+VIC-II:  -- Phi2 $148 38 *-------- FetchC     -      -        -       
+VIC-II:  55 Phi1 $14c 38 --------* FetchG     -      -        ChkSprDma   
+VIC-II:  -- Phi2 $150 39 --------* -          -      -        -       
+VIC-II:  56 Phi1 $154 39 --------* Idle       -      -        ChkSprDma   
+VIC-II:  -- Phi2 $158 -- --------* -          ChkR0  -        ChkSprExp   
+VIC-II:  57 Phi1 $15c -- -------** Idle       -      -        -       
+VIC-II:  -- Phi2 $160 -- -------** -          ChkR1  -        -       
+VIC-II:  58 Phi1 $164 -- -------** SprPtr(0)  -      -        ChkSprDisp  
+VIC-II:  -- Phi2 $168 -- -------** SprDma0(0) -      UpdateRc -       
+VIC-II:  59 Phi1 $16c -- ------*** SprDma1(0) -      -        -       
+VIC-II:  -- Phi2 $170 -- ------*** SprDma2(0) -      -        -       
+VIC-II:  60 Phi1 $174 -- ------**- SprPtr(1)  -      -        -       
+VIC-II:  -- Phi2 $178 -- ------**- SprDma0(1) -      -        -       
+VIC-II:  61 Phi1 $17c -- -----***- SprDma1(1) -      -        -       
+VIC-II:  -- Phi2 $180 -- -----***- SprDma2(1) -      -        -       
+VIC-II:  62 Phi1 $184 -- -----**-- SprPtr(2)  -      -        -       
+VIC-II:  -- Phi2 $188 -- -----**-- SprDma0(2) -      -        -       
+VIC-II:  63 Phi1 $18c -- ----***-- SprDma1(2) -      -        -       
+VIC-II:  -- Phi2 $190 -- ----***-- SprDma2(2) -      -        -       
+Sound: Available sound devices: dummy dump fs wav voc iff aiff soundmovie
+Joystick: Warning - Failed to open `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/config/vice/headless-joymap-C64SC.vjm'.
+Joystick: Warning - using minimal default mapping.
+Main CPU: 
+Main CPU: starting at ($FFFC).
+Main CPU: RESET.
+VIC-II: VSP Bug: safe channels are: 247. Emulation of memory corruption is disabled.
+AUTOSTART: Autodetecting image type of `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg'.
+Filesystem Image Probe: Error - Import GCR: Unknown GCR image version 48.
+Filesystem Image: Unknown disk image `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg'.
+Tape: Error - Cannot open file `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg'
+Error - no CRT header found.
+CART: '/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg' is not a valid CRT file.
+AUTOSTART: Loading PRG file `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg' with virtual FS on unit #8:0.
+AUTOSTART: Turning virtual device traps on.
+Traps: Trap 'TapeReceive' installed.
+Traps: Trap 'TapeFindHeader' installed.
+Traps: Trap 'SerialReady' installed.
+Traps: Trap 'SerialReceiveByte' installed.
+Traps: Trap 'SerialSendByte' installed.
+Traps: Trap 'SerialSaListen' installed.
+Traps: Trap 'SerialListen' installed.
+AUTOSTART: using virtual filesystem on: /home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games.
+AUTOSTART: Resetting the machine to autostart 'RAID OVER MOSC1/'
+VIC-II: VSP Bug: safe channels are: 012467. Emulation of memory corruption is disabled.
+AUTOSTART: Turning Warp mode on.
+AUTOSTART: `/home/jon/ViceMultiplatform/native/vice_core/linux/test/testdata/games/Raid over Moscow (1984)(Access).prg' recognized as program/p00 file.
+Main CPU: RESET.
+Sound: Opened device `alsa', speed 48000Hz, fragment size 2.67ms, buffer size 32.00ms
+Sound: reSID: MOS8580, filter on, sampling rate 48000Hz - resampling, pass to 21600Hz
+VSync: Sync reset
+AUTOSTART: Loading program 'RAID OVER MOSC1/'
+AUTOSTART: Entered ROM at $e5d4
+AUTOSTART: Searching for ...
+AUTOSTART: Loading
+AUTOSTART: Entered ROM at $ea21
+AUTOSTART: Ready
+AUTOSTART: Turning Warp mode off.
+AUTOSTART: Starting program.
+AUTOSTART: Turning virtual device traps off.
+Traps: Trap 'TapeReceive' disabled.
+Traps: Trap 'TapeFindHeader' disabled.
+Traps: Trap 'SerialReady' disabled.
+Traps: Trap 'SerialReceiveByte' disabled.
+Traps: Trap 'SerialSendByte' disabled.
+Traps: Trap 'SerialSaListen' disabled.
+Traps: Trap 'SerialListen' disabled.
+AUTOSTART: Restoring FileSystemDevice8 to 1.
+AUTOSTART: Restoring FSDevice8ConvertP00 to 1.
+AUTOSTART: Restoring FSDeviceLongNames to 0.
+AUTOSTART: Done.
+VSync: Sync reset

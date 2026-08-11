@@ -1,0 +1,51 @@
+# --- Build output ---------------------------------------------------------
+build/
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+native/vice_core/linux/build/
+native/vice_core/android/build/
+native/vice_core/linux/build_verify/
+
+# Native libraries ARE tracked where the app consumes them
+# (flutter_app/android/app/src/main/jniLibs/**) -- CI needs them to build the
+# AAB, and rebuilding them requires the cross-compiled VICE object tree which
+# lives outside this repo. See docs/NATIVE_BUILD.md.
+
+# --- Local machine config (paths, SDK locations) --------------------------
+flutter_app/android/local.properties
+flutter_app/android/.gradle/
+flutter_app/android/app/.cxx/
+local.properties
+.gradle/
+
+# --- Signing material: never commit ---------------------------------------
+*.jks
+*.keystore
+key.properties
+**/keystore.properties
+*secret*
+
+# --- IDE / editor ---------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+compile_commands.json
+
+# --- OS -------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Test scratch output --------------------------------------------------
+*.ppm
+*.vsf
+/tmp/
+native/vice_core/linux/test/testdata/*.wav
+
+# --- Commercial game images: NOT redistributable --------------------------
+# The native smoke/snapshot tests run against real C64 titles, but those are
+# copyrighted commercial software and must not ship in a public repo. Point
+# the tests at your own local copies instead -- every test takes the media
+# path as an argument. See docs/NATIVE_BUILD.md.
+native/vice_core/linux/test/testdata/games/

@@ -1,0 +1,248 @@
+name: Build
+
+# Builds the three shippable artefacts:
+#   - Android App Bundle (.aab) for Play Store upload
+#   - iOS archive / IPA for App Store upload
+#   - Linux executable bundle (tar.gz)
+#
+# Note on native code: libvicecore.so / libvicecore_vsid.so for arm64 are
+# committed under flutter_app/android/app/src/main/jniLibs/, because building
+# them from source needs the cross-compiled VICE object tree, which lives
+# outside this repo (see docs/NATIVE_BUILD.md). CI therefore consumes the
+# checked-in libraries rather than rebuilding them. Linux builds its own
+# native libraries, which does require a VICE source tree -- that job is
+# gated on one being available.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+
+jobs:
+  analyze:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+      - name: Analyze
+        working-directory: flutter_app
+        run: flutter analyze
+      - name: Unit tests
+        working-directory: flutter_app
+        # Keeps passing when no tests exist yet rather than failing the build.
+        run: flutter test || [ $? -eq 79 ]
+
+  android:
+    name: Android (AAB + APK)
+    runs-on: ubuntu-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Verify native libraries are present
+        run: |
+          # Fail loudly and early: without these the app builds fine and then
+          # dies at runtime the moment it tries to open the core.
+          for lib in libvicecore.so libvicecore_vsid.so; do
+            path="flutter_app/android/app/src/main/jniLibs/arm64-v8a/$lib"
+            if [ ! -f "$path" ]; then
+              echo "::error::Missing native library $path (see docs/NATIVE_BUILD.md)"
+              exit 1
+            fi
+            echo "found $path ($(du -h "$path" | cut -f1))"
+          done
+
+      - name: Install dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      # Signing is optional so forks/PRs still build. With the secrets set the
+      # bundle is release-signed; without them Gradle falls back to the debug
+      # key (fine for testing, NOT uploadable to Play).
+      - name: Set up release signing
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > flutter_app/android/app/upload-keystore.jks
+          cat > flutter_app/android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+
+      - name: Build AAB
+        working-directory: flutter_app
+        run: flutter build appbundle --release
+
+      - name: Build APK
+        working-directory: flutter_app
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: flutter_app/build/app/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: flutter_app/build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
+
+  ios:
+    name: iOS (archive + IPA)
+    runs-on: macos-14
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      # Unsigned build always runs, so iOS compilation breakage is caught even
+      # without Apple credentials configured. NOTE: the native core is not yet
+      # built for iOS (no .xcframework) -- see docs/NATIVE_BUILD.md. This job
+      # proves the Dart/Flutter layer compiles for iOS; it will not produce a
+      # runnable app until the native build lands.
+      - name: Build iOS (no codesign)
+        working-directory: flutter_app
+        run: flutter build ios --release --no-codesign
+
+      # Signed App Store build. Skipped unless the Apple secrets are set, so
+      # the job still gives useful "does it compile for iOS" signal without
+      # credentials. Requires: APPSTORE_CERT_BASE64 (.p12), its password, and
+      # a provisioning profile.
+      - name: Import signing certificate
+        if: ${{ secrets.APPSTORE_CERT_BASE64 != '' }}
+        env:
+          CERT_BASE64: ${{ secrets.APPSTORE_CERT_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPSTORE_CERT_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.APPSTORE_PROFILE_BASE64 }}
+        run: |
+          KEYCHAIN=build.keychain
+          security create-keychain -p actions "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          echo "$CERT_BASE64" | base64 -d > cert.p12
+          security import cert.p12 -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: \
+            -s -k actions "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_BASE64" | base64 -d \
+            > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
+          rm cert.p12
+
+      - name: Build signed IPA
+        if: ${{ secrets.APPSTORE_CERT_BASE64 != '' }}
+        working-directory: flutter_app
+        run: flutter build ipa --release --export-method app-store
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-unsigned
+          path: flutter_app/build/ios/iphoneos/*.app
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ secrets.APPSTORE_CERT_BASE64 != '' }}
+        with:
+          name: ios-ipa
+          path: flutter_app/build/ios/ipa/*.ipa
+          if-no-files-found: warn
+
+  linux:
+    name: Linux (executable bundle)
+    runs-on: ubuntu-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libasound2-dev
+
+      - name: Install dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Build Linux bundle
+        working-directory: flutter_app
+        run: flutter build linux --release
+
+      # The Linux native core is NOT built here: it needs the cross-compiled
+      # VICE object tree (see docs/NATIVE_BUILD.md), which isn't in this repo.
+      # The bundle therefore ships without libvicecore.so and will report
+      # "Failed to load libvicecore" until one is placed alongside it.
+      - name: Package bundle
+        run: |
+          cd flutter_app/build/linux/x64/release
+          tar czf vice-multiplatform-linux-x64.tar.gz bundle
+          echo "packaged:"; ls -lh vice-multiplatform-linux-x64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: flutter_app/build/linux/x64/release/vice-multiplatform-linux-x64.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Attach artefacts to release
+    runs-on: ubuntu-latest
+    needs: [android, linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/android-aab/*.aab
+            artifacts/android-apk/*.apk
+            artifacts/linux-x64/*.tar.gz
+          generate_release_notes: true

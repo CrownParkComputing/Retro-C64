@@ -1,0 +1,16 @@
+Commando.sid
+============
+
+Source: High Voltage SID Collection (HVSC) mirror at
+  https://hvsc.brona.dk/HVSC/C64Music/MUSICIANS/H/Hubbard_Rob/Commando.sid
+  (fetched 2026-08-10 for ViceMultiplatform milestone-2 vsid-bridge testing)
+
+Tune:      "Commando"
+Author:    Rob Hubbard
+Copyright: 1985 Elite
+
+Used here strictly as a small, well-known, real-world PSID test asset to
+verify the plain-C vsid bridge (vice_vsid_bridge.c) can actually load and
+play a real SID tune end-to-end (see test/vsid_smoke_test.c). Not
+redistributed for any other purpose; HVSC tunes are freeware for
+non-commercial use per the collection's own terms (see hvsc.c64.org).
