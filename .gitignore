@@ -9,9 +9,14 @@ native/vice_core/android/build/
 native/vice_core/linux/build_verify/
 
 # Native libraries ARE tracked where the app consumes them
-# (flutter_app/android/app/src/main/jniLibs/**) -- CI needs them to build the
-# AAB, and rebuilding them requires the cross-compiled VICE object tree which
-# lives outside this repo. See docs/NATIVE_BUILD.md.
+# (flutter_app/android/app/src/main/jniLibs/** and
+# flutter_app/ios/vicecore/iphoneos/**) -- CI needs them to build the AAB and
+# the IPA, and rebuilding them requires the cross-compiled VICE object tree
+# which lives outside this repo. See docs/NATIVE_BUILD.md.
+#
+# The iOS *simulator* slice is not: it only ever runs on a developer's own
+# Mac, and that developer has the build script.
+flutter_app/ios/vicecore/iphonesimulator/
 
 # --- Local machine config (paths, SDK locations) --------------------------
 flutter_app/android/local.properties

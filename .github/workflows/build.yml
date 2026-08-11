@@ -5,13 +5,15 @@ name: Build
 #   - iOS archive / IPA for App Store upload
 #   - Linux executable bundle (tar.gz)
 #
-# Note on native code: libvicecore.so / libvicecore_vsid.so for arm64 are
-# committed under flutter_app/android/app/src/main/jniLibs/, because building
-# them from source needs the cross-compiled VICE object tree, which lives
-# outside this repo (see docs/NATIVE_BUILD.md). CI therefore consumes the
-# checked-in libraries rather than rebuilding them. Linux builds its own
-# native libraries, which does require a VICE source tree -- that job is
-# gated on one being available.
+# Note on native code: the arm64 cores are committed -- libvicecore.so /
+# libvicecore_vsid.so under flutter_app/android/app/src/main/jniLibs/ for
+# Android, libvicecore.a / libvicecore_vsid.a under
+# flutter_app/ios/vicecore/iphoneos/ for iOS -- because building them from
+# source needs the cross-compiled VICE object tree, which lives outside this
+# repo (see docs/NATIVE_BUILD.md). CI therefore consumes the checked-in
+# libraries rather than rebuilding them. Linux builds its own native
+# libraries, which does require a VICE source tree -- that job is gated on
+# one being available.
 
 on:
   push:
@@ -138,15 +140,28 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Verify native libraries are present
+        run: |
+          # Fail loudly and early: without these the link fails deep inside
+          # xcodebuild's output with a "library not found" that reads as an
+          # Xcode problem rather than a missing-artifact one.
+          for lib in libvicecore.a libvicecore_vsid.a; do
+            path="flutter_app/ios/vicecore/iphoneos/$lib"
+            if [ ! -f "$path" ]; then
+              echo "::error::Missing native library $path (see docs/NATIVE_BUILD.md)"
+              exit 1
+            fi
+            echo "found $path ($(du -h "$path" | cut -f1))"
+          done
+
       - name: Install dependencies
         working-directory: flutter_app
         run: flutter pub get
 
       # Unsigned build always runs, so iOS compilation breakage is caught even
-      # without Apple credentials configured. NOTE: the native core is not yet
-      # built for iOS (no .xcframework) -- see docs/NATIVE_BUILD.md. This job
-      # proves the Dart/Flutter layer compiles for iOS; it will not produce a
-      # runnable app until the native build lands.
+      # without Apple credentials configured. The committed device slice of
+      # the native cores is linked in here (see docs/NATIVE_BUILD.md), so this
+      # produces a genuinely runnable .app, not just a compile check.
       - name: Build iOS (no codesign)
         working-directory: flutter_app
         run: flutter build ios --release --no-codesign

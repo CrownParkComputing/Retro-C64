@@ -1,0 +1,37 @@
+// Links the native VICE cores into the Runner.
+//
+// The libraries are built by native/vice_core/ios/build.sh, which needs the
+// VICE source tree CI doesn't have -- so, exactly like the Android .so
+// files, the device slice is checked in and the simulator slice is built
+// locally (see docs/NATIVE_BUILD.md). Without them the link fails outright,
+// which is the intended outcome: the app is useless without its emulator.
+//
+// Two things are worth understanding here.
+//
+// -force_load: nothing in the Swift or Dart code *references* these
+// libraries. Dart reaches them at runtime through
+// DynamicLibrary.process() -> dlsym, so without -force_load the linker would
+// look at an archive nobody needs and drop it entirely.
+//
+// -u: dead-code stripping (on by default in Release) then has the same
+// problem one level down -- a global symbol nothing references is strippable.
+// Each -u names one of the bridge entry points as a root to keep, which is
+// exactly the set flutter_app/lib/ffi/vice_bindings.dart and
+// vice_vsid_bindings.dart look up. Add a function to a bridge header, add it
+// here.
+
+VICECORE_DIR=$(SRCROOT)/vicecore
+
+VICECORE_KEEP_GAME=-Wl,-u,_vice_core_init -Wl,-u,_vice_core_start -Wl,-u,_vice_core_stop -Wl,-u,_vice_core_is_running -Wl,-u,_vice_core_set_paused -Wl,-u,_vice_core_key_event -Wl,-u,_vice_core_matrix_key_event -Wl,-u,_vice_core_joystick -Wl,-u,_vice_core_attach_disk -Wl,-u,_vice_core_attach_tape -Wl,-u,_vice_core_get_framebuffer -Wl,-u,_vice_core_save_snapshot -Wl,-u,_vice_core_load_snapshot -Wl,-u,_vice_core_can_snapshot -Wl,-u,_vice_core_get_audio_level -Wl,-u,_vice_core_get_fps
+
+VICECORE_KEEP_VSID=-Wl,-u,_vice_vsid_init -Wl,-u,_vice_vsid_launch -Wl,-u,_vice_vsid_set_paused -Wl,-u,_vice_vsid_is_running -Wl,-u,_vice_vsid_get_audio_level -Wl,-u,_vice_vsid_get_fps
+
+// zlib: VICE reads gzipped/zipped disk images. libc++: reSID is C++.
+// AudioToolbox: the RemoteIO output unit in bridge/audio_backend_ios.c.
+// CoreFoundation: the same file's audio-interruption observer.
+VICECORE_LIBS=-lz -lc++ -framework AudioToolbox -framework CoreFoundation
+
+VICECORE_LDFLAGS[sdk=iphoneos*]=-force_load $(VICECORE_DIR)/iphoneos/libvicecore.a -force_load $(VICECORE_DIR)/iphoneos/libvicecore_vsid.a $(VICECORE_KEEP_GAME) $(VICECORE_KEEP_VSID) $(VICECORE_LIBS)
+VICECORE_LDFLAGS[sdk=iphonesimulator*]=-force_load $(VICECORE_DIR)/iphonesimulator/libvicecore.a -force_load $(VICECORE_DIR)/iphonesimulator/libvicecore_vsid.a $(VICECORE_KEEP_GAME) $(VICECORE_KEEP_VSID) $(VICECORE_LIBS)
+
+OTHER_LDFLAGS=$(inherited) $(VICECORE_LDFLAGS)
