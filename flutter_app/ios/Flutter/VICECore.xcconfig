@@ -35,3 +35,15 @@ VICECORE_LDFLAGS[sdk=iphoneos*]=-force_load $(VICECORE_DIR)/iphoneos/libvicecore
 VICECORE_LDFLAGS[sdk=iphonesimulator*]=-force_load $(VICECORE_DIR)/iphonesimulator/libvicecore.a -force_load $(VICECORE_DIR)/iphonesimulator/libvicecore_vsid.a $(VICECORE_KEEP_GAME) $(VICECORE_KEEP_VSID) $(VICECORE_LIBS)
 
 OTHER_LDFLAGS=$(inherited) $(VICECORE_LDFLAGS)
+
+// And a third level of the same problem. -force_load gets the archives into
+// the link, -u keeps the entry points through dead-stripping, and then the
+// ARCHIVE action runs `strip` over the finished executable with the default
+// style for an app, which is "all" -- removing the very symbols dlsym needs
+// and leaving an app that launches and cannot emulate. A plain
+// `flutter build ios --release` does not strip, so this only ever shows up
+// in the build you upload.
+//
+// non-global strips local symbols and keeps the globals, which costs a few
+// KB and keeps vice_core_* reachable at runtime.
+STRIP_STYLE=non-global

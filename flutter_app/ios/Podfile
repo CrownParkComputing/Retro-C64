@@ -1,5 +1,16 @@
 # Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+platform :ios, '15.0'
+
+# file_picker pulls in DKImagePickerController for its media and audio
+# pickers, and those reference the camera, photo library and location APIs.
+# App Store validation then demands NSCameraUsageDescription,
+# NSPhotoLibraryUsageDescription and NSLocationWhenInUseUsageDescription for
+# capabilities this app does not have and never asks for. It only ever opens
+# the document picker, so the other two are switched off at the source
+# rather than papered over with purpose strings for features we don't ship.
+Pod::PICKER_MEDIA = false
+Pod::PICKER_AUDIO = false
+
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

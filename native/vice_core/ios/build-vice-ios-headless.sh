@@ -32,7 +32,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 VICE_SRC="${VICE_SRC:-$HOME/AndroidStudioProjects/VICE-source/vice-3.10}"
 SDK_NAME="iphoneos"
 ARCH="${ARCH:-arm64}"
-IOS_MIN="${IOS_MIN:-13.0}"
+IOS_MIN="${IOS_MIN:-15.0}"
 
 while [ $# -gt 0 ]; do
   case "$1" in

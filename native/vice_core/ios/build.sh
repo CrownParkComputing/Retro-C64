@@ -32,7 +32,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BRIDGE="$HERE/../bridge"
 VICE_SRC="${VICE_SRC:-$HOME/AndroidStudioProjects/VICE-source/vice-3.10}"
-IOS_MIN="${IOS_MIN:-13.0}"
+IOS_MIN="${IOS_MIN:-15.0}"
 OBJ_ROOT="${OBJ_ROOT:-$HERE/build}"
 OUT_ROOT="${OUT_ROOT:-$HERE/../../../flutter_app/ios/vicecore}"
 SDKS="iphoneos iphonesimulator"
