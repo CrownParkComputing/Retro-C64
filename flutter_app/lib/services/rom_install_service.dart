@@ -1,69 +1,172 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
+import 'storage_access.dart';
 
-/// Installs the C64 ROM set the emulator needs, from files the user supplies.
+/// What a scan found and installed.
+class RomScanResult {
+  /// Machine ROMs installed into vice/C64 (kernal, basic, chargen).
+  final int machineRoms;
+
+  /// Drive ROMs installed into vice/DRIVES (dos1541 and friends).
+  final int driveRoms;
+
+  /// SID tunes installed into the music folder.
+  final int sids;
+
+  const RomScanResult({
+    this.machineRoms = 0,
+    this.driveRoms = 0,
+    this.sids = 0,
+  });
+
+  int get total => machineRoms + driveRoms + sids;
+  bool get isEmpty => total == 0;
+
+  String get summary {
+    if (isEmpty) return 'Nothing found to import.';
+    final parts = <String>[
+      if (machineRoms > 0) '$machineRoms C64 ROM(s)',
+      if (driveRoms > 0) '$driveRoms drive ROM(s)',
+      if (sids > 0) '$sids SID tune(s)',
+    ];
+    return 'Imported ${parts.join(', ')}.';
+  }
+}
+
+/// Installs the C64 ROM set and SID tunes by scanning, not by asking.
 ///
-/// The app cannot ship these. `kernal`, `basic` and `chargen` are Commodore's
-/// ROMs and are still in copyright, so a store build has to ask for them --
-/// which is the same thing every other C64 emulator on the App Store does.
+/// The app cannot ship the ROMs: `kernal`, `basic` and `chargen` are
+/// Commodore's and still in copyright, so a store build has to source them
+/// from the user, as every other C64 emulator does.
 ///
 /// Where a user legitimately gets them:
 ///   * dumped from a C64 they own;
 ///   * a licensed set -- Cloanto's C64 Forever ships them under licence;
-///   * the ROM files already sitting in a VICE installation they have.
+///   * the ROM files already in a VICE installation they have.
+///
+/// This deliberately does NOT open a document picker. The files it wants have
+/// fixed, well-known names, so making someone hunt through a file browser for
+/// `chargen-901225-01.bin` is asking them to do work the app can do itself.
+/// It looks everywhere it is allowed to look and takes what it recognises.
 class RomInstallService {
   RomInstallService._();
 
-  /// Human-readable guidance, kept next to the code that needs it so the
-  /// wording cannot drift away from what the importer actually accepts.
+  /// Human-readable guidance, kept next to the code that consumes it so the
+  /// wording cannot drift from what the scan actually accepts.
   static const String guidance =
-      'The C64 ROMs (kernal, basic, chargen) are Commodore copyright, so '
-      'they are not included. Supply your own: dump them from a C64 you own, '
-      'use a licensed set such as C64 Forever, or copy them from an existing '
-      'VICE installation. Add the 1541 DOS ROM too, or disk images fail to '
-      'load with ?DEVICE NOT PRESENT.';
+      'The C64 ROMs (kernal, basic, chargen) are Commodore copyright, so they '
+      'are not included. Supply your own: dump them from a C64 you own, use a '
+      'licensed set such as C64 Forever, or copy them from an existing VICE '
+      'installation. Put them anywhere this app can see -- its own folder, or '
+      'Downloads on desktop -- and Scan will find them. Include the 1541 DOS '
+      'ROM too, or disk images fail with ?DEVICE NOT PRESENT.';
 
-  /// Opens the file picker and installs whatever ROM files come back.
+  /// A machine ROM is recognised by the names VICE itself uses. Matching on
+  /// prefix rather than exact filenames because revisions vary by machine
+  /// (kernal-901227-03, kernal-251104-04, ...).
+  static const List<String> _machineRomPrefixes = [
+    'kernal',
+    'basic',
+    'chargen',
+  ];
+
+  /// Drive ROMs all start `dos` in VICE's own DRIVES directory.
+  static const String _driveRomPrefix = 'dos';
+
+  /// Classifies one filename. Returns null if it is not something we install.
   ///
-  /// Returns how many were installed. Files are routed by name into the two
-  /// directories VICE expects: anything starting `dos` is a drive ROM, the
-  /// rest are machine ROMs.
-  static Future<int> importRoms() async {
-    // FileType.any for the same reason as the game importer: `.bin` is not a
-    // registered iOS UTI, so a custom-extension filter greys out every file
-    // and nothing can be selected at all.
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true, type: FileType.any);
-    if (result == null || result.files.isEmpty) return 0;
+  /// Split out and kept pure so the routing rules can be tested without a
+  /// filesystem -- getting a drive ROM into C64/ instead of DRIVES/ produces
+  /// a failure (?DEVICE NOT PRESENT) a long way from its cause.
+  static String? targetFor(String filename) {
+    final name = p.basename(filename).toLowerCase();
+    if (name.endsWith('.sid')) return 'sids';
+    if (!name.endsWith('.bin')) return null;
+    if (name.startsWith(_driveRomPrefix)) return 'DRIVES';
+    if (_machineRomPrefixes.any(name.startsWith)) return 'C64';
+    return null;
+  }
 
+  /// Every directory worth scanning, in the order they are searched.
+  ///
+  /// The app's own folder first: that is where files pushed over USB, dragged
+  /// into the app in the Files app, or opened in from elsewhere all land, and
+  /// on iOS it is the only readable location. Downloads follows on the
+  /// platforms whose sandbox permits it.
+  static Future<List<Directory>> _scanRoots() async {
+    final roots = <Directory>[];
+
+    if (Platform.isIOS) {
+      roots.add(Directory(await ViceNativePaths.iosDocumentsDirPath()));
+    }
+    for (final path in defaultMediaSearchPaths()) {
+      final dir = Directory(path);
+      if (dir.existsSync()) roots.add(dir);
+    }
+    return roots;
+  }
+
+  /// Scans for ROMs and SIDs and installs everything recognised.
+  static Future<RomScanResult> scanAndImport() async {
     final romRoot = await ViceNativePaths.romDir();
-    final c64Dir = Directory(p.join(romRoot, 'C64'));
-    final drivesDir = Directory(p.join(romRoot, 'DRIVES'));
-    await c64Dir.create(recursive: true);
-    await drivesDir.create(recursive: true);
+    final targets = {
+      'C64': Directory(p.join(romRoot, 'C64')),
+      'DRIVES': Directory(p.join(romRoot, 'DRIVES')),
+      'sids': Directory(await ViceNativePaths.sidDir()),
+    };
+    for (final dir in targets.values) {
+      await dir.create(recursive: true);
+    }
 
-    var installed = 0;
-    for (final picked in result.files) {
-      final sourcePath = picked.path;
-      if (sourcePath == null) continue;
-      final source = File(sourcePath);
-      if (!source.existsSync()) continue;
+    var machineRoms = 0;
+    var driveRoms = 0;
+    var sids = 0;
 
-      final name = p.basename(picked.name);
-      if (!name.toLowerCase().endsWith('.bin')) continue;
-
-      final target = name.toLowerCase().startsWith('dos') ? drivesDir : c64Dir;
+    for (final root in await _scanRoots()) {
+      final List<FileSystemEntity> entries;
       try {
-        source.copySync(p.join(target.path, name));
-        installed++;
+        entries = root.listSync(recursive: true, followLinks: false);
       } catch (_) {
-        // Skip the file rather than abort the batch; the caller reports the
-        // count that actually landed.
+        // An unreadable directory is skipped, not fatal: on desktop the scan
+        // roots are user folders that may contain anything.
+        continue;
+      }
+
+      for (final entry in entries) {
+        if (entry is! File) continue;
+        final target = targetFor(entry.path);
+        if (target == null) continue;
+
+        final destDir = targets[target]!;
+        final destPath = p.join(destDir.path, p.basename(entry.path));
+        // Already installed, or the scan has found the destination copy of a
+        // file it installed a moment ago.
+        if (p.equals(entry.path, destPath)) continue;
+        if (File(destPath).existsSync()) continue;
+
+        try {
+          entry.copySync(destPath);
+          switch (target) {
+            case 'C64':
+              machineRoms++;
+            case 'DRIVES':
+              driveRoms++;
+            case 'sids':
+              sids++;
+          }
+        } catch (_) {
+          // Skip the file rather than abort the scan.
+        }
       }
     }
-    return installed;
+
+    return RomScanResult(
+      machineRoms: machineRoms,
+      driveRoms: driveRoms,
+      sids: sids,
+    );
   }
 }

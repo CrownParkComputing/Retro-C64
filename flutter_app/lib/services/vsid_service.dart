@@ -40,8 +40,12 @@ class VsidService {
       final romDir = await ViceNativePaths.resolveRomDir();
       final bindings = ViceVsidBindings.load(libraryPath: libPath);
       if (romDir == null) {
-        _loadError = 'No ROM directory found (need a C64/ subdir with '
-            'kernal/basic/chargen).';
+        // Name the directory it looked in. Without it this message sends
+        // people hunting, and it is the same message whether the folder is
+        // missing, empty, or holds the wrong files.
+        final expected = await ViceNativePaths.romDir();
+        _loadError = 'No C64 ROMs found. Put kernal/basic/chargen .bin files '
+            'in:\n$expected/C64/\n(Paths & Setup can import them for you.)';
         return false;
       }
       bindings.init(romDir);

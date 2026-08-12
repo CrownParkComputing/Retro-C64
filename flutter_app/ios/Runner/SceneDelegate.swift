@@ -1,43 +1,68 @@
 import Flutter
 import UIKit
 
-/// Deliberately empty, and it must stay that way.
+/// Adopts the window the app delegate already built, instead of letting
+/// Flutter migrate it or building a second one.
 ///
-/// This class must NOT create a UIWindow. Doing so is what caused a black
-/// screen with no error in any log, and the reason is worth writing down
-/// because nothing about it is guessable from this file.
-///
-/// On the Linux build path (docs/IOS_BUILD.md) `iosbox` does not compile the
-/// AppDelegate.swift sitting next to this file. It substitutes its own, which
-/// runs an explicit `FlutterEngine(name: "main")` and creates the window
-/// itself:
+/// Background, because none of this is guessable from this file. On the Linux
+/// build path (docs/IOS_BUILD.md) `iosbox` does not compile the
+/// AppDelegate.swift next to this one -- it substitutes its own, which runs an
+/// explicit `FlutterEngine(name: "main")` and creates the window itself:
 ///
 ///     self.window = UIWindow(frame: UIScreen.main.bounds)
 ///     self.window?.rootViewController = flutterVC
 ///     self.window?.makeKeyAndVisible()
 ///
-/// `FlutterSceneDelegate` then notices, at scene-connect time, that the app
-/// delegate already owns a rooted window. It logs "WARNING - The
+/// That window is built before any scene exists, so it belongs to no
+/// UIWindowScene. `FlutterSceneDelegate` tries to rescue exactly this case: on
+/// scene connect it sees a rooted `appDelegate.window`, logs "WARNING - The
 /// UIApplicationDelegate is setting up the UIWindow ... at launch" and calls
-/// its `moveRootViewControllerFrom:to:` escape hatch, which builds a scene
-/// window and re-parents the FlutterViewController into it. That migration is
-/// the only window handling this app needs, and it works.
+/// `moveRootViewControllerFrom:to:`, which makes a fresh scene window and
+/// re-parents the FlutterViewController into it.
 ///
-/// Add a window here and two compete: UIKit refuses the re-parent ("Manually
-/// adding the rootViewController's view to the view hierarchy is no longer
-/// supported"), the view controller is dragged through appearance transitions
-/// without matching end calls ("Unbalanced calls to begin/end appearance
-/// transitions"), and the FlutterView ends up attached to nothing. Dart runs,
-/// the emulator core starts, no error is printed anywhere, and the screen is
-/// black.
+/// On iOS 18 that migration does not work. UIKit refuses the re-parent --
+/// "Manually adding the rootViewController's view to the view hierarchy is no
+/// longer supported" -- the controller is dragged through appearance
+/// transitions without matching end calls ("Unbalanced calls to begin/end
+/// appearance transitions"), and the FlutterView is left attached to nothing.
+/// Dart runs, the emulator core starts, no error is printed anywhere, and the
+/// screen is black. An empty subclass of FlutterSceneDelegate hits this, and so
+/// does creating a second window here.
 ///
-/// A previous comment here claimed `FlutterAppDelegate` creates the window at
-/// launch. That is false for Flutter 3.41 -- `FlutterAppDelegate.mm` never
-/// assigns `_window`. The window comes from iosbox's replacement, on this
-/// build path only.
-///
-/// The stock Flutter 3.41 template is also an empty subclass, but it pairs
-/// with `UISceneStoryboardFile` in Info.plist. We have no storyboard (ibtool
-/// is macOS-only), so the app delegate's window is what stands in for it.
+/// So do the migration properly instead: give the existing window to this
+/// scene, take ownership of it, and clear `appDelegate.window` so Flutter's
+/// legacy path sees nothing to rescue and skips straight to registering the
+/// engine for scene life-cycle events.
 class SceneDelegate: FlutterSceneDelegate {
+  override func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    // Cast to the concrete class, not the UIApplicationDelegate protocol:
+    // `window` on the protocol existential is immutable, and it has to be
+    // cleared below. FlutterAppDelegate is a class, so a let binding of it
+    // still allows the property write.
+    if let windowScene = scene as? UIWindowScene,
+       let appDelegate = UIApplication.shared.delegate as? FlutterAppDelegate,
+       let existingWindow = appDelegate.window,
+       existingWindow.rootViewController != nil {
+      // Attaching the scene is the part the app delegate could not do: it ran
+      // before any scene existed, so this window had none.
+      existingWindow.windowScene = windowScene
+      self.window = existingWindow
+
+      // Hides it from FlutterSceneDelegate's migration guard, which fires on
+      // `appDelegate.window.rootViewController` being non-nil. Ownership has
+      // moved to this scene, so the app delegate should not still hold it.
+      appDelegate.window = nil
+
+      existingWindow.makeKeyAndVisible()
+    }
+
+    // Still call super: it registers the engine for scene life-cycle events,
+    // which is how plugins receive them. It finds the FlutterViewController
+    // through `self.window.rootViewController`, which is now correctly set.
+    super.scene(scene, willConnectTo: session, options: connectionOptions)
+  }
 }

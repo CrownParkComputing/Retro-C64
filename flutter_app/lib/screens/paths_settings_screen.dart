@@ -43,6 +43,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   bool _loading = true;
   bool _hasStorageAccess = true;
   bool _romsInstalled = false;
+  String _romDirPath = '';
   String _artworkBaseUrl = '';
 
   bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
@@ -58,6 +59,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final games = await AppPrefs.getGamesFolderPath();
     final access = await PermissionsService.hasStorageAccess();
     final roms = await ViceNativePaths.romsInstalled();
+    final romPath = await ViceNativePaths.romDir();
     final artUrl = await AppPrefs.getArtworkBaseUrl();
     int imported = 0;
     if (!_isFolderScan) {
@@ -70,6 +72,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _importedCount = imported;
       _hasStorageAccess = access;
       _romsInstalled = roms;
+      _romDirPath = romPath;
       _artworkBaseUrl = artUrl;
       _loading = false;
     });
@@ -122,14 +125,10 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   }
 
   Future<void> _importRoms() async {
-    final count = await RomInstallService.importRoms();
+    final result = await RomInstallService.scanAndImport();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(count == 0
-            ? 'No ROM files installed -- pick the .bin files themselves.'
-            : 'Installed $count ROM file(s).'),
-      ),
+      SnackBar(content: Text(result.summary)),
     );
     await _load();
     widget.onLibraryShouldRescan?.call();
@@ -224,10 +223,10 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             label: 'C64 ROMs',
             value: _romsInstalled
                 ? 'Installed -- kernal, basic and chargen found'
-                : 'MISSING -- games cannot start until these are supplied',
+                : 'MISSING in $_romDirPath/C64/',
             valueColor:
                 _romsInstalled ? ViceColors.accentTeal : Colors.orangeAccent,
-            actionLabel: _romsInstalled ? 'Replace...' : 'Import ROMs...',
+            actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
             onAction: _importRoms,
           ),
           const Padding(

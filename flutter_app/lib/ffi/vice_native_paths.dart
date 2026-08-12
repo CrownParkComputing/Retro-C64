@@ -106,12 +106,19 @@ class ViceNativePaths {
   /// empty vice/C64 folder left over from a failed import would otherwise
   /// read as "installed" and the core would fail later, further from the
   /// cause.
-  static Future<bool> romsInstalled() async {
-    final c64 = Directory(p.join(await romDir(), 'C64'));
-    if (!c64.existsSync()) return false;
-    // Any kernal/basic/chargen trio will do -- users bring their own dumps
-    // and the filenames vary by machine revision.
-    final names = c64
+  static Future<bool> romsInstalled() async =>
+      romsInstalledIn(Directory(p.join(await romDir(), 'C64')));
+
+  /// The detection itself, split out so it can be tested against a real
+  /// directory without needing a device or an app container.
+  ///
+  /// Any kernal/basic/chargen trio will do: users bring their own dumps and
+  /// the filenames vary by machine revision (kernal-901227-03, kernal-251104-04
+  /// and so on), so this matches on prefix rather than the exact names in
+  /// [requiredRomNames].
+  static bool romsInstalledIn(Directory c64Dir) {
+    if (!c64Dir.existsSync()) return false;
+    final names = c64Dir
         .listSync()
         .whereType<File>()
         .map((f) => p.basename(f.path).toLowerCase())
