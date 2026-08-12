@@ -21,6 +21,7 @@ enum WorkbenchCategory {
   video('📺', 'Video'),
   audio('🔊', 'Audio'),
   input('🕹️', 'Input'),
+  logs('📝', 'Logs'),
   about('ℹ️', 'About');
 
   final String icon;

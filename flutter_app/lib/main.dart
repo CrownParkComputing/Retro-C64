@@ -8,6 +8,7 @@ import 'screens/setup_wizard_screen.dart';
 import 'screens/workbench_screen.dart';
 import 'services/app_prefs.dart';
 import 'services/artwork_service.dart';
+import 'services/app_log.dart';
 import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
 
@@ -17,6 +18,12 @@ void main() {
   // user's settings a moment later. Nothing called this before, which meant
   // the Video settings never survived a restart at all.
   WidgetsFlutterBinding.ensureInitialized();
+  // Before anything else that could fail: starting the log redirects the
+  // process's stdout, and the emulator core writes there. Started later, the
+  // core's own startup -- which is where ROM loading happens, and where the
+  // interesting failures are -- would already have been written to a stdout
+  // nobody was reading.
+  unawaited(AppLog.init());
   unawaited(VideoSettings.instance.load());
   runApp(const ViceMultiplatformApp());
 }
@@ -100,9 +107,17 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
       // awaits the same call itself, and a failure there just means no
       // bundled fallback.
       unawaited(ViceNativePaths.extractBundledSidDir());
+      // Recorded because these are the first things to check when a title
+      // will not load, and they are invisible from outside the app: which
+      // ROM directory the core was handed, and what is actually in it.
+      AppLog.log('core lib: ${libPath ?? "(process)"}');
+      AppLog.log('rom dir: ${romDir ?? "(none resolved)"}');
+      AppLog.log('drive rom: ${await ViceNativePaths.driveRomFile() ?? "MISSING"}'
+          ' (DRIVES holds: ${(await ViceNativePaths.driveRomsPresent()).join(", ")})');
       final core = ViceCoreBindings.load(libraryPath: libPath);
       if (romDir != null) {
         core.init(romDir);
+        AppLog.log('core.init done');
       }
       if (!mounted) return;
       setState(() => _core = core);

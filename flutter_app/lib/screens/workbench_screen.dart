@@ -16,6 +16,7 @@ import '../widgets/sidebar.dart';
 import 'emulator_screen.dart';
 import 'input_settings_screen.dart';
 import 'library_grid.dart';
+import 'logs_screen.dart';
 import 'music_screen.dart';
 import 'paths_settings_screen.dart';
 import 'resume_screen.dart';
@@ -616,6 +617,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
           onLibraryShouldRescan: _scanLibrary,
           onRerunSetup: widget.onRerunSetup,
         );
+      case WorkbenchCategory.logs:
+        return const LogsScreen();
       case WorkbenchCategory.video:
         return const VideoSettingsScreen();
       case WorkbenchCategory.audio:
