@@ -6,6 +6,7 @@
 #   tools/device-push.sh                    # install the IPA already built
 #   tools/device-push.sh --android --build  # build and install the Android APK
 #   tools/device-push.sh --launch           # also start the app afterwards
+#   tools/device-push.sh --run              # JUST start what is already installed
 #
 # WHY THIS EXISTS. Every part of getting a build onto the iPad fails quietly
 # and for a different reason, and none of them announce themselves:
@@ -33,6 +34,7 @@ LOG="${TMPDIR:-/tmp}/mobai-serve.log"
 
 BUILD=0
 LAUNCH=0
+RUN_ONLY=0
 ANDROID=0
 ARTIFACT=""
 WAIT_SECS="${WAIT_SECS:-90}"
@@ -41,6 +43,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --build)   BUILD=1 ;;
     --launch)  LAUNCH=1 ;;
+    --run)     RUN_ONLY=1; LAUNCH=1 ;;
     --android) ANDROID=1 ;;
     --ipa|--apk) ARTIFACT="$2"; shift ;;
     --timeout) WAIT_SECS="$2"; shift ;;
@@ -54,6 +57,38 @@ say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok()   { printf '    \033[32mOK\033[0m %s\n' "$*"; }
 warn() { printf '    \033[33m!!\033[0m %s\n' "$*"; }
 die()  { printf '\n\033[1;31mSTOPPED: %s\033[0m\n' "$*" >&2; exit 1; }
+
+# Start the app with a debugger attached.
+#
+# withDebugger is not optional, and it is NOT called `debug` here -- that is
+# the MCP tool's name for it; the HTTP API calls it withDebugger ("enables JIT
+# for Flutter debug builds"). iosbox only ever produces a DEBUG/JIT build, and
+# iOS kills a Flutter JIT process within a second unless something is attached,
+# which is why tapping the home-screen icon opens and instantly closes it.
+# See docs/IOS_BUILD.md, "Debug configuration only".
+#
+# The bundle ID carries the signing team suffix, because sideloading re-signs
+# under your own team; the installed one is looked up rather than assumed.
+launch_app() {
+  say "Launching"
+  local bundle
+  bundle="$(curl -fsS -m 30 "$API/devices/$DEVICE_ID/apps" 2>/dev/null | python3 -c '
+import json,sys
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+apps = d.get("apps", d) if isinstance(d, dict) else d
+for a in apps if isinstance(apps, list) else []:
+    b = a.get("bundleId", "") if isinstance(a, dict) else str(a)
+    if b.startswith("com.vicemultiplatform.app"):
+        print(b); break
+')"
+  bundle="${bundle:-com.vicemultiplatform.app}"
+  echo "    $bundle"
+  curl -sS -m 180 -X POST "$API/devices/$DEVICE_ID/launch-app" \
+    -H 'Content-Type: application/json' \
+    -d "{\"bundleId\":\"$bundle\",\"withDebugger\":true}" \
+    -w '\n    HTTP %{http_code}\n' | tail -2
+}
 
 # ---------------------------------------------------------------------------
 # Android: adb does the whole job and none of the above applies
@@ -175,6 +210,18 @@ if [ "$BUILD" = 1 ]; then
   "$REPO_ROOT/tools/build-ios-linux.sh" || die "iOS build failed."
 fi
 
+if [ "$RUN_ONLY" = 1 ]; then
+  # Nothing to build or install: this exists because the app CANNOT be started
+  # by tapping its icon. iosbox only produces a debug/JIT build, and iOS kills
+  # a Flutter JIT process within a second unless a debugger is attached -- from
+  # the home screen that looks exactly like an instant crash. Attaching one is
+  # all this does, so the app can be started without a rebuild and without me.
+  say "Starting the installed app"
+  launch_app
+  say "Done"
+  exit 0
+fi
+
 IPA="${ARTIFACT:-$REPO_ROOT/flutter_app/build/iosbox/Runner.ipa}"
 [ -f "$IPA" ] || die "No IPA at $IPA -- run with --build."
 say "Installing $(basename "$IPA") ($(du -h "$IPA" | cut -f1))"
@@ -217,16 +264,7 @@ case "$CODE" in
 esac
 
 if [ "$LAUNCH" = 1 ]; then
-  say "Launching"
-  # withDebugger is not optional, and it is NOT called `debug` here -- that
-  # is the MCP tool's name for it; the HTTP API calls it withDebugger
-  # ("enables JIT for Flutter debug builds"). iosbox only ever produces a
-  # DEBUG/JIT build, which dies on launch with nothing attached. See
-  # docs/IOS_BUILD.md, "Debug configuration only".
-  curl -sS -m 120 -X POST "$API/devices/$DEVICE_ID/launch-app" \
-    -H 'Content-Type: application/json' \
-    -d '{"bundleId":"com.vicemultiplatform.app","withDebugger":true}' \
-    -w '\n%{http_code}\n' | tail -2
+  launch_app
 fi
 
 say "Done"

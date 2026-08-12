@@ -101,6 +101,21 @@ source before assuming the Dart side is at fault:
 python3 -c "import plistlib;print(plistlib.load(open('flutter_app/build/iosbox/Runner.app/Info.plist','rb')))"
 ```
 
+## You cannot launch it by tapping the icon
+
+Worth stating plainly, because it looks like a crash and it is not: the app
+opens and closes instantly from the home screen. iOS kills a Flutter JIT
+process within a second unless a debugger is attached, so the only way to
+start an iosbox build is to attach one:
+
+    tools/device-push.sh --run
+
+That takes about two seconds and does nothing else -- no rebuild, no
+reinstall. Anyone who needs to actually use the app on the device needs that
+command, which also means **testers cannot run this build at all**. Only a
+release/AOT build can be tapped, and that needs macOS. See "Shipping to
+TestFlight" below.
+
 ## Debug configuration only
 
 `iosbox build` takes no configuration flag; it always produces a debug build
