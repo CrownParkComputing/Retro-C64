@@ -114,6 +114,12 @@ static pthread_cond_t g_pause_cv = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t g_pending_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char g_pending_media_path[1024];
 static int g_pending_media_type = -1;
+
+/* True-drive-emulation setting as the machine came up, before any media had
+ * a chance to change it. The swap path restores this rather than asserting a
+ * value of its own: whatever the cold start used demonstrably works, and it
+ * is the only configuration the first disk of a session ever ran under. */
+static int g_cold_start_tde = 1;
 static atomic_bool g_media_pending = false;
 
 /* Snapshot save/load. Unlike the media swap these are synchronous from the
@@ -494,6 +500,8 @@ extern void __wrap_maincpu_mainloop(void) {
  * calls reboot_for_autostart() internally, which is what actually triggers
  * the machine reset -- so no separate machine_trigger_reset() is needed or
  * wanted here (an extra reset would race the autostart state machine). */
+static void remember_cold_start_tde(void);
+
 static void apply_pending_media_if_any(void) {
     if (!atomic_load_explicit(&g_media_pending, memory_order_acquire)) {
         return;
@@ -523,13 +531,38 @@ static void apply_pending_media_if_any(void) {
             resources_set_int_sprintf("Drive%dTrueEmulation", 0, 8);
             break;
         case 1: /* DISK */
-            resources_set_int_sprintf("Drive%dTrueEmulation", 1, 8);
-            break;
         case 2: /* TAPE */
-            resources_set_int_sprintf("Drive%dTrueEmulation", 1, 8);
+            /* Restore whatever a cold start uses rather than forcing true
+             * drive emulation on.
+             *
+             * Forcing it on is what broke every disk after the first: with
+             * TDE on, autostart needs a real 1541, so it tries to change the
+             * drive type and VICE answers "Failed to set drive type" -- a
+             * type change is refused when that drive's ROM is not loaded in
+             * the running machine. From there device 8 does not exist and
+             * the game dies on ?DEVICE NOT PRESENT, which reads as a broken
+             * .d64 rather than as a setting we changed. The first disk of a
+             * session worked precisely because nothing had forced TDE yet.
+             *
+             * Only the PRG path above genuinely needs to touch this, and it
+             * turns TDE OFF, so putting it back is all that is required. */
+            resources_set_int_sprintf("Drive%dTrueEmulation", g_cold_start_tde, 8);
             break;
         default:
             break;
+    }
+
+    /* Report what the drive actually looks like now. When a disk still fails
+     * after this, these three numbers say which of the two possibilities it
+     * is -- a drive type that would not change, or a ROM that never loaded --
+     * without needing another round of guessing from the outside. */
+    {
+        int tde = -1, type = -1, fsdev = -1;
+        resources_get_int_sprintf("Drive%dTrueEmulation", &tde, 8);
+        resources_get_int_sprintf("Drive%dType", &type, 8);
+        resources_get_int_sprintf("FileSystemDevice%d", &fsdev, 8);
+        LOGI("drive 8 before autostart: truedrive=%d type=%d fsdevice=%d",
+             tde, type, fsdev);
     }
 
     const int result = autostart_autodetect(path, NULL, 0, AUTOSTART_MODE_RUN);
@@ -662,6 +695,10 @@ static void apply_pending_snapshot_if_any(void) {
  * alongside a snapshot request should not have its fresh machine state
  * overwritten by a snapshot load queued for the previous title. */
 static void pump_core_requests(void) {
+    /* Latch the machine's own drive configuration before any swap can alter
+     * it. Runs on the core thread, after init_main, which is the first point
+     * the resource is meaningful. */
+    remember_cold_start_tde();
     apply_pending_media_if_any();
     apply_pending_snapshot_if_any();
 }
@@ -931,6 +968,19 @@ int32_t vice_core_start(int32_t media_type, const char *media_path, const char *
          media_path ? media_path : "(none)", argc);
     start_core_thread((char **)args, argc);
     return 0;
+}
+
+/* Latches the machine's own idea of true drive emulation the first time it
+ * is asked for, i.e. before any media swap has touched it. */
+static void remember_cold_start_tde(void) {
+    static bool captured = false;
+    if (captured) return;
+    captured = true;
+    int tde = 1;
+    if (resources_get_int_sprintf("Drive%dTrueEmulation", &tde, 8) == 0) {
+        g_cold_start_tde = tde;
+    }
+    LOGI("cold-start drive 8 truedrive=%d", g_cold_start_tde);
 }
 
 void vice_core_stop(void) {
