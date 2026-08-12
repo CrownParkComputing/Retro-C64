@@ -103,6 +103,13 @@ class FakeViceCore implements ViceCore {
   @override
   int get audioLevel => 0;
 
+  /// Settable so widget tests can drive the loading indicators without a
+  /// real core.
+  MediaActivity mediaActivityValue = MediaActivity.idle;
+
+  @override
+  MediaActivity get mediaActivity => mediaActivityValue;
+
   @override
   FrameSnapshot? getFramebuffer() => frame;
 }

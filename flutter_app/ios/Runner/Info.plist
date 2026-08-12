@@ -7,15 +7,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Vice Multiplatform</string>
+	<string>C64-Retro Emulator</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<!-- Short name; CFBundleDisplayName is what the home screen shows, but
+	     this is the fallback and appears in some system UI. -->
 	<key>CFBundleName</key>
-	<string>vice_multiplatform</string>
+	<string>C64-Retro</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,6 +28,37 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Expose the app's Documents directory as a file provider, so C64 media
+	     can actually get onto the device:
+	       * the Files app shows "C64-Retro Emulator" under On My iPad, and
+	         users can drag .d64/.tap straight in;
+	       * pymobiledevice3's "apps push" in documents mode can do the same
+	         over USB from the build machine, which is how the test images are
+	         loaded.
+	     Without UIFileSharingEnabled the container is invisible to both, and
+	     house-arrest document vending fails with InstallationLookupFailed.
+	     LSSupportsOpeningDocumentsInPlace lets the app open a file where it
+	     sits rather than only through a copy.
+
+	     WARNING: never write two hyphens in a row anywhere in this file. XML
+	     forbids them inside a comment, and Apple's tooling does not complain:
+	     the plist simply fails to parse, iOS ignores the scene configuration,
+	     and the app launches to a black screen with no error anywhere. That
+	     cost a full debugging cycle once already. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<!-- iPhone + iPad, matching TARGETED_DEVICE_FAMILY = "1,2" in the Xcode
+	     project. Xcode injects this key from that build setting, but the Linux
+	     build does not read the project file, and an app with no UIDeviceFamily
+	     is treated as iPhone-only: on iPad it ran letterboxed in compatibility
+	     mode at 320x480 instead of filling the screen. -->
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -39,20 +72,27 @@
 					<string>UIWindowScene</string>
 					<key>UISceneConfigurationName</key>
 					<string>flutter</string>
+					<!-- Spelled out rather than $(PRODUCT_MODULE_NAME).SceneDelegate:
+					     the Linux iOS build (docs/IOS_BUILD.md) expands only a
+					     fixed set of build variables, and this is not one of
+					     them. Left as a variable it reached the device
+					     verbatim, UIKit could not resolve the class, no scene
+					     connected and the app showed a black screen. The
+					     Runner target's module name is Runner, so this is the
+					     same value Xcode would substitute. -->
 					<key>UISceneDelegateClassName</key>
-					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
+					<string>Runner.SceneDelegate</string>
 				</dict>
 			</array>
 		</dict>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
+	<!-- Plist-driven launch screen. Deliberately empty: any UIImageName or
+	     UIColorName here would have to resolve through an asset catalog, and
+	     compiling one needs actool, which is macOS-only (see SceneDelegate). -->
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

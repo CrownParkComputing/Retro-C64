@@ -8,12 +8,13 @@ import '../ffi/vice_core.dart';
 import '../services/app_prefs.dart';
 import '../services/gamepad_service.dart';
 import '../theme/vice_theme.dart';
-import '../data/c64_keys.dart';
+import '../data/custom_button.dart';
 import '../widgets/assignable_action_button.dart';
 import '../widgets/custom_key_button.dart';
 import '../widgets/c64_keyboard_overlay.dart';
 import '../widgets/wobble_joystick.dart';
 import '../widgets/framebuffer_view.dart';
+import '../widgets/media_activity_overlay.dart';
 
 /// The in-emulator screen: full-screen framebuffer, on-screen wobble
 /// joystick + A/B action buttons, an optional full C64 keyboard overlay,
@@ -38,7 +39,12 @@ class EmulatorScreen extends StatefulWidget {
 
   /// Extra user-added on-screen buttons, each bound to a C64 keyboard key
   /// (see AppPrefs.getCustomButtons). Additional to A/B, which stay fire.
-  final List<C64Key> customButtons;
+  final List<CustomButton> customButtons;
+
+  /// Persists a change made from the in-game menu, so a button added
+  /// mid-game survives to the next launch instead of only lasting the
+  /// session.
+  final ValueChanged<List<CustomButton>>? onCustomButtonsChanged;
 
   /// Which C64 joystick port (1 or 2) every input source drives.
   final int joystickPort;
@@ -54,6 +60,7 @@ class EmulatorScreen extends StatefulWidget {
     this.padMode = OnScreenPadMode.auto,
     this.onPadModeChanged,
     this.customButtons = const [],
+    this.onCustomButtonsChanged,
     this.joystickPort = 2,
     this.onJoystickPortChanged,
   });
@@ -113,6 +120,24 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
   String get _padModeLabel =>
       '${widget.padMode.label} -- ${widget.padMode.description}';
 
+  String get _customButtonsLabel {
+    final count = widget.customButtons.length;
+    if (count == 0) return 'Add a key or direction button';
+    final names = widget.customButtons.map((b) => b.label).join(', ');
+    return count == 1 ? '1 added: $names' : '$count added: $names';
+  }
+
+  /// Adds a button from inside the game. Closes the panel first: the picker
+  /// is a modal, and leaving a full-height panel open behind it means
+  /// dismissing two things to get back to play.
+  Future<void> _addCustomButton() async {
+    setState(() => _settingsOpen = false);
+    final binding = await showC64KeyPicker(context);
+    if (binding == null) return;
+    widget.onCustomButtonsChanged
+        ?.call([...widget.customButtons, binding]);
+  }
+
   void _updateJoystick() =>
       widget.core.joystick(widget.joystickPort, _dirMask | _fireMask | _padMask);
 
@@ -131,6 +156,23 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
     _updateJoystick();
   }
 
+  /// A user-added direction button going down/up. It joins the same mask as
+  /// A/B rather than the stick's: both are on-screen buttons, and keeping
+  /// them separate from _dirMask means holding this button and pushing the
+  /// stick combine (as they would on real hardware) instead of the last one
+  /// to move overwriting the other.
+  void _setDirectionButtonBit(JoyDirection direction, bool down) {
+    _setFireBit(
+      switch (direction) {
+        JoyDirection.up => ViceJoyBits.up,
+        JoyDirection.down => ViceJoyBits.down,
+        JoyDirection.left => ViceJoyBits.left,
+        JoyDirection.right => ViceJoyBits.right,
+      },
+      down,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final gamepadConnected = widget.gamepad?.connected;
@@ -146,6 +188,15 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
           // ignored them; those settings now live on the Video settings
           // screen, where they actually take effect.
           Positioned.fill(child: Center(child: FramebufferView(core: widget.core))),
+          // Loading feedback (datasette counter / drive track) in the
+          // letterbox band, with the Retro Recompilation logo there when
+          // nothing is loading. Ignores pointer events so it can never sit
+          // between the user and the on-screen controls below it.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: MediaActivityOverlay(core: widget.core),
+            ),
+          ),
           // On-screen virtual controls hide automatically while a real
           // gamepad is connected (see gamepad_service.dart) -- a sensible
           // default, but only a DEFAULT: on a handheld like the Retroid
@@ -191,8 +242,12 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                         children: [
                           // User-added key buttons sit above the fire
                           // buttons rather than replacing them.
-                          for (final key in widget.customButtons) ...[
-                            CustomKeyButton(c64Key: key, core: widget.core),
+                          for (final binding in widget.customButtons) ...[
+                            CustomKeyButton(
+                              binding: binding,
+                              core: widget.core,
+                              onDirectionChanged: _setDirectionButtonBit,
+                            ),
                             const SizedBox(height: 8),
                           ],
                           ActionButton(
@@ -235,14 +290,45 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                 onClose: () => setState(() => _keyboardVisible = false),
               ),
             ),
+          // Keyboard and on-screen-pad toggles live here permanently rather
+          // than inside Quick Settings. Both are things you reach for mid-game
+          // -- a game wants the keyboard for its own menus, then wants it gone
+          // again -- and burying a twice-a-minute action two taps deep in a
+          // panel that covers the screen was the wrong trade.
           Positioned(
             right: 16,
             top: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'settingsFab',
-              backgroundColor: const Color(0xFF24292E),
-              onPressed: () => setState(() => _settingsOpen = !_settingsOpen),
-              child: const Icon(Icons.menu, color: Colors.white),
+            child: Column(
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'settingsFab',
+                  backgroundColor: const Color(0xFF24292E),
+                  onPressed: () => setState(() => _settingsOpen = !_settingsOpen),
+                  child: const Icon(Icons.menu, color: Colors.white),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.small(
+                  heroTag: 'keyboardFab',
+                  // Lit while the keyboard is up, so the button doubles as
+                  // the indicator of its own state.
+                  backgroundColor: _keyboardVisible
+                      ? const Color(0xFF4040E0)
+                      : const Color(0xFF24292E),
+                  tooltip: _keyboardLabel,
+                  onPressed: () =>
+                      setState(() => _keyboardVisible = !_keyboardVisible),
+                  child: const Icon(Icons.keyboard, color: Colors.white),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.small(
+                  heroTag: 'padFab',
+                  backgroundColor: const Color(0xFF24292E),
+                  tooltip: _padModeLabel,
+                  onPressed: () =>
+                      widget.onPadModeChanged?.call(widget.padMode.next),
+                  child: const Icon(Icons.videogame_asset, color: Colors.white),
+                ),
+              ],
             ),
           ),
           if (_settingsOpen)
@@ -256,6 +342,8 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                 keyboardLabel: _keyboardLabel,
                 portLabel: _portLabel,
                 padModeLabel: _padModeLabel,
+                customButtonsLabel: _customButtonsLabel,
+                onAddButton: _addCustomButton,
                 onSwapPort: () => widget.onJoystickPortChanged
                     ?.call(widget.joystickPort == 1 ? 2 : 1),
                 onCyclePadMode: () =>
@@ -292,10 +380,11 @@ class _AlwaysFalse implements ValueListenable<bool> {
 }
 
 class _QuickSettingsPanel extends StatelessWidget {
-  final String keyboardLabel, portLabel, padModeLabel;
+  final String keyboardLabel, portLabel, padModeLabel, customButtonsLabel;
   final VoidCallback onSwapPort,
       onCyclePadMode,
       onToggleKeyboard,
+      onAddButton,
       onReset,
       onGameLibrary,
       onClose;
@@ -304,9 +393,11 @@ class _QuickSettingsPanel extends StatelessWidget {
     required this.keyboardLabel,
     required this.portLabel,
     required this.padModeLabel,
+    required this.customButtonsLabel,
     required this.onSwapPort,
     required this.onCyclePadMode,
     required this.onToggleKeyboard,
+    required this.onAddButton,
     required this.onReset,
     required this.onGameLibrary,
     required this.onClose,
@@ -343,6 +434,15 @@ class _QuickSettingsPanel extends StatelessWidget {
           _Card(icon: '🔀', title: 'Joystick Port', subtitle: portLabel, onTap: onSwapPort),
           _Card(icon: '🎮', title: 'On-screen Pad', subtitle: padModeLabel, onTap: onCyclePadMode),
           _Card(icon: '⌨', title: 'Virtual Keyboard', subtitle: keyboardLabel, onTap: onToggleKeyboard),
+          // Adding a button belongs here as much as in Input settings: which
+          // key or direction a game wants is something you find out by
+          // playing it, and going out to Settings means leaving the game.
+          _Card(
+            icon: '➕',
+            title: 'Add Button',
+            subtitle: customButtonsLabel,
+            onTap: onAddButton,
+          ),
           _Card(icon: '↺', title: 'Reset C64', subtitle: 'Reset the running core', onTap: onReset),
           _Card(icon: '▦', title: 'Workbench', subtitle: 'Leave the game (it pauses and is saved)', onTap: onGameLibrary),
         ],

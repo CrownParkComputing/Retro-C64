@@ -22,7 +22,7 @@ class AboutScreen extends StatelessWidget {
             style:
                 TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        const Text('VICE Multiplatform', style: TextStyle(color: Colors.white70)),
+        const Text('C64-Retro Emulator', style: TextStyle(color: Colors.white70)),
         const SizedBox(height: 20),
         _Card(
           title: 'What this is',

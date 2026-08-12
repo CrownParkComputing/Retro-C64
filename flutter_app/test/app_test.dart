@@ -30,7 +30,9 @@ void main() {
     final failedToLoad = find.textContaining('Failed to load libvicecore');
     final stillLoading = find.byType(CircularProgressIndicator);
     // With setup never completed, a core that DID load lands on the wizard.
-    final wizard = find.textContaining('Next');
+    // The wizard is one screen now (welcome + what-was-found), so its
+    // identifying control is 'Start' rather than the old step-by-step 'Next'.
+    final wizard = find.textContaining('Start');
     expect(
       failedToLoad.evaluate().isNotEmpty ||
           stillLoading.evaluate().isNotEmpty ||

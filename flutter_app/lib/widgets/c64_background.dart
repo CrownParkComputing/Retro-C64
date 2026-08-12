@@ -17,10 +17,14 @@ import 'package:flutter/material.dart';
 ///    "nothing" the same way `setVisualiserActive(false)` does, and the
 ///    ticker does zero work while inactive)
 ///
-/// The Java view drove all of this straight off `invalidate()`, i.e. once
-/// per displayed frame; this port uses a raw [Ticker] callback (also once
-/// per displayed frame) and applies the exact same per-frame deltas, so the
-/// two move at the same rate on displays of the same refresh rate.
+/// The Java view drove all of this straight off `invalidate()`, i.e. once per
+/// displayed frame at 60Hz. This port uses a raw [Ticker] callback, which also
+/// fires once per displayed frame -- but a displayed frame is not a fixed unit
+/// of time. Applying the constants once per tick tied the whole demo to the
+/// refresh rate, and on a 120Hz ProMotion iPad it ran at literally double
+/// speed. [_onTick] therefore scales every delta by how long the frame
+/// actually took, relative to a 60Hz frame, so the pacing matches the Java
+/// original on any display.
 class C64Background extends StatefulWidget {
   /// Whether the screensaver (raster bars/logo/scroller/EQ) should be
   /// running. When false only the idle C64 screen frame (border + inner
@@ -54,6 +58,9 @@ class C64Background extends StatefulWidget {
   State<C64Background> createState() => _C64BackgroundState();
 }
 
+/// Scroller step per 60Hz frame, as a fraction of the text size.
+const double _scrollStepPerFrame = 0.08;
+
 class _C64BackgroundState extends State<C64Background>
     with SingleTickerProviderStateMixin {
   static const int _barCount = 24;
@@ -84,13 +91,18 @@ class _C64BackgroundState extends State<C64Background>
   final List<double> _peaks = List.filled(_barCount, 0.0);
   double _phase = 0;
   double _scrollX = double.nan;
+  /// Microsecond timestamp of the previous tick, for frame-rate-independent
+  /// pacing (see _onTick).
+  int? _lastTickMicros;
+  /// One frame at the 60Hz the original per-frame constants were tuned for.
+  static const double _frameMicros = 1000000 / 60;
   // Set by _onTick, consumed (and cleared) by the painter: the scroller's
   // per-frame step depends on the layout size (textSize derives from
   // innerRect.height), which is only known at paint time, but the step
   // itself must only ever apply once per real animation frame -- a stray
   // rebuild (e.g. a sidebar tap while the screensaver is up) must not also
   // nudge the scroller.
-  bool _pendingScrollStep = false;
+  double _pendingScrollFrames = 0;
   String _scrollerText = '';
 
   ui.Image? _logo;
@@ -116,6 +128,8 @@ class _C64BackgroundState extends State<C64Background>
         _peaks[i] = 0;
       }
       _scrollX = double.nan;
+      _lastTickMicros = null;
+      _pendingScrollFrames = 0;
     }
   }
 
@@ -123,7 +137,7 @@ class _C64BackgroundState extends State<C64Background>
     // Padded either side so the message leaves the screen entirely before
     // it comes round again, which is what makes it read as a loop.
     _scrollerText =
-        '          *** VICE MULTIPLATFORM - COMMODORE 64 WORKSTATION ***          '
+        '          *** C64-RETRO EMULATOR - COMMODORE 64 WORKSTATION ***          '
         '${widget.infoText.isEmpty ? '' : '${widget.infoText}          '}'
         'PRESS ANYWHERE TO WAKE          ';
   }
@@ -146,23 +160,42 @@ class _C64BackgroundState extends State<C64Background>
     // for something nobody can see.
     if (!widget.active) return;
 
-    _phase += 0.09;
-    _pendingScrollStep = true;
+    // Per-frame deltas, scaled to how long the frame actually took.
+    //
+    // The constants below are the Java view's per-invalidate steps, and that
+    // view ran at 60Hz. Applying them once per displayed frame made the whole
+    // demo run at the display's refresh rate -- on a 120Hz ProMotion iPad
+    // every part of it (bars, scroller, EQ) moved at exactly double speed.
+    // Scaling by elapsed/16.67ms keeps the original 60Hz pacing on any
+    // display. The first tick has no previous timestamp, so it takes one
+    // nominal frame rather than the whole time since the ticker started.
+    final micros = elapsed.inMicroseconds;
+    final deltaMicros =
+        _lastTickMicros == null ? _frameMicros : micros - _lastTickMicros!;
+    _lastTickMicros = micros;
+    // Clamped so a dropped frame or a spell in the background cannot make
+    // the demo lurch forward by a visible jump.
+    final frames = (deltaMicros / _frameMicros).clamp(0.0, 3.0);
+
+    _phase += 0.09 * frames;
+    _pendingScrollFrames += frames;
 
     final level = (widget.audioLevel?.call() ?? 0).clamp(0, 100);
     final loudness = level / 100.0;
 
-    // EQ ballistics: rise fast, fall slow, once per frame -- same shape as
-    // Java's per-invalidate update.
+    // EQ ballistics: rise fast, fall slow. The smoothing coefficients are
+    // per-60Hz-frame too, so they get the same treatment -- applying an
+    // exponential smoother twice as often makes it twice as twitchy.
     for (var i = 0; i < _barCount; i++) {
       final centre =
           1.0 - (((i / (_barCount - 1)) - 0.5).abs() * 1.6);
       final wobble = 0.55 + 0.45 * math.sin(_phase + i * 0.7);
       final target = loudness * math.max(0.05, centre) * wobble;
-      _levels[i] +=
-          (target > _levels[i] ? 0.55 : 0.12) * (target - _levels[i]);
+      final coefficient =
+          ((target > _levels[i] ? 0.55 : 0.12) * frames).clamp(0.0, 1.0);
+      _levels[i] += coefficient * (target - _levels[i]);
       if (_levels[i] < 0) _levels[i] = 0;
-      _peaks[i] = math.max(_peaks[i] - 0.006, _levels[i]);
+      _peaks[i] = math.max(_peaks[i] - 0.006 * frames, _levels[i]);
     }
 
     setState(() {});
@@ -259,6 +292,16 @@ class _C64Painter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Lifts a C64 colour toward its brighter self, so a bar stands off the
+  /// screen-blue background instead of blending into it.
+  static Color _pronounced(Color base) {
+    final hsl = HSLColor.fromColor(base);
+    return hsl
+        .withSaturation((hsl.saturation * 1.45).clamp(0.0, 1.0))
+        .withLightness((hsl.lightness * 1.25).clamp(0.0, 1.0))
+        .toColor();
+  }
+
   /// Moving horizontal colour bars -- the oldest trick the machine has.
   void _drawRasterBars(Canvas canvas, Rect inner) {
     final bandHeight = math.max(6.0, inner.height / 26);
@@ -268,7 +311,10 @@ class _C64Painter extends CustomPainter {
       final centre = inner.top + inner.height * 0.5 +
           math.sin(t) * inner.height * 0.34;
       final thickness = bandHeight * (0.5 + loudness * 0.9);
-      paint.color = Color(rasterColours[i]).withAlpha(70);
+      // The C64 palette is muted to begin with, and at 70/255 the bars were
+      // little more than a tint on the blue. Much heavier alpha plus a
+      // brightening pass makes them read as actual raster bars.
+      paint.color = _pronounced(Color(rasterColours[i])).withAlpha(165);
       canvas.drawRect(
         Rect.fromLTRB(inner.left, centre - thickness * 0.5, inner.right,
             centre + thickness * 0.5),
@@ -344,9 +390,14 @@ class _C64Painter extends CustomPainter {
     final amplitude = inner.height * 0.06;
 
     if (scrollXRef._scrollX.isNaN) scrollXRef._scrollX = inner.right;
-    if (scrollXRef._pendingScrollStep) {
-      scrollXRef._scrollX -= textSize * 0.16;
-      scrollXRef._pendingScrollStep = false;
+    if (scrollXRef._pendingScrollFrames > 0) {
+      // 0.08 rather than the Java view's 0.16: the original was tuned for a
+      // phone held at arm's length, and at tablet size the same step reads as
+      // a blur. This is per-60Hz-frame (see _onTick), so it stays put across
+      // refresh rates.
+      scrollXRef._scrollX -=
+          textSize * _scrollStepPerFrame * scrollXRef._pendingScrollFrames;
+      scrollXRef._pendingScrollFrames = 0;
     }
 
     // Per-character width cache for this frame's text size.

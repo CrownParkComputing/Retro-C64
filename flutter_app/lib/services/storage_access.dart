@@ -26,7 +26,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+
+import '../ffi/vice_native_paths.dart';
 
 /// Whether a given platform's storage strategy is "pick a folder and scan
 /// it" (Linux/Android) or "pick individual files and import them"  (iOS).
@@ -58,6 +59,54 @@ const List<String> kGameFileExtensions = [
   'prg', 'p00', // program
   'sid', // music
 ];
+
+/// Where C64 media most likely already is, per platform.
+///
+/// Downloads is where a file lands when you fetch a .d64 or .zip in a
+/// browser, so it is the first place worth looking before asking anyone to
+/// go picking folders.
+///
+/// iOS is absent on purpose and cannot be added: "On My iPad > Downloads"
+/// belongs to the Files app, and an app sandbox cannot read it. Nor can the
+/// picker be aimed there -- file_picker's iOS plugin ignores initialDirectory
+/// for pickFiles. On iOS the user navigates to Downloads in the picker once,
+/// and after that the files live in the app's own folder.
+List<String> defaultMediaSearchPaths() {
+  final home = Platform.environment['HOME'];
+  if (Platform.isAndroid) {
+    // The public Download directory, readable with MANAGE_EXTERNAL_STORAGE
+    // (declared in AndroidManifest.xml). Both spellings exist in the wild --
+    // /sdcard is a symlink on most devices but not guaranteed.
+    return const [
+      '/storage/emulated/0/Download',
+      '/storage/emulated/0/Downloads',
+      '/sdcard/Download',
+    ];
+  }
+  if (Platform.isLinux || Platform.isMacOS) {
+    final xdg = Platform.environment['XDG_DOWNLOAD_DIR'];
+    return [
+      if (xdg != null && xdg.isNotEmpty) xdg,
+      if (home != null && home.isNotEmpty) p.join(home, 'Downloads'),
+    ];
+  }
+  if (Platform.isWindows) {
+    final profile = Platform.environment['USERPROFILE'];
+    return [
+      if (profile != null && profile.isNotEmpty)
+        p.join(profile, 'Downloads'),
+    ];
+  }
+  return const [];
+}
+
+/// The first search path that actually exists, or null.
+String? firstExistingMediaSearchPath() {
+  for (final path in defaultMediaSearchPaths()) {
+    if (Directory(path).existsSync()) return path;
+  }
+  return null;
+}
 
 abstract class StorageAccess {
   static final StorageAccess instance = _createInstance();
@@ -99,6 +148,40 @@ abstract class StorageAccess {
   /// [destinationSubdir] from a previous session, so the wizard/Paths
   /// screen can show "N files imported" without re-picking.
   Future<List<ImportedFile>> listImported(String destinationSubdir);
+
+  /// File-import platforms only: game files sitting in the app's own
+  /// container but not yet imported into [destinationSubdir].
+  ///
+  /// These arrive without the document picker ever being involved -- dragged
+  /// into "C64-Retro Emulator" in the Files app, opened into the app from
+  /// another app (which lands them in Documents/Inbox), or pushed over USB.
+  /// The custom import sheet lists these so a user can bring them in without
+  /// going through UIDocumentPickerViewController, which cannot see files
+  /// that are already inside this sandbox.
+  Future<List<ImportedFile>> listImportable({
+    required String destinationSubdir,
+    List<String> extensions = kGameFileExtensions,
+  });
+
+  /// File-import platforms only: MOVE [files] into [destinationSubdir],
+  /// returning the copies that succeeded.
+  ///
+  /// The source is deleted once its copy is safely in place, so an imported
+  /// game does not sit in the container twice and keep reoffering itself as
+  /// importable. Sources always live inside this app's own sandbox; the
+  /// user's file in Downloads or iCloud is out of reach and untouched.
+  Future<List<ImportedFile>> importFiles(
+    List<ImportedFile> files, {
+    required String destinationSubdir,
+  });
+
+  /// Where imported files live, for the library scanner to read.
+  ///
+  /// Null on folder-scan platforms, which have a user-chosen games folder in
+  /// AppPrefs instead. On iOS nothing ever writes that pref -- there is no
+  /// folder to choose -- so without this the library scanned a dev-only
+  /// fallback path and came up empty no matter how many files were imported.
+  Future<String?> importedDirPath(String destinationSubdir);
 }
 
 /// Linux + Android: pick a real directory, scan it directly. `file_picker`'s
@@ -151,6 +234,31 @@ class _FolderScanStorage extends StorageAccess {
   @override
   Future<List<ImportedFile>> listImported(String destinationSubdir) async =>
       const [];
+
+  /// Whatever is sitting in the platform's Downloads folder. Nothing is
+  /// copied on these platforms -- files are read where they lie -- so this
+  /// is purely "here is what I can already see".
+  @override
+  Future<List<ImportedFile>> listImportable({
+    required String destinationSubdir,
+    List<String> extensions = kGameFileExtensions,
+  }) async {
+    final root = firstExistingMediaSearchPath();
+    if (root == null) return const [];
+    return scanFolder(root, extensions: extensions);
+  }
+
+  @override
+  Future<List<ImportedFile>> importFiles(
+    List<ImportedFile> files, {
+    required String destinationSubdir,
+  }) {
+    throw UnsupportedError(
+        'importFiles is an iOS-only strategy; this platform reads files in place.');
+  }
+
+  @override
+  Future<String?> importedDirPath(String destinationSubdir) async => null;
 }
 
 /// iOS: sandboxed, no persistent folder access. Steps through
@@ -176,8 +284,12 @@ class _IOSFileImportStorage extends StorageAccess {
   }
 
   Future<Directory> _destinationDir(String destinationSubdir) async {
-    final docs = await getApplicationDocumentsDirectory();
-    final dir = Directory(p.join(docs.path, destinationSubdir));
+    // Not getApplicationDocumentsDirectory(): path_provider's Apple
+    // implementation goes through package:objective_c, whose native asset
+    // fails to load in the Linux-built iOS app (see docs/IOS_BUILD.md). This
+    // resolves the same directory straight from the app container.
+    final docsPath = await ViceNativePaths.iosDocumentsDirPath();
+    final dir = Directory(p.join(docsPath, destinationSubdir));
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
@@ -189,16 +301,31 @@ class _IOSFileImportStorage extends StorageAccess {
     required String destinationSubdir,
     List<String> extensions = kGameFileExtensions,
   }) async {
+    // FileType.any, NOT FileType.custom with allowedExtensions.
+    //
+    // On iOS file_picker turns each extension into a UTI and hands those to
+    // UIDocumentPickerViewController as the allowed content types. None of
+    // these extensions is a registered system type -- d64, tap, t64, crt,
+    // prg, p00, sid all resolve to dynamic UTIs that match nothing -- so the
+    // picker greyed out every single file and there was no way to select
+    // anything. Take everything and filter by extension ourselves instead.
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: extensions,
+      type: FileType.any,
+      // No initialDirectory: file_picker's iOS plugin only reads that
+      // argument on its saveFile path, never on pickFiles, so setting it
+      // here would be silently ignored. The picker opens wherever iOS last
+      // left it, and the user navigates to Downloads themselves.
     );
     if (result == null || result.files.isEmpty) return const [];
 
+    final wanted = extensions.map((e) => e.toLowerCase()).toSet();
     final destDir = await _destinationDir(destinationSubdir);
     final imported = <ImportedFile>[];
     for (final picked in result.files) {
+      final ext =
+          p.extension(picked.name).replaceFirst('.', '').toLowerCase();
+      if (!wanted.contains(ext)) continue;
       final sourcePath = picked.path;
       if (sourcePath == null) continue; // web-only field, never null on iOS
       final source = File(sourcePath);
@@ -207,6 +334,14 @@ class _IOSFileImportStorage extends StorageAccess {
       try {
         source.copySync(destPath);
         imported.add(ImportedFile(displayName: picked.name, path: destPath));
+        // Clear the staged copy. Note this is NOT the user's file: iOS hands
+        // the picker's selection over as a copy in the app's tmp directory,
+        // and the original in Downloads/iCloud is outside this sandbox and
+        // cannot be touched from here. Removing the staging copy just stops
+        // tmp growing by the size of every import.
+        try {
+          source.deleteSync();
+        } catch (_) {}
       } catch (_) {
         // Leave this file out of the result rather than aborting the whole
         // import; the wizard reports how many succeeded.
@@ -214,6 +349,10 @@ class _IOSFileImportStorage extends StorageAccess {
     }
     return imported;
   }
+
+  @override
+  Future<String?> importedDirPath(String destinationSubdir) async =>
+      (await _destinationDir(destinationSubdir)).path;
 
   @override
   Future<List<ImportedFile>> listImported(String destinationSubdir) async {
@@ -227,5 +366,71 @@ class _IOSFileImportStorage extends StorageAccess {
       ));
     }
     return results;
+  }
+
+  @override
+  Future<List<ImportedFile>> listImportable({
+    required String destinationSubdir,
+    List<String> extensions = kGameFileExtensions,
+  }) async {
+    final docsPath = await ViceNativePaths.iosDocumentsDirPath();
+    final destDir = await _destinationDir(destinationSubdir);
+    final wanted = extensions.map((e) => e.toLowerCase()).toSet();
+    final alreadyImported = (await listImported(destinationSubdir))
+        .map((f) => f.displayName.toLowerCase())
+        .toSet();
+
+    final results = <ImportedFile>[];
+    final seen = <String>{};
+    for (final entry
+        in Directory(docsPath).listSync(recursive: true, followLinks: false)) {
+      if (entry is! File) continue;
+      // Skip anything already sitting in the destination -- those are
+      // imported, not importable.
+      if (p.isWithin(destDir.path, entry.path)) continue;
+      final ext = p.extension(entry.path).replaceFirst('.', '').toLowerCase();
+      if (!wanted.contains(ext)) continue;
+      final name = p.basename(entry.path);
+      if (alreadyImported.contains(name.toLowerCase())) continue;
+      if (!seen.add(name.toLowerCase())) continue;
+      results.add(ImportedFile(displayName: name, path: entry.path));
+    }
+    results.sort((a, b) => a.displayName
+        .toLowerCase()
+        .compareTo(b.displayName.toLowerCase()));
+    return results;
+  }
+
+  @override
+  Future<List<ImportedFile>> importFiles(
+    List<ImportedFile> files, {
+    required String destinationSubdir,
+  }) async {
+    final destDir = await _destinationDir(destinationSubdir);
+    final imported = <ImportedFile>[];
+    for (final file in files) {
+      final source = File(file.path);
+      if (!source.existsSync()) continue;
+      final destPath = p.join(destDir.path, file.displayName);
+      if (p.equals(source.path, destPath)) continue;
+      try {
+        source.copySync(destPath);
+        imported.add(
+            ImportedFile(displayName: file.displayName, path: destPath));
+        // Import moves rather than copies: the source is a loose file inside
+        // this app's own container (dropped in via Files, opened in from
+        // another app, pushed over USB), so leaving it behind means the same
+        // game sits there twice and keeps reappearing as "importable".
+        // Deleted only after the copy succeeded, and a failure to delete is
+        // not fatal -- the file is safely imported either way.
+        try {
+          source.deleteSync();
+        } catch (_) {}
+      } catch (_) {
+        // Same as pickAndImportFiles: skip the file rather than abort the
+        // whole batch, and let the caller report the count that landed.
+      }
+    }
+    return imported;
   }
 }

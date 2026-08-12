@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/c64_keys.dart';
+import '../data/custom_button.dart';
 
 /// When the on-screen joypad is shown. See [AppPrefs.getOnScreenPadMode].
 enum OnScreenPadMode {
@@ -49,6 +50,7 @@ class AppPrefs {
   static const _keyOnScreenPadMode = 'on_screen_pad_mode';
   static const _keyJoystickPort = 'joystick_port';
   static const _keyCustomButtons = 'custom_on_screen_buttons';
+  static const _keyArtworkBaseUrl = 'artwork_base_url';
 
   /// Sentinel stored in prefs for "use the joystick fire default" (no
   /// explicit key remap), mirroring Android's KEY_MAPPING_DEFAULT. Kept
@@ -148,8 +150,25 @@ class AppPrefs {
   /// These are ADDITIONAL to the A/B fire buttons, which stay fire buttons.
   /// Each one sends a real C64 keyboard-matrix key via
   /// `vice_core_matrix_key_event`, so any key in [C64KeyCatalogue] can be
-  /// assigned -- not just the seven ordinals `vice_core_key_event` knows.
-  static Future<List<C64Key>> getCustomButtons() async {
+  /// assigned -- not just the seven ordinals `vice_core_key_event` knows --
+  /// or a joystick direction, for games that want UP-to-jump under a thumb.
+  /// Entries saved before directions existed still load (see
+  /// CustomButton.fromJson).
+  /// Where per-game artwork packs are served from, as `<base>/<slug>.zip`.
+  ///
+  /// Empty until a host is configured, which is not an error: the games grid
+  /// simply keeps its format-label placeholders.
+  static Future<String> getArtworkBaseUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyArtworkBaseUrl) ?? '';
+  }
+
+  static Future<void> setArtworkBaseUrl(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyArtworkBaseUrl, url.trim());
+  }
+
+  static Future<List<CustomButton>> getCustomButtons() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyCustomButtons);
     if (raw == null || raw.isEmpty) return const [];
@@ -158,14 +177,8 @@ class AppPrefs {
       if (decoded is! List) return const [];
       return decoded
           .whereType<Map<String, dynamic>>()
-          .map((entry) {
-            final row = entry['row'];
-            final column = entry['column'];
-            if (row is! int || column is! int) return null;
-            return C64KeyCatalogue.find(row, column) ??
-                C64Key(entry['label'] as String? ?? '?', row, column);
-          })
-          .whereType<C64Key>()
+          .map(CustomButton.fromJson)
+          .whereType<CustomButton>()
           .toList();
     } catch (_) {
       // A corrupt list costs the user their extra buttons, not the app.
@@ -173,14 +186,11 @@ class AppPrefs {
     }
   }
 
-  static Future<void> setCustomButtons(List<C64Key> buttons) async {
+  static Future<void> setCustomButtons(List<CustomButton> buttons) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _keyCustomButtons,
-      jsonEncode([
-        for (final b in buttons)
-          {'label': b.label, 'row': b.row, 'column': b.column},
-      ]),
+      jsonEncode([for (final b in buttons) b.toJson()]),
     );
   }
 

@@ -1093,6 +1093,97 @@ int32_t vice_core_get_audio_level(void) {
     return audio_backend_get_level();
 }
 
+/* ---------------------------------------------------------------------- */
+/* Tape + drive activity, for the loading indicators                       */
+/*                                                                         */
+/* VICE reports load progress by calling into the UI's status bar. The     */
+/* headless arch supplies these as empty stubs, so wrapping them is the    */
+/* only place the information exists -- there is no "ask the datasette     */
+/* where it is" entry point to poll instead.                               */
+/*                                                                         */
+/* Each wrapper stores the latest value and defers to the real (empty)     */
+/* stub, so nothing about VICE's own behaviour changes. Read from the UI   */
+/* thread while VICE writes from the emulation thread, hence the atomics.  */
+/* ---------------------------------------------------------------------- */
+
+static atomic_int g_tape_counter = 0;
+static atomic_int g_tape_motor = 0;
+static atomic_int g_tape_control = 0;
+static atomic_int g_drive_half_track = 0;
+static atomic_int g_drive_led = 0;
+
+extern void __real_ui_display_tape_counter(int port, int counter);
+extern void __wrap_ui_display_tape_counter(int port, int counter) {
+    atomic_store_explicit(&g_tape_counter, counter, memory_order_relaxed);
+    __real_ui_display_tape_counter(port, counter);
+}
+
+extern void __real_ui_display_tape_motor_status(int port, int motor);
+extern void __wrap_ui_display_tape_motor_status(int port, int motor) {
+    atomic_store_explicit(&g_tape_motor, motor, memory_order_relaxed);
+    __real_ui_display_tape_motor_status(port, motor);
+}
+
+extern void __real_ui_display_tape_control_status(int port, int control);
+extern void __wrap_ui_display_tape_control_status(int port, int control) {
+    atomic_store_explicit(&g_tape_control, control, memory_order_relaxed);
+    __real_ui_display_tape_control_status(port, control);
+}
+
+extern void __real_ui_display_drive_track(unsigned int drive_number,
+                                          unsigned int drive_base,
+                                          unsigned int half_track_number,
+                                          unsigned int drive_side);
+extern void __wrap_ui_display_drive_track(unsigned int drive_number,
+                                          unsigned int drive_base,
+                                          unsigned int half_track_number,
+                                          unsigned int drive_side) {
+    /* Unit 8 only: the app attaches a single disk, and reporting a second
+     * unit's head position in the same indicator would just be confusing. */
+    if (drive_number == 0) {
+        atomic_store_explicit(&g_drive_half_track, (int)half_track_number,
+                              memory_order_relaxed);
+    }
+    __real_ui_display_drive_track(drive_number, drive_base, half_track_number,
+                                  drive_side);
+}
+
+extern void __real_ui_display_drive_led(unsigned int drive_number,
+                                        unsigned int drive_base,
+                                        unsigned int pwm1,
+                                        unsigned int led_pwm2);
+extern void __wrap_ui_display_drive_led(unsigned int drive_number,
+                                        unsigned int drive_base,
+                                        unsigned int pwm1,
+                                        unsigned int led_pwm2) {
+    if (drive_number == 0) {
+        /* pwm1 is 0..1000 intensity; the indicator only needs "is it busy",
+         * and anything above a flicker counts. */
+        atomic_store_explicit(&g_drive_led, (int)pwm1, memory_order_relaxed);
+    }
+    __real_ui_display_drive_led(drive_number, drive_base, pwm1, led_pwm2);
+}
+
+int32_t vice_core_get_tape_counter(void) {
+    return atomic_load_explicit(&g_tape_counter, memory_order_relaxed);
+}
+
+int32_t vice_core_get_tape_motor(void) {
+    return atomic_load_explicit(&g_tape_motor, memory_order_relaxed);
+}
+
+int32_t vice_core_get_tape_control(void) {
+    return atomic_load_explicit(&g_tape_control, memory_order_relaxed);
+}
+
+int32_t vice_core_get_drive_half_track(void) {
+    return atomic_load_explicit(&g_drive_half_track, memory_order_relaxed);
+}
+
+int32_t vice_core_get_drive_led(void) {
+    return atomic_load_explicit(&g_drive_led, memory_order_relaxed);
+}
+
 int32_t vice_core_get_fps(void) {
     return atomic_load_explicit(&g_current_fps, memory_order_acquire);
 }

@@ -11,6 +11,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vice_multiplatform/data/c64_keys.dart';
+import 'package:vice_multiplatform/data/custom_button.dart';
+import 'package:vice_multiplatform/ffi/vice_bindings.dart';
 import 'package:vice_multiplatform/screens/emulator_screen.dart';
 import 'package:vice_multiplatform/services/app_prefs.dart';
 import 'package:vice_multiplatform/services/gamepad_service.dart';
@@ -38,7 +40,7 @@ void main() {
     required FakeViceCore core,
     OnScreenPadMode padMode = OnScreenPadMode.auto,
     GamepadService? gamepad,
-    List<C64Key> customButtons = const [],
+    List<CustomButton> customButtons = const [],
     int joystickPort = 2,
     bool leftHanded = false,
   }) async {
@@ -122,10 +124,38 @@ void main() {
         tester,
         core: FakeViceCore(),
         padMode: OnScreenPadMode.always,
-        customButtons: [C64KeyCatalogue.find(7, 4)!], // SPACE
+        customButtons: [
+          CustomButton.key(C64KeyCatalogue.find(7, 4)!), // SPACE
+        ],
       );
       expect(find.byType(CustomKeyButton), findsOneWidget);
       expect(find.byType(ActionButton), findsNWidgets(2));
+    });
+
+    testWidgets('a direction button drives the joystick, not the key matrix',
+        (tester) async {
+      final core = FakeViceCore();
+      await pumpEmulator(
+        tester,
+        core: core,
+        padMode: OnScreenPadMode.always,
+        customButtons: [CustomButton.direction(JoyDirection.up)],
+      );
+
+      final button = find.byType(CustomKeyButton);
+      expect(button, findsOneWidget);
+
+      final gesture =
+          await tester.startGesture(tester.getCenter(button));
+      await tester.pump();
+      // UP arrives as a joystick bit...
+      expect(core.joystickCalls.last.mask & ViceJoyBits.up, ViceJoyBits.up);
+      // ...and never as a keyboard press.
+      expect(core.matrixKeys, isEmpty);
+
+      await gesture.up();
+      await tester.pump();
+      expect(core.joystickCalls.last.mask & ViceJoyBits.up, 0);
     });
 
     testWidgets('left-handed mode moves the joystick without breaking layout',

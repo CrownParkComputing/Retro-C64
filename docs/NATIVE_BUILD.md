@@ -31,11 +31,23 @@ Consequences, reflected in `.github/workflows/build.yml`:
   `libvicecore.so`, so the app will report "Failed to load libvicecore" until
   one is placed next to the executable. Build it locally with the CMake
   project in `native/vice_core/linux/`.
-- **iOS** — no native build exists yet. There is no `.xcframework`, so the
-  iOS job proves only that the Dart/Flutter layer compiles. Producing a
-  runnable iOS app means building the bridge as a static library per-arch and
-  packaging it, plus a CoreAudio backend (Linux uses ALSA, Android uses
-  AAudio — see `native/vice_core/bridge/audio_backend*.c`).
+- **iOS** — built from **Linux**, no Xcode and no Mac, by
+  `native/vice_core/ios/build.sh`. It cross-compiles VICE for
+  `arm64-apple-ios` against an SDK extracted from Xcode and links
+  `libvicecore.dylib` / `libvicecore_vsid.dylib` with the bridge and a
+  CoreAudio backend (`bridge/audio_backend_ios.m`, the third implementation of
+  `audio_backend.h` alongside ALSA and AAudio).
+
+  Unlike Android these are **not committed** — they are rebuilt from the VICE
+  tree, same as the Linux core. `tools/build-ios-linux.sh` copies them into
+  `Runner.app/Frameworks`, and the Dart side dlopens them by path. There is
+  still no `.xcframework`, so the `ios` CI job on `macos-14` continues to prove
+  only that the Dart/Flutter layer compiles.
+
+  Read `docs/IOS_BUILD.md` before changing any of it — the ELF-only `--wrap`
+  trick used here does not exist on Mach-O, and nothing in the launch path may
+  depend on a storyboard or asset catalog, because `ibtool`/`actool` are
+  macOS-only.
 
 ## Rebuilding after changing bridge code
 

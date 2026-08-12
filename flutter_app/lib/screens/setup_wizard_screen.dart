@@ -28,9 +28,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../data/category.dart';
+import '../data/media_entry.dart';
 import '../services/app_prefs.dart';
-import '../services/permissions_service.dart';
 import '../services/storage_access.dart';
+import '../widgets/import_files_sheet.dart';
 
 const String kGamesImportSubdir = 'games';
 
@@ -59,8 +61,6 @@ String _platformLabel() {
   return Platform.operatingSystem.toUpperCase();
 }
 
-enum _WizardStep { welcome, app, games }
-
 class SetupWizardScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -70,166 +70,100 @@ class SetupWizardScreen extends StatefulWidget {
   State<SetupWizardScreen> createState() => _SetupWizardScreenState();
 }
 
+/// One screen: say hello, take stock of what C64 media is already reachable,
+/// and name what was found.
+///
+/// This replaced a three-step wizard (welcome -> app folder -> games folder).
+/// Two things were wrong with it on iOS. The app-folder step asked a question
+/// that has no answer in a sandbox ("APP STORAGE IS AUTOMATIC. NOTHING TO
+/// PICK."), and every question step fired the OS picker automatically the
+/// instant its `INPUT A$` line finished typing -- so the app opened straight
+/// into a full-screen document browser before the user had seen anything.
+///
+/// A note on "import from Downloads": an iOS app cannot read On My iPad ->
+/// Downloads. That folder belongs to the Files app and the sandbox forbids
+/// reaching into it, so no amount of scanning will find it. What this screen
+/// scans is everywhere the app genuinely can read -- its own container,
+/// including anything dropped into "C64-Retro Emulator" in the Files app,
+/// opened into the app from elsewhere (Documents/Inbox), or pushed over USB.
+/// Downloads is reachable only through the picker, which is what
+/// "Import from Files..." opens.
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
   final _storage = StorageAccess.instance;
-  _WizardStep _step = _WizardStep.welcome;
 
-  String? _appFolderPath;
-  String? _gamesFolderPath;
-  List<ImportedFile> _importedGameFiles = const [];
   bool _busy = false;
-
-  // Set when the user cancels a picker dialog (folder or files) without
-  // choosing anything -- the console shows a "tap to retry" line instead
-  // of auto-reopening the dialog in a loop.
-  bool _appPickCancelled = false;
-  bool _gamesPickCancelled = false;
-
-  // One-shot guard so a step only auto-prompts once per VISIT, not once per
-  // typing-complete event. Picking a folder appends a "? /path" answer line
-  // to _consoleText(), which the console then types out too -- without this
-  // guard that second burst of typing also finishes and re-fires
-  // _handleTypingComplete, reopening the dialog again immediately after a
-  // successful pick (a real, confirmed bug: "asking then select then
-  // prompting again to select"). Reset whenever the step changes so
-  // revisiting a step (e.g. Back) still auto-prompts exactly once, per the
-  // "if you go back and it asks the question again it should prompt again"
-  // requirement.
-  bool _promptedThisVisit = false;
+  bool _scanned = false;
+  String? _gamesFolderPath;
+  List<ImportedFile> _found = const [];
 
   bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
 
   @override
   void initState() {
     super.initState();
-    _restorePreviousSelection();
+    _scanOnStartup();
   }
 
-  Future<void> _restorePreviousSelection() async {
-    final app = await AppPrefs.getAppFolderPath();
-    final games = await AppPrefs.getGamesFolderPath();
-    List<ImportedFile> imported = const [];
-    if (!_isFolderScan) {
-      imported = await _storage.listImported(kGamesImportSubdir);
+  /// Pulls in whatever is already reachable, without prompting. On the
+  /// file-import platforms that means sweeping the container and copying
+  /// anything new into the games folder; on folder-scan platforms it means
+  /// re-listing the folder already configured, if there is one.
+  Future<void> _scanOnStartup() async {
+    setState(() => _busy = true);
+    try {
+      if (_isFolderScan) {
+        final games = await AppPrefs.getGamesFolderPath();
+        final files = games == null
+            ? const <ImportedFile>[]
+            : await _storage.scanFolder(games);
+        if (!mounted) return;
+        setState(() {
+          _gamesFolderPath = games;
+          _found = files;
+        });
+      } else {
+        final pending = await _storage.listImportable(
+          destinationSubdir: kGamesImportSubdir,
+        );
+        if (pending.isNotEmpty) {
+          await _storage.importFiles(pending,
+              destinationSubdir: kGamesImportSubdir);
+        }
+        final files = await _storage.listImported(kGamesImportSubdir);
+        if (!mounted) return;
+        setState(() => _found = files);
+      }
+    } catch (_) {
+      // A failed scan is not fatal -- the screen just reports nothing found
+      // and the user can still reach the picker.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _scanned = true;
+        });
+      }
     }
-    if (!mounted) return;
-    setState(() {
-      _appFolderPath = app;
-      _gamesFolderPath = games;
-      _importedGameFiles = imported;
-    });
   }
 
-  bool _canAdvance() {
-    switch (_step) {
-      case _WizardStep.welcome:
-        return true;
-      case _WizardStep.app:
-        // Folder-scan platforms need a chosen app folder before advancing,
-        // same gate as SetupWizardActivity.canAdvance()'s STEP_APP case.
-        // iOS has nothing to pick here -- the sandbox always exists.
-        return _isFolderScan ? _appFolderPath != null : true;
-      case _WizardStep.games:
-        return _isFolderScan
-            ? _gamesFolderPath != null
-            : _importedGameFiles.isNotEmpty;
-    }
-  }
-
-  void _showStep(_WizardStep step) {
-    setState(() {
-      _step = step;
-      _promptedThisVisit = false;
-    });
-  }
-
-  Future<void> _goNext() async {
-    if (!_canAdvance()) return;
-    if (_step == _WizardStep.games) {
-      await _finishSetup();
+  Future<void> _importMore() async {
+    if (_busy) return;
+    if (_isFolderScan) {
+      setState(() => _busy = true);
+      final result =
+          await _storage.pickFolder(dialogTitle: 'Select Games Folder');
+      if (result != null) {
+        await AppPrefs.setGamesFolderPath(result.path);
+      }
+      if (!mounted) return;
+      setState(() => _busy = false);
+      await _scanOnStartup();
       return;
     }
-    _showStep(_WizardStep.values[_step.index + 1]);
-  }
 
-  void _goBack() {
-    if (_step.index == 0) return;
-    _showStep(_WizardStep.values[_step.index - 1]);
-  }
-
-  Future<void> _pickAppFolder() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _appPickCancelled = false;
-    });
-    final result = await _storage.pickFolder(dialogTitle: 'Select App Folder');
-    if (result != null) {
-      await AppPrefs.setAppFolderPath(result.path);
-    }
+    await showImportFilesSheet(context, destinationSubdir: kGamesImportSubdir);
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (result != null) {
-        _appFolderPath = result.path;
-      } else {
-        _appPickCancelled = true;
-      }
-    });
-  }
-
-  Future<void> _pickGamesFolder() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _gamesPickCancelled = false;
-    });
-    // Ask for shared-storage access BEFORE the folder picker: without it
-    // (Android 11+) the picked folder can be listed but none of its files
-    // can be opened, which is exactly the "games appear but launch blank"
-    // failure. No-op on platforms where the concept doesn't apply.
-    if (!await PermissionsService.hasStorageAccess()) {
-      await PermissionsService.requestStorageAccess();
-    }
-    final result =
-        await _storage.pickFolder(dialogTitle: 'Select Games Folder');
-    if (result != null) {
-      await AppPrefs.setGamesFolderPath(result.path);
-    }
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (result != null) {
-        _gamesFolderPath = result.path;
-      } else {
-        _gamesPickCancelled = true;
-      }
-    });
-  }
-
-  Future<void> _importGameFiles() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _gamesPickCancelled = false;
-    });
-    final imported =
-        await _storage.pickAndImportFiles(destinationSubdir: kGamesImportSubdir);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (imported.isNotEmpty) {
-        // Merge rather than replace -- the user may import in multiple
-        // passes (SIDs first, then disks, say).
-        final byPath = {for (final f in _importedGameFiles) f.path: f};
-        for (final f in imported) {
-          byPath[f.path] = f;
-        }
-        _importedGameFiles = byPath.values.toList();
-      } else {
-        _gamesPickCancelled = true;
-      }
-    });
+    await _scanOnStartup();
   }
 
   Future<void> _finishSetup() async {
@@ -238,99 +172,85 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     widget.onComplete();
   }
 
-  /// Full BASIC-program text for the current step. The console types this
-  /// out character-by-character; when it changes (e.g. an answer line gets
-  /// appended once a folder is picked), the console keeps typing forward
-  /// from wherever it already was rather than restarting.
+  /// Groups what was found by media type, so the console can say
+  /// "3 DISK, 2 TAPE" rather than just a bare count.
+  Map<MediaFormatFilter, int> _countsByType() {
+    final counts = <MediaFormatFilter, int>{};
+    for (final file in _found) {
+      final dot = file.displayName.lastIndexOf('.');
+      final ext =
+          dot < 0 ? '' : file.displayName.substring(dot + 1).toLowerCase();
+      final type = ext == 'sid'
+          ? MediaFormatFilter.none
+          : MediaEntry.filterForExtension(ext);
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  String _typeLabel(MediaFormatFilter type, int count) {
+    final name = switch (type) {
+      MediaFormatFilter.disk => 'DISK',
+      MediaFormatFilter.tape => 'TAPE',
+      MediaFormatFilter.cartridge => 'CART',
+      MediaFormatFilter.prg => 'PRG',
+      MediaFormatFilter.none => 'SID',
+    };
+    return '$count $name';
+  }
+
   String _consoleText() {
-    switch (_step) {
-      case _WizardStep.welcome:
-        return '**** COMMODORE 64 BASIC V2 ****\n\n'
-            '64K RAM SYSTEM  38911 BASIC BYTES FREE\n\n'
-            '10 PRINT "WELCOME TO VICE MULTIPLATFORM"\n'
-            '20 PRINT "LETS SET UP YOUR C64 LIBRARY"\n'
-            '30 PRINT "RUNNING ON ${_platformLabel()}"\n'
-            'READY.';
-      case _WizardStep.app:
-        if (_isFolderScan) {
-          final base = '10 PRINT "WHERE SHOULD I STORE APP DATA?"\n'
-              '20 REM BEZELS, ARTWORK, EXPORTS\n'
-              '30 INPUT A\$';
-          if (_appFolderPath != null) return '$base\n? $_appFolderPath';
-          if (_appPickCancelled) return '$base\n? (CANCELLED - TAP TO RETRY)';
-          return base;
-        }
-        return '10 PRINT "APP STORAGE ON ${_platformLabel()}"\n'
-            '20 PRINT "IS AUTOMATIC. NOTHING TO PICK."\n'
-            '30 REM SANDBOX DOCUMENTS FOLDER\n'
-            '? OK';
-      case _WizardStep.games:
-        if (_isFolderScan) {
-          final base = '10 PRINT "WHERE ARE YOUR GAMES?"\n'
-              '20 REM D64/T64/CRT/PRG/SID SCANNED\n'
-              '30 INPUT A\$';
-          if (_gamesFolderPath != null) return '$base\n? $_gamesFolderPath';
-          if (_gamesPickCancelled) {
-            return '$base\n? (CANCELLED - TAP TO RETRY)';
-          }
-          return base;
-        }
-        final base = '10 PRINT "IMPORT YOUR GAMES AND SIDS"\n'
-            '20 REM COPIED INTO APP STORAGE\n'
-            '30 INPUT A\$';
-        if (_importedGameFiles.isNotEmpty) {
-          return '$base\n? ${_importedGameFiles.length} FILE(S) IMPORTED';
-        }
-        if (_gamesPickCancelled) {
-          return '$base\n? (NOTHING IMPORTED - TAP TO RETRY)';
-        }
-        return base;
-    }
-  }
+    final buffer = StringBuffer()
+      ..writeln('**** COMMODORE 64 BASIC V2 ****')
+      ..writeln()
+      ..writeln('64K RAM SYSTEM  38911 BASIC BYTES FREE')
+      ..writeln()
+      ..writeln('10 PRINT "WELCOME TO C64-RETRO EMULATOR"')
+      ..writeln('20 PRINT "RUNNING ON ${_platformLabel()}"')
+      ..writeln('30 LOAD "\$",8');
 
-  /// Fires once the current step's console text has finished typing --
-  /// this is the "INPUT A$ blocks for input" beat, so a folder/file
-  /// question opens the real OS picker right here, automatically. This
-  /// fires once per VISIT to the step (see [_promptedThisVisit]), including
-  /// navigating Back to a step that already has an answer -- a real
-  /// `INPUT A$` prompts again each time it runs, it doesn't silently keep
-  /// the old answer, so going back and having the question retyped means
-  /// it's asking again, not just redisplaying history. It must NOT also
-  /// fire again once an answer is picked and its "? /path" line gets typed
-  /// out below the question -- that's a second typing-complete on the same
-  /// visit, not a new visit, and re-opening the dialog right after a
-  /// successful pick is a real bug (confirmed live: "asking then select
-  /// then prompting again to select").
-  void _handleTypingComplete() {
-    if (!mounted || _busy || _promptedThisVisit) return;
-    if (_step == _WizardStep.welcome) return;
-    if (_step == _WizardStep.app && !_isFolderScan) return;
-    _promptedThisVisit = true;
-    switch (_step) {
-      case _WizardStep.welcome:
-        break;
-      case _WizardStep.app:
-        _pickAppFolder();
-      case _WizardStep.games:
-        _isFolderScan ? _pickGamesFolder() : _importGameFiles();
+    if (!_scanned) {
+      buffer.write('\nSEARCHING...');
+      return buffer.toString();
     }
-  }
 
-  /// Tap-to-retry/tap-to-correct -- re-invokes whichever picker this step
-  /// uses, whether the previous attempt was cancelled OR already answered.
-  /// Without the "already answered" case a folder choice could never be
-  /// changed once made (Back just shows the same stale answer with no way
-  /// to redo it), which is the whole point of a tappable BASIC-style
-  /// prompt: tap the answer line to retype it.
-  void _retryPick() {
-    switch (_step) {
-      case _WizardStep.welcome:
-        return;
-      case _WizardStep.app:
-        _pickAppFolder();
-      case _WizardStep.games:
-        _isFolderScan ? _pickGamesFolder() : _importGameFiles();
+    if (_found.isEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('SEARCHING FOR PROGRAMS')
+        ..writeln('READY.')
+        ..writeln()
+        ..write(_isFolderScan
+            ? '? NO GAMES FOLDER SET - CHOOSE ONE'
+            : '? NOTHING FOUND - TAP IMPORT');
+      return buffer.toString();
     }
+
+    final counts = _countsByType();
+    final summary = counts.entries
+        .map((e) => _typeLabel(e.key, e.value))
+        .join(', ');
+
+    buffer
+      ..writeln()
+      ..writeln('SEARCHING FOR PROGRAMS')
+      ..writeln('FOUND ${_found.length} FILE(S): $summary');
+    if (_gamesFolderPath != null) {
+      buffer.writeln('IN $_gamesFolderPath');
+    }
+    buffer.writeln();
+
+    // Name them, newest-looking first is unhelpful here -- alphabetical is
+    // what a directory listing would give.
+    final names = _found.map((f) => f.displayName).toList()..sort();
+    for (final name in names.take(12)) {
+      buffer.writeln('  "${name.toUpperCase()}"');
+    }
+    if (names.length > 12) {
+      buffer.writeln('  ... AND ${names.length - 12} MORE');
+    }
+    buffer.write('READY.');
+    return buffer.toString();
   }
 
   @override
@@ -338,33 +258,25 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return Scaffold(
       backgroundColor: _borderBlue,
       body: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _retryPick,
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Container(
-              width: double.infinity,
-              color: _screenBlue,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: _TypedConsole(
-                        // A fresh key per step forces a clean restart of
-                        // the typing animation instead of trying to diff
-                        // against a completely different step's text.
-                        key: ValueKey(_step),
-                        text: _consoleText(),
-                        onComplete: _handleTypingComplete,
-                      ),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Container(
+            width: double.infinity,
+            color: _screenBlue,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _TypedConsole(
+                      key: ValueKey(_consoleText().length),
+                      text: _consoleText(),
                     ),
                   ),
-                  _footer(),
-                ],
-              ),
+                ),
+                _footer(),
+              ],
             ),
           ),
         ),
@@ -387,29 +299,22 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
           ? const SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white))
           : Text(label),
     );
   }
 
   Widget _footer() {
-    final canAdvance = _canAdvance();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (_step != _WizardStep.welcome) ...[
-            _button('Back', _goBack),
-            const SizedBox(width: 8),
-          ],
-          Opacity(
-            opacity: canAdvance ? 1.0 : 0.45,
-            child: _button(
-              _step == _WizardStep.games ? 'Finish' : 'Next',
-              canAdvance ? _goNext : null,
-            ),
-          ),
+          _button(_isFolderScan ? 'Choose folder' : 'Import from Files…',
+              _busy ? null : _importMore),
+          const SizedBox(width: 8),
+          _button('Start', _busy ? null : _finishSetup),
         ],
       ),
     );
@@ -426,12 +331,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 /// finishes).
 class _TypedConsole extends StatefulWidget {
   final String text;
-  final VoidCallback? onComplete;
 
   const _TypedConsole({
     super.key,
     required this.text,
-    this.onComplete,
   });
 
   @override
@@ -491,7 +394,6 @@ class _TypedConsoleState extends State<_TypedConsole> {
   void _fireCompleteIfNeeded() {
     if (_completedFor == widget.text) return;
     _completedFor = widget.text;
-    widget.onComplete?.call();
   }
 
   @override

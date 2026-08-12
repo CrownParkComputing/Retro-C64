@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
 import '../services/app_prefs.dart';
+import 'setup_wizard_screen.dart' show kGamesImportSubdir;
+import '../services/storage_access.dart';
 import '../services/vsid_service.dart';
 import '../theme/vice_theme.dart';
 
@@ -90,10 +92,12 @@ class _MusicScreenState extends State<MusicScreen> {
   /// A user's own music folder -- a sibling `Music/` directory next to the
   /// configured Games folder (e.g. Games folder .../Vice/Games ->
   /// .../Vice/Music) -- still wins when it exists, so anyone who has
-  /// curated their own copies keeps them. Underneath it there is always the
-  /// bundled Top-10 extracted out of the app's own assets, which is what
-  /// makes the playlist work on Android (and on a fresh Linux install with
-  /// no Music/ folder anywhere).
+  /// curated their own copies keeps them. Below that come the SIDs imported
+  /// through the normal importer, and finally the app's own SID folder.
+  ///
+  /// There is no bundled playlist any more: the twenty tunes that used to
+  /// ship were commercial compositions and could not be redistributed, so
+  /// the tab now plays what the user brings.
   Future<void> _resolveMusicDir() async {
     final dirs = <String>[];
     final gamesFolder = await AppPrefs.getGamesFolderPath();
@@ -101,10 +105,19 @@ class _MusicScreenState extends State<MusicScreen> {
       final candidate = p.join(p.dirname(gamesFolder), 'Music');
       if (Directory(candidate).existsSync()) dirs.add(candidate);
     }
+    // SIDs the user imported. They arrive through the same importer as
+    // games (.sid is in kGameFileExtensions), so they land in the games
+    // folder -- the Music tab has to look there or an imported tune is
+    // invisible to the only screen that plays it.
+    final importedDir =
+        await StorageAccess.instance.importedDirPath(kGamesImportSubdir);
+    if (importedDir != null && Directory(importedDir).existsSync()) {
+      dirs.add(importedDir);
+    }
     try {
       dirs.add(await ViceNativePaths.extractBundledSidDir());
     } catch (_) {
-      // Extraction failure just means the bundled fallback is unavailable;
+      // A missing SID folder just means there is nothing to fall back on;
       // any user folder found above still works.
     }
     if (!mounted) return;

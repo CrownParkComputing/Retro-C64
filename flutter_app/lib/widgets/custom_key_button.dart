@@ -1,26 +1,38 @@
 import 'package:flutter/material.dart';
 
 import '../data/c64_keys.dart';
+import '../data/custom_button.dart';
 import '../ffi/vice_core.dart';
 import '../theme/vice_theme.dart';
 
-/// An extra on-screen button the user added themselves, bound to one C64
-/// keyboard key.
+/// An extra on-screen button the user added themselves, bound either to one
+/// C64 keyboard key or to a joystick direction.
 ///
 /// Deliberately NOT a remap of an existing control: the joystick stays the
-/// joystick and A/B stay fire, and these are added explicitly from Input
-/// settings ("Add button" -> pick a key). Presses go straight to
-/// `vice_core_matrix_key_event`, so any key in [C64KeyCatalogue] works --
-/// including SPACE and RUN/STOP, which is what most games actually ask for.
+/// joystick and A/B stay fire, and these are added explicitly ("Add button"
+/// -> pick a key or direction) from Input settings or the in-game menu.
+///
+/// Key presses go straight to `vice_core_matrix_key_event`, so any key in
+/// [C64KeyCatalogue] works -- including SPACE and RUN/STOP, which is what
+/// most games actually ask for. Direction presses do NOT touch the core
+/// directly: they report their bit upward so the emulator screen can OR it
+/// with the stick and the gamepad, exactly as the A/B buttons do. Driving
+/// the core from here would make the last source to move win, so holding
+/// this button would cancel the stick.
 class CustomKeyButton extends StatefulWidget {
-  final C64Key c64Key;
+  final CustomButton binding;
   final ViceCore core;
   final double size;
 
+  /// Direction bindings only: reports this button's own direction bit going
+  /// down/up. Ignored for key bindings.
+  final void Function(JoyDirection direction, bool down)? onDirectionChanged;
+
   const CustomKeyButton({
     super.key,
-    required this.c64Key,
+    required this.binding,
     required this.core,
+    this.onDirectionChanged,
     this.size = 52,
   });
 
@@ -31,24 +43,32 @@ class CustomKeyButton extends StatefulWidget {
 class _CustomKeyButtonState extends State<CustomKeyButton> {
   bool _pressed = false;
 
+  void _send(bool down) {
+    final binding = widget.binding;
+    if (binding.isDirection) {
+      widget.onDirectionChanged?.call(binding.direction!, down);
+    } else {
+      final key = binding.key!;
+      widget.core.matrixKeyEvent(key.row, key.column, down);
+    }
+  }
+
   void _down() {
     setState(() => _pressed = true);
-    widget.core.matrixKeyEvent(widget.c64Key.row, widget.c64Key.column, true);
+    _send(true);
   }
 
   void _up() {
     if (!_pressed) return;
     setState(() => _pressed = false);
-    widget.core.matrixKeyEvent(widget.c64Key.row, widget.c64Key.column, false);
+    _send(false);
   }
 
   @override
   void dispose() {
     // A button removed (or a screen left) while held must not leave the key
-    // stuck down in the emulated matrix.
-    if (_pressed) {
-      widget.core.matrixKeyEvent(widget.c64Key.row, widget.c64Key.column, false);
-    }
+    // stuck down in the emulated matrix, or the direction bit latched on.
+    if (_pressed) _send(false);
     super.dispose();
   }
 
@@ -80,7 +100,7 @@ class _CustomKeyButtonState extends State<CustomKeyButton> {
         ),
         alignment: Alignment.center,
         child: Text(
-          widget.c64Key.label,
+          widget.binding.label,
           maxLines: 1,
           style: const TextStyle(
             color: Colors.white,
@@ -93,11 +113,15 @@ class _CustomKeyButtonState extends State<CustomKeyButton> {
   }
 }
 
-/// Modal that lets the user pick which C64 key a new button should send.
-/// Grouped by [C64KeyCatalogue.groups] so the full 8x8 matrix is browsable
-/// instead of being one undifferentiated grid.
-Future<C64Key?> showC64KeyPicker(BuildContext context) {
-  return showDialog<C64Key>(
+/// Modal that lets the user pick what a new button should do: a joystick
+/// direction, or any C64 key.
+///
+/// Directions come first because they are four options against sixty-four,
+/// and because "UP to jump" is the single most common reason to add a button
+/// at all. Keys stay grouped by [C64KeyCatalogue.groups] so the full 8x8
+/// matrix is browsable instead of being one undifferentiated grid.
+Future<CustomButton?> showC64KeyPicker(BuildContext context) {
+  return showDialog<CustomButton>(
     context: context,
     builder: (context) => Dialog(
       backgroundColor: const Color(0xFF141A1F),
@@ -109,7 +133,7 @@ Future<C64Key?> showC64KeyPicker(BuildContext context) {
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                'Choose a C64 key for the new button',
+                'Choose what the new button does',
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -120,6 +144,33 @@ Future<C64Key?> showC64KeyPicker(BuildContext context) {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12, bottom: 6),
+                    child: Text(
+                      'JOYSTICK DIRECTION',
+                      style: TextStyle(
+                          color: ViceColors.accentTeal,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final direction in JoyDirection.values)
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context)
+                              .pop(CustomButton.direction(direction)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Color(0x55FFFFFF)),
+                          ),
+                          child: Text(direction.label),
+                        ),
+                    ],
+                  ),
                   for (final entry in C64KeyCatalogue.groups.entries) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 12, bottom: 6),
@@ -138,7 +189,7 @@ Future<C64Key?> showC64KeyPicker(BuildContext context) {
                       children: [
                         for (final key in entry.value)
                           OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(key),
+                            onPressed: () => Navigator.of(context).pop(CustomButton.key(key)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
                               side: const BorderSide(color: Color(0xFF3D4652)),

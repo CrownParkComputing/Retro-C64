@@ -6,8 +6,12 @@
 import 'package:flutter/material.dart';
 
 import '../services/app_prefs.dart';
+import '../services/artwork_service.dart';
+import '../services/rom_install_service.dart';
+import '../ffi/vice_native_paths.dart';
 import '../services/permissions_service.dart';
 import '../services/storage_access.dart';
+import '../widgets/import_files_sheet.dart';
 import '../theme/vice_theme.dart';
 import 'setup_wizard_screen.dart';
 
@@ -16,7 +20,16 @@ class PathsSettingsScreen extends StatefulWidget {
   /// workbench can rescan its library without the user going anywhere.
   final VoidCallback? onLibraryShouldRescan;
 
-  const PathsSettingsScreen({super.key, this.onLibraryShouldRescan});
+  /// Re-opens the setup wizard. Clears the completed flag first so the
+  /// wizard is what the app comes back to on next launch too, rather than
+  /// being a one-shot visit that forgets itself.
+  final VoidCallback? onRerunSetup;
+
+  const PathsSettingsScreen({
+    super.key,
+    this.onLibraryShouldRescan,
+    this.onRerunSetup,
+  });
 
   @override
   State<PathsSettingsScreen> createState() => _PathsSettingsScreenState();
@@ -29,6 +42,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   int _importedCount = 0;
   bool _loading = true;
   bool _hasStorageAccess = true;
+  bool _romsInstalled = false;
+  String _artworkBaseUrl = '';
 
   bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
 
@@ -42,6 +57,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final app = await AppPrefs.getAppFolderPath();
     final games = await AppPrefs.getGamesFolderPath();
     final access = await PermissionsService.hasStorageAccess();
+    final roms = await ViceNativePaths.romsInstalled();
+    final artUrl = await AppPrefs.getArtworkBaseUrl();
     int imported = 0;
     if (!_isFolderScan) {
       imported = (await _storage.listImported(kGamesImportSubdir)).length;
@@ -52,8 +69,70 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _gamesFolderPath = games;
       _importedCount = imported;
       _hasStorageAccess = access;
+      _romsInstalled = roms;
+      _artworkBaseUrl = artUrl;
       _loading = false;
     });
+  }
+
+  /// Points the app at a host serving per-game artwork packs.
+  ///
+  /// Clearing ArtworkService's negative cache matters: without it, every
+  /// title looked up before the host was set stays marked "no artwork" for
+  /// the rest of the session, and the grid looks broken after configuring it.
+  Future<void> _editArtworkUrl() async {
+    final controller = TextEditingController(text: _artworkBaseUrl);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF141A1F),
+        title: const Text('Artwork host',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'https://example.com/c64-art',
+            hintStyle: TextStyle(color: Colors.white38),
+            helperText: 'Packs are fetched as <host>/<title-slug>.zip',
+            helperStyle: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+
+    await AppPrefs.setArtworkBaseUrl(result);
+    ArtworkService.baseUrl = result.trim();
+    ArtworkService.clearMisses();
+    if (!mounted) return;
+    await _load();
+    widget.onLibraryShouldRescan?.call();
+  }
+
+  Future<void> _importRoms() async {
+    final count = await RomInstallService.importRoms();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(count == 0
+            ? 'No ROM files installed -- pick the .bin files themselves.'
+            : 'Installed $count ROM file(s).'),
+      ),
+    );
+    await _load();
+    widget.onLibraryShouldRescan?.call();
   }
 
   Future<void> _rerunWizard() async {
@@ -83,9 +162,20 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     await _load();
   }
 
+  /// Clears the completed flag and hands control back to the wizard. The
+  /// flag is cleared rather than just navigating, so a relaunch mid-setup
+  /// still lands on the wizard instead of silently reverting.
+  Future<void> _rerunSetup() async {
+    await AppPrefs.setSetupCompleted(false);
+    if (!mounted) return;
+    widget.onRerunSetup?.call();
+  }
+
   Future<void> _importFiles() async {
-    final imported =
-        await _storage.pickAndImportFiles(destinationSubdir: kGamesImportSubdir);
+    final imported = await showImportFilesSheet(
+      context,
+      destinationSubdir: kGamesImportSubdir,
+    );
     if (!mounted) return;
     if (imported.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,13 +197,54 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       children: [
-        const Text('Paths & Setup',
-            style: TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Paths & Setup',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
+            ),
+            if (widget.onRerunSetup != null)
+              OutlinedButton.icon(
+                onPressed: _rerunSetup,
+                icon: const Icon(Icons.replay, size: 16),
+                label: const Text('Run setup again'),
+              ),
+          ],
+        ),
         const SizedBox(height: 10),
         if (_loading)
           const Text('Loading...', style: TextStyle(color: Colors.white38))
         else ...[
+          // ROMs before everything else: without them the core cannot boot,
+          // so a missing set makes every other setting on this screen moot.
+          _Row(
+            label: 'C64 ROMs',
+            value: _romsInstalled
+                ? 'Installed -- kernal, basic and chargen found'
+                : 'MISSING -- games cannot start until these are supplied',
+            valueColor:
+                _romsInstalled ? ViceColors.accentTeal : Colors.orangeAccent,
+            actionLabel: _romsInstalled ? 'Replace...' : 'Import ROMs...',
+            onAction: _importRoms,
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Text(
+              RomInstallService.guidance,
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ),
+          _Row(
+            label: 'Artwork host',
+            value: _artworkBaseUrl.isEmpty
+                ? 'not set -- tiles show format labels'
+                : _artworkBaseUrl,
+            actionLabel: 'Set...',
+            onAction: _editArtworkUrl,
+          ),
           // Storage access first: on Android nothing below it works without
           // this, and the failure mode (games listed but unreadable) is
           // confusing enough to deserve top billing.

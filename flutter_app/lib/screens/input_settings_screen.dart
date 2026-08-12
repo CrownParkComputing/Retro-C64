@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../data/c64_keys.dart';
+import '../data/custom_button.dart';
 import '../services/app_prefs.dart';
 import '../theme/vice_theme.dart';
 import '../widgets/custom_key_button.dart';
@@ -17,8 +17,8 @@ class InputSettingsScreen extends StatelessWidget {
   final ValueChanged<OnScreenPadMode> onPadModeChanged;
   final int joystickPort;
   final ValueChanged<int> onJoystickPortChanged;
-  final List<C64Key> customButtons;
-  final ValueChanged<List<C64Key>> onCustomButtonsChanged;
+  final List<CustomButton> customButtons;
+  final ValueChanged<List<CustomButton>> onCustomButtonsChanged;
   final ValueListenable<bool> gamepadConnected;
 
   const InputSettingsScreen({
@@ -149,9 +149,10 @@ class InputSettingsScreen extends StatelessWidget {
               const SizedBox(height: 4),
               const Text(
                 'A and B are the joystick fire buttons and stay that way. Add '
-                'your own buttons here for games that want a keyboard key -- '
-                'SPACE to start, RUN/STOP to abort, and so on. Any C64 key can '
-                'be assigned; the new button appears next to A and B in-game.',
+                'your own buttons here: any C64 key (SPACE to start, RUN/STOP to '
+                'abort) or a joystick direction, for games that want UP to '
+                'jump under a thumb. New buttons appear next to A and B '
+                'in-game, and can also be added from the in-game menu.',
                 style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
               const SizedBox(height: 10),
@@ -190,9 +191,9 @@ class InputSettingsScreen extends StatelessWidget {
                     side: const BorderSide(color: ViceColors.accentTeal),
                   ),
                   onPressed: () async {
-                    final key = await showC64KeyPicker(context);
-                    if (key == null) return;
-                    onCustomButtonsChanged([...customButtons, key]);
+                    final binding = await showC64KeyPicker(context);
+                    if (binding == null) return;
+                    onCustomButtonsChanged([...customButtons, binding]);
                   },
                 ),
               ),

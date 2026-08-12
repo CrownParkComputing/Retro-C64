@@ -56,6 +56,35 @@ abstract class ViceCore {
 
   int get fps;
 
+  /// Live media activity, for the loading indicators. Fed by VICE's own
+  /// status-bar callbacks, so these only move while media is being read.
+  MediaActivity get mediaActivity;
+
   /// The current frame, or null before the core has drawn one.
   FrameSnapshot? getFramebuffer();
+}
+
+/// A snapshot of what the datasette and disk drive are doing.
+class MediaActivity {
+  /// Datasette position counter (the three-digit number on a real C64
+  /// tape deck), and whether its motor is currently turning.
+  final int tapeCounter;
+  final bool tapeMotorOn;
+
+  /// Head position as a whole track (18.5 becomes 18), and whether the
+  /// drive LED is lit -- i.e. the drive is actually reading.
+  final int driveTrack;
+  final bool driveActive;
+
+  const MediaActivity({
+    this.tapeCounter = 0,
+    this.tapeMotorOn = false,
+    this.driveTrack = 0,
+    this.driveActive = false,
+  });
+
+  static const MediaActivity idle = MediaActivity();
+
+  /// True while either mechanism is doing something worth showing.
+  bool get isLoading => tapeMotorOn || driveActive;
 }

@@ -118,6 +118,23 @@ int32_t vice_core_get_audio_level(void);
 /* Measured frames-per-second of the video refresh callback. */
 int32_t vice_core_get_fps(void);
 
+/* Tape and drive activity, for the loading indicators.
+ *
+ * These are fed by VICE's own status-bar callbacks (wrapped in the bridge),
+ * so they only change while media is actually being read.
+ *
+ * vice_core_get_tape_counter    datasette position, the three-digit counter
+ * vice_core_get_tape_motor      nonzero while the tape motor is running
+ * vice_core_get_tape_control    DATASETTE_CONTROL_* (stop/play/rewind/...)
+ * vice_core_get_drive_half_track  twice the head's track (36 == track 18)
+ * vice_core_get_drive_led       drive LED intensity, 0..1000
+ */
+int32_t vice_core_get_tape_counter(void);
+int32_t vice_core_get_tape_motor(void);
+int32_t vice_core_get_tape_control(void);
+int32_t vice_core_get_drive_half_track(void);
+int32_t vice_core_get_drive_led(void);
+
 #ifdef __cplusplus
 }
 #endif

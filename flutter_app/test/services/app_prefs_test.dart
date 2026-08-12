@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vice_multiplatform/data/c64_keys.dart';
+import 'package:vice_multiplatform/data/custom_button.dart';
 import 'package:vice_multiplatform/services/app_prefs.dart';
 
 void main() {
@@ -90,16 +91,17 @@ void main() {
   group('custom on-screen buttons', () {
     test('keep their keys, and their order, across a restart', () async {
       final buttons = [
-        C64KeyCatalogue.find(7, 4)!, // SPACE
-        C64KeyCatalogue.find(7, 7)!, // RUN/STOP
-        C64KeyCatalogue.find(1, 2)!, // A
+        CustomButton.key(C64KeyCatalogue.find(7, 4)!), // SPACE
+        CustomButton.key(C64KeyCatalogue.find(7, 7)!), // RUN/STOP
+        CustomButton.key(C64KeyCatalogue.find(1, 2)!), // A
       ];
       await AppPrefs.setCustomButtons(buttons);
 
       final restored = await AppPrefs.getCustomButtons();
       expect(restored.map((k) => k.label).toList(),
           ['SPACE', 'RUN/STOP', 'A']);
-      expect(restored.map((k) => k.id).toList(), ['7:4', '7:7', '1:2']);
+      expect(restored.map((k) => k.id).toList(),
+          ['key:7:4', 'key:7:7', 'key:1:2']);
     });
 
     test('a key the catalogue no longer knows keeps its stored label',
@@ -112,8 +114,8 @@ void main() {
       });
       final restored = await AppPrefs.getCustomButtons();
       expect(restored.single.label, 'MYSTERY');
-      expect(restored.single.row, 6);
-      expect(restored.single.column, 3);
+      expect(restored.single.key!.row, 6);
+      expect(restored.single.key!.column, 3);
     });
 
     test('a corrupt list costs the buttons, not the app', () async {
@@ -128,8 +130,43 @@ void main() {
       expect(await AppPrefs.getCustomButtons(), isEmpty);
     });
 
+    test('joystick directions round-trip alongside keys', () async {
+      await AppPrefs.setCustomButtons([
+        CustomButton.direction(JoyDirection.up),
+        CustomButton.key(C64KeyCatalogue.find(7, 4)!),
+      ]);
+
+      final restored = await AppPrefs.getCustomButtons();
+      expect(restored.map((b) => b.label).toList(), ['Up', 'SPACE']);
+      expect(restored.first.isDirection, isTrue);
+      expect(restored.first.direction, JoyDirection.up);
+      expect(restored.last.isDirection, isFalse);
+      // Ids are namespaced so a direction can never collide with a key.
+      expect(restored.map((b) => b.id).toList(), ['dir:up', 'key:7:4']);
+    });
+
+    test('buttons saved before directions existed still load', () async {
+      // The old format had no 'direction' field at all. An upgrade must not
+      // silently drop the buttons someone already set up.
+      SharedPreferences.setMockInitialValues({
+        'custom_on_screen_buttons':
+            jsonEncode([{'label': 'SPACE', 'row': 7, 'column': 4}]),
+      });
+      final restored = await AppPrefs.getCustomButtons();
+      expect(restored.single.isDirection, isFalse);
+      expect(restored.single.label, 'SPACE');
+    });
+
+    test('an unknown direction name is dropped, not crashed on', () async {
+      SharedPreferences.setMockInitialValues({
+        'custom_on_screen_buttons': jsonEncode([{'direction': 'sideways'}]),
+      });
+      expect(await AppPrefs.getCustomButtons(), isEmpty);
+    });
+
     test('clearing the list removes every button', () async {
-      await AppPrefs.setCustomButtons([C64KeyCatalogue.find(7, 4)!]);
+      await AppPrefs.setCustomButtons(
+          [CustomButton.key(C64KeyCatalogue.find(7, 4)!)]);
       await AppPrefs.setCustomButtons([]);
       expect(await AppPrefs.getCustomButtons(), isEmpty);
     });

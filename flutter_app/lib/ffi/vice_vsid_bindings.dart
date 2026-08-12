@@ -81,7 +81,13 @@ class ViceVsidBindings {
       lib = DynamicLibrary.open(libraryPath ?? 'libvicecore_vsid.so');
     } else if (Platform.isAndroid) {
       lib = DynamicLibrary.open(libraryPath ?? 'libvicecore_vsid.so');
-    } else if (Platform.isIOS || Platform.isMacOS) {
+    } else if (Platform.isIOS) {
+      // Bundled in Runner.app/Frameworks rather than linked into the Runner
+      // binary, so it has to be dlopened by path -- same as the game core.
+      lib = libraryPath != null
+          ? DynamicLibrary.open(libraryPath)
+          : DynamicLibrary.process();
+    } else if (Platform.isMacOS) {
       lib = DynamicLibrary.process();
     } else if (Platform.isWindows) {
       lib = DynamicLibrary.open(libraryPath ?? 'vicecore_vsid.dll');

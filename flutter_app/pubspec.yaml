@@ -40,6 +40,8 @@ dependencies:
   shared_preferences: ^2.3.5
   path_provider: ^2.1.5
   gamepads: ^0.1.10+5
+  http: ^1.6.0
+  archive: ^4.0.9
 
 dev_dependencies:
   flutter_test:
@@ -66,11 +68,19 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/retro_recomp_logo.png
-    - assets/vice/C64/
-    - assets/vice/DRIVES/
-    # Top-10 SID tunes played by the Music tab (SID Workstation). Bundled
-    # so the playlist works out of the box on every platform -- on Android
-    # there's no user Music/ folder to find. ~64KB total.
+    # DELIBERATELY NOT BUNDLED: the C64 ROMs.
+    #
+    # assets/vice/C64 and assets/vice/DRIVES hold Commodore's kernal, BASIC,
+    # chargen and 1541 DOS ROMs. Those are still under copyright (Cloanto
+    # today), and shipping them in a store build is not ours to do. The app
+    # asks the user to supply them instead -- see RomStatus and the guidance
+    # on the Paths screen.
+    #
+    # SID tunes for the Music tab. These are commercial game compositions
+    # whose composers still hold the rights; bundling them is a deliberate
+    # product decision, not an oversight. The Music tab ALSO plays whatever
+    # the user imports, so this is a starting playlist rather than the only
+    # source.
     - assets/sids/
   # assets:
   #   - images/a_dot_burr.jpeg

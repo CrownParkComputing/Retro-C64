@@ -7,6 +7,7 @@ import 'ffi/vice_native_paths.dart';
 import 'screens/setup_wizard_screen.dart';
 import 'screens/workbench_screen.dart';
 import 'services/app_prefs.dart';
+import 'services/artwork_service.dart';
 import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
 
@@ -44,6 +45,7 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
     WidgetsBinding.instance.addObserver(this);
     _loadCore();
     _checkSetup();
+    _loadArtworkHost();
   }
 
   @override
@@ -77,12 +79,18 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
     }
   }
 
+  /// Artwork host, read once at startup so the grid can draw box art without
+  /// every tile hitting shared_preferences.
+  Future<void> _loadArtworkHost() async {
+    ArtworkService.baseUrl = await AppPrefs.getArtworkBaseUrl();
+  }
+
   Future<void> _loadCore() async {
     try {
       final libPath = ViceNativePaths.gameCoreLibraryPath;
       // Android's ROM dir isn't known synchronously -- first launch has to
       // extract the bundled assets/vice/{C64,DRIVES} out of the APK into a
-      // real filesystem path first (see extractAndroidRomDir). This must
+      // real filesystem path first (see extractBundledRomDir). This must
       // be awaited before core.init() runs, since VICE needs the ROM files
       // on disk at init time.
       final romDir = await ViceNativePaths.resolveRomDir();
@@ -113,7 +121,7 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'VICE Multiplatform',
+      title: 'C64-Retro Emulator',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
       home: _loadError != null
@@ -124,7 +132,11 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
                   ? SetupWizardScreen(
                       onComplete: () => setState(() => _setupCompleted = true),
                     )
-                  : WorkbenchScreen(core: _core!)),
+                  : WorkbenchScreen(
+                      core: _core!,
+                      onRerunSetup: () =>
+                          setState(() => _setupCompleted = false),
+                    )),
     );
   }
 }

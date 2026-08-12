@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Clang wrapper that cross-compiles C for arm64 iOS from Linux.
+#
+# Two things clang's Darwin driver does not do for us when the host is Linux:
+#   * it does not find a Mach-O linker, so -fuse-ld has to name ld64.lld;
+#   * it does not pass -arch / -platform_version through, and ld64.lld refuses
+#     to link without both ("must specify -platform_version", "missing or
+#     unsupported -arch arm64").
+# The linker flags are only added when we are actually linking, because clang
+# warns about unused arguments during compilation and VICE's configure runs
+# some tests with -Werror.
+set -euo pipefail
+
+: "${IOS_SDK:?IOS_SDK not set}"
+: "${IOS_LD:?IOS_LD not set}"
+IOS_MIN="${IOS_MIN:-13.0}"
+IOS_SDK_VERSION="${IOS_SDK_VERSION:-16.0}"
+IOS_TARGET="${IOS_TARGET:-arm64-apple-ios${IOS_MIN}}"
+
+compile_only=false
+for arg in "$@"; do
+    case "$arg" in
+        -c|-E|-S|-M|-MM) compile_only=true ;;
+    esac
+done
+
+if $compile_only; then
+    exec /usr/bin/clang -target "$IOS_TARGET" -isysroot "$IOS_SDK" "$@"
+fi
+
+exec /usr/bin/clang \
+    -target "$IOS_TARGET" \
+    -isysroot "$IOS_SDK" \
+    -fuse-ld="$IOS_LD" \
+    -Wl,-arch,arm64 \
+    -Wl,-platform_version,ios,"${IOS_MIN}.0","${IOS_SDK_VERSION}.0" \
+    -Wl,-adhoc_codesign \
+    "$@"

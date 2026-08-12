@@ -15,11 +15,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../data/category.dart';
 import '../ffi/vice_bindings.dart';
 import '../ffi/vice_core.dart';
+import '../ffi/vice_native_paths.dart';
 
 /// One resumable session.
 class SaveStateEntry {
@@ -117,8 +117,11 @@ class SaveStateService {
   static Future<Directory> _stateDir() async {
     final cached = _dir;
     if (cached != null) return cached;
-    final support = await getApplicationSupportDirectory();
-    final dir = Directory(p.join(support.path, 'savestates'));
+    // ViceNativePaths, not path_provider directly: its Apple implementation
+    // fails to load in this build, and going through it here meant every
+    // save silently failed on iOS.
+    final support = await ViceNativePaths.supportDirPath();
+    final dir = Directory(p.join(support, 'savestates'));
     if (!dir.existsSync()) {
       await dir.create(recursive: true);
     }

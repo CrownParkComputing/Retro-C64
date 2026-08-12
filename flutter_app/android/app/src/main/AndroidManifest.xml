@@ -21,7 +21,7 @@
         android:maxSdkVersion="32" />
     <application
         android:requestLegacyExternalStorage="true"
-        android:label="VICE Multiplatform"
+        android:label="C64-Retro Emulator"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

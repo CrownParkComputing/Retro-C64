@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'about_screen.dart';
-import '../data/c64_keys.dart';
 import '../data/category.dart';
+import '../data/custom_button.dart';
 import '../data/media_entry.dart';
 import '../ffi/vice_bindings.dart';
 import '../ffi/vice_core.dart';
@@ -22,6 +22,8 @@ import 'resume_screen.dart';
 import 'settings_placeholder.dart';
 import 'video_settings_screen.dart';
 import '../services/app_prefs.dart';
+import 'setup_wizard_screen.dart' show kGamesImportSubdir;
+import '../services/storage_access.dart';
 import '../services/gamepad_service.dart';
 import '../services/library_scanner.dart';
 import '../services/permissions_service.dart';
@@ -35,7 +37,12 @@ import '../services/vsid_service.dart';
 class WorkbenchScreen extends StatefulWidget {
   final ViceCore core;
 
-  const WorkbenchScreen({super.key, required this.core});
+  /// Sends the user back to the setup wizard. Setup is not a one-time rite:
+  /// the games folder moves, an import goes wrong, or a new device needs
+  /// walking through it again.
+  final VoidCallback? onRerunSetup;
+
+  const WorkbenchScreen({super.key, required this.core, this.onRerunSetup});
 
   @override
   State<WorkbenchScreen> createState() => _WorkbenchScreenState();
@@ -65,7 +72,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   bool _leftHanded = false;
   OnScreenPadMode _padMode = OnScreenPadMode.auto;
   int _joystickPort = 2;
-  List<C64Key> _customButtons = const [];
+  List<CustomButton> _customButtons = const [];
 
   // External gamepad support (see gamepad_service.dart) -- created once at
   // the workbench level so it's already listening (and its `connected`
@@ -151,9 +158,21 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// folder and plays them for real via the vsid core.
   Future<void> _scanLibrary() async {
     final configured = await AppPrefs.getGamesFolderPath();
+    // On the file-import platforms (iOS) nothing ever writes the games-folder
+    // pref -- there is no folder to pick -- so imported files live in the
+    // app's own import directory. Without checking it the grid stayed empty
+    // however many files the wizard had just imported.
+    final importedDir =
+        await StorageAccess.instance.importedDirPath(kGamesImportSubdir);
+    // Downloads before the dev fixtures: on a real machine that is where a
+    // browser drops a .d64, so an unconfigured install still shows a library
+    // instead of an empty grid. iOS never reaches this branch -- its sandbox
+    // cannot read Downloads -- but importedDir above already covers it.
     final scanDir = (configured != null && Directory(configured).existsSync())
         ? configured
-        : ViceNativePaths.devRomDir;
+        : (importedDir != null && Directory(importedDir).existsSync())
+            ? importedDir
+            : (firstExistingMediaSearchPath() ?? ViceNativePaths.devRomDir);
 
     final result = scanDir == null
         ? LibraryScanResult.empty
@@ -391,6 +410,12 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       // Non-fatal: a title that refuses to snapshot still pauses correctly,
       // it just won't appear in the resume list. Better that than blocking
       // the user's way back to the workbench on it.
+      //
+      // It is NOT silent, though. This used to swallow the error whole, and
+      // when save states broke outright on iOS (capture() threw resolving its
+      // directory) the symptom was simply that nothing was ever saved, with
+      // nothing anywhere to say why. A failure the user can see is a bug
+      // someone can report.
       try {
         await SaveStateService.capture(
           core: widget.core,
@@ -398,15 +423,19 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
           mediaPath: entry.path,
           mediaType: entry.mediaType,
         );
-      } catch (_) {
-        // See above.
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save your session: $e')),
+          );
+        }
       }
     }
 
     widget.core.setPaused(true);
   }
 
-  void _setCustomButtons(List<C64Key> buttons) {
+  void _setCustomButtons(List<CustomButton> buttons) {
     setState(() => _customButtons = buttons);
     AppPrefs.setCustomButtons(buttons);
   }
@@ -441,6 +470,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
         padMode: _padMode,
         onPadModeChanged: _setPadMode,
         customButtons: _customButtons,
+        onCustomButtonsChanged: _setCustomButtons,
         joystickPort: _joystickPort,
         onJoystickPortChanged: _setJoystickPort,
       );
@@ -531,7 +561,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       case WorkbenchCategory.music:
         return const MusicScreen();
       case WorkbenchCategory.paths:
-        return PathsSettingsScreen(onLibraryShouldRescan: _scanLibrary);
+        return PathsSettingsScreen(
+          onLibraryShouldRescan: _scanLibrary,
+          onRerunSetup: widget.onRerunSetup,
+        );
       case WorkbenchCategory.video:
         return const VideoSettingsScreen();
       case WorkbenchCategory.audio:

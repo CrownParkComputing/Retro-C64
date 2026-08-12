@@ -135,7 +135,12 @@ target_link_options(vicecore PRIVATE
         -Wl,--wrap=video_canvas_refresh
         -Wl,--wrap=sound_init_dummy_device
         -Wl,--wrap=vsync_do_vsync
-        -Wl,--wrap=maincpu_mainloop)
+        -Wl,--wrap=maincpu_mainloop
+        -Wl,--wrap=ui_display_tape_counter
+        -Wl,--wrap=ui_display_tape_motor_status
+        -Wl,--wrap=ui_display_tape_control_status
+        -Wl,--wrap=ui_display_drive_track
+        -Wl,--wrap=ui_display_drive_led)
 
 target_link_libraries(vicecore
         -Wl,--start-group

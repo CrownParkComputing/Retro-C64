@@ -117,6 +117,10 @@ class ViceCoreBindings implements ViceCore {
   late final _GetFramebufferDart _getFramebuffer;
   late final _Int32VoidDart _getAudioLevel;
   late final _Int32VoidDart _getFps;
+  late final _Int32VoidDart _getTapeCounter;
+  late final _Int32VoidDart _getTapeMotor;
+  late final _Int32VoidDart _getDriveHalfTrack;
+  late final _Int32VoidDart _getDriveLed;
 
   ViceCoreBindings._(this._lib) {
     _init = _lib
@@ -166,6 +170,19 @@ class ViceCoreBindings implements ViceCore {
     _getAudioLevel = _lib
         .lookup<NativeFunction<_Int32VoidNative>>('vice_core_get_audio_level')
         .asFunction();
+    _getTapeCounter = _lib
+        .lookup<NativeFunction<_Int32VoidNative>>('vice_core_get_tape_counter')
+        .asFunction();
+    _getTapeMotor = _lib
+        .lookup<NativeFunction<_Int32VoidNative>>('vice_core_get_tape_motor')
+        .asFunction();
+    _getDriveHalfTrack = _lib
+        .lookup<NativeFunction<_Int32VoidNative>>(
+            'vice_core_get_drive_half_track')
+        .asFunction();
+    _getDriveLed = _lib
+        .lookup<NativeFunction<_Int32VoidNative>>('vice_core_get_drive_led')
+        .asFunction();
     _getFps = _lib
         .lookup<NativeFunction<_Int32VoidNative>>('vice_core_get_fps')
         .asFunction();
@@ -179,7 +196,16 @@ class ViceCoreBindings implements ViceCore {
       lib = DynamicLibrary.open(libraryPath ?? 'libvicecore.so');
     } else if (Platform.isAndroid) {
       lib = DynamicLibrary.open(libraryPath ?? 'libvicecore.so');
-    } else if (Platform.isIOS || Platform.isMacOS) {
+    } else if (Platform.isIOS) {
+      // The core ships as libvicecore.dylib inside the app bundle's
+      // Frameworks dir (see ViceNativePaths.gameCoreLibraryPath). It is not
+      // linked into the Runner executable, so process() would not see it --
+      // dlopen it by path. Falls back to process() for a build that does link
+      // it statically.
+      lib = libraryPath != null
+          ? DynamicLibrary.open(libraryPath)
+          : DynamicLibrary.process();
+    } else if (Platform.isMacOS) {
       lib = DynamicLibrary.process();
     } else if (Platform.isWindows) {
       lib = DynamicLibrary.open(libraryPath ?? 'vicecore.dll');
@@ -315,6 +341,18 @@ class ViceCoreBindings implements ViceCore {
 
   @override
   int get fps => _getFps();
+
+  @override
+  MediaActivity get mediaActivity => MediaActivity(
+        tapeCounter: _getTapeCounter(),
+        tapeMotorOn: _getTapeMotor() != 0,
+        // Half-tracks: 36 is track 18. Whole tracks are what a loader screen
+        // shows, so halve it.
+        driveTrack: _getDriveHalfTrack() ~/ 2,
+        // pwm1 is 0..1000 intensity. Anything lit at all means the head is
+        // working; a strict ==1000 would miss most of a real load.
+        driveActive: _getDriveLed() > 0,
+      );
 
   /// Snapshot of the current RGBA8888 framebuffer, copied into a Dart
   /// Uint32List (safe to keep after this call returns, unlike the raw

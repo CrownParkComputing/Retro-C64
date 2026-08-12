@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../theme/vice_theme.dart';
+import '../widgets/game_media_sheet.dart';
 import '../widgets/media_card.dart';
 
 /// Port of MainActivity.createLibraryContent + layoutMediaGridColumns:
@@ -68,6 +69,16 @@ class _LibraryGridState extends State<LibraryGrid> {
             ),
         ],
       ),
+    );
+  }
+
+  /// Long-press on a tile: box art, screenshot, title screen and logo for
+  /// that title, with Play still one tap away inside the sheet.
+  void _showMedia(MediaEntry entry) {
+    showGameMediaSheet(
+      context,
+      entry: entry,
+      onPlay: () => widget.onLaunch(entry),
     );
   }
 
@@ -154,6 +165,7 @@ class _LibraryGridState extends State<LibraryGrid> {
                               child: MediaCard(
                                 entry: rows[i],
                                 onTap: () => widget.onLaunch(rows[i]),
+                                onShowMedia: () => _showMedia(rows[i]),
                               ),
                             ),
                             childCount: rows.length,
@@ -179,6 +191,7 @@ class _LibraryGridState extends State<LibraryGrid> {
                         child: MediaCard(
                           entry: entry,
                           onTap: () => widget.onLaunch(entry),
+                          onShowMedia: () => _showMedia(entry),
                         ),
                       );
                     },
