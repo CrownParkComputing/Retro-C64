@@ -43,6 +43,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   bool _loading = true;
   bool _hasStorageAccess = true;
   bool _romsInstalled = false;
+  bool _driveRomInstalled = false;
   String _romDirPath = '';
   int _artworkPacks = 0;
 
@@ -59,6 +60,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final games = await AppPrefs.getGamesFolderPath();
     final access = await PermissionsService.hasStorageAccess();
     final roms = await ViceNativePaths.romsInstalled();
+    final driveRom = await ViceNativePaths.driveRomInstalled();
     final romPath = await ViceNativePaths.romDir();
     final artPacks = await ArtworkService.installedPackCount();
     int imported = 0;
@@ -72,6 +74,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _importedCount = imported;
       _hasStorageAccess = access;
       _romsInstalled = roms;
+      _driveRomInstalled = driveRom;
       _romDirPath = romPath;
       _artworkPacks = artPacks;
       _loading = false;
@@ -224,11 +227,52 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
             onAction: _importRoms,
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Text(
-              RomInstallService.guidance,
-              style: TextStyle(color: Colors.white54, fontSize: 11),
+          // Reported separately from the machine ROMs, because it is missed
+          // separately: the emulator boots and looks completely healthy
+          // without it, right up until a disk image refuses to load.
+          _Row(
+            label: '1541 drive ROM',
+            value: _driveRomInstalled
+                ? 'Installed -- disk images can load'
+                : 'MISSING in $_romDirPath/DRIVES/ -- .d64 files will fail '
+                    'with ?DEVICE NOT PRESENT',
+            valueColor: _driveRomInstalled
+                ? ViceColors.accentTeal
+                : Colors.orangeAccent,
+            actionLabel: _driveRomInstalled ? 'Rescan' : 'Scan for ROMs',
+            onAction: _importRoms,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final req in RomInstallService.requirements)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 11),
+                        children: [
+                          TextSpan(
+                            text: req.what,
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(text: '  ->  $_romDirPath/${req.folder}/\n'),
+                          TextSpan(text: req.why),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 2),
+                const Text(
+                  RomInstallService.guidance,
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+              ],
             ),
           ),
           if (!_isFolderScan)

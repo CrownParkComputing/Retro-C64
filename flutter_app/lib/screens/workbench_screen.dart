@@ -92,9 +92,25 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   Timer? _idleTimer;
   bool _screensaverActive = false;
 
+  /// Whether the 1541 drive ROM is present, so [_launch] can refuse a disk
+  /// image with an explanation instead of booting into ?DEVICE NOT PRESENT.
+  ///
+  /// Cached rather than checked at launch time, for two reasons. Starting a
+  /// game should not wait on a directory listing behind a platform channel;
+  /// and an async check in the launch path makes launching itself async,
+  /// which is a real behaviour change (the emulator screen no longer appears
+  /// in the same frame as the tap) for a value that changes only when the
+  /// user runs a ROM scan.
+  ///
+  /// Defaults to true: it fails OPEN. If the check cannot run, the cost of
+  /// being wrong is a ?DEVICE NOT PRESENT the user would have got anyway,
+  /// whereas the other way round refuses to start a game that works.
+  bool _driveRomInstalled = true;
+
   @override
   void initState() {
     super.initState();
+    _refreshDriveRomState();
     _scanLibrary();
     _scheduleIdle();
     _loadInputPrefs();
@@ -147,6 +163,17 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
         fps: widget.core.isRunning ? widget.core.fps : 0,
       );
 
+  Future<void> _refreshDriveRomState() async {
+    bool installed;
+    try {
+      installed = await ViceNativePaths.driveRomInstalled();
+    } catch (_) {
+      installed = true;
+    }
+    if (!mounted || installed == _driveRomInstalled) return;
+    setState(() => _driveRomInstalled = installed);
+  }
+
   /// Scans the real, wizard-configured Games folder (AppPrefs.
   /// getGamesFolderPath(), set by SetupWizardScreen's real folder picker)
   /// for C64 game media. Falls back to the native test fixtures dir only
@@ -157,6 +184,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// tab's job (see music_screen.dart), which resolves its own Music/
   /// folder and plays them for real via the vsid core.
   Future<void> _scanLibrary() async {
+    // Paths & Setup asks for a rescan after a ROM scan, so this is also the
+    // point at which a just-imported drive ROM becomes known.
+    unawaited(_refreshDriveRomState());
     final configured = await AppPrefs.getGamesFolderPath();
     // On the file-import platforms (iOS) nothing ever writes the games-folder
     // pref -- there is no folder to pick -- so imported files live in the
@@ -210,6 +240,27 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
                 'access" in system settings, then try again.'
             : 'The file exists but could not be opened.',
         offerPermission: PermissionsService.isRelevant,
+      );
+      return;
+    }
+    // A disk image without the 1541 drive ROM does not fail here -- it boots
+    // to a healthy READY prompt and then answers ?DEVICE NOT PRESENT inside
+    // the emulator, which looks like a broken .d64 rather than a missing
+    // file the user was never told to supply. Say so up front, in the one
+    // place where the answer is actionable.
+    //
+    // Fails OPEN. If the check itself cannot run -- the support directory is
+    // unavailable, the platform channel is missing, the directory listing
+    // throws -- the answer is "let it launch". Being wrong that way costs a
+    // ?DEVICE NOT PRESENT the user could already have got; being wrong the
+    // other way refuses to start a game that would have worked fine.
+    if (entry.mediaType == MediaFormatFilter.disk && !_driveRomInstalled) {
+      _showLaunchError(
+        'Disk images need the 1541 drive ROM.',
+        detail: 'Without dos1541 the drive reports ?DEVICE NOT PRESENT and '
+            'nothing loads. Put a dos1541 ROM where this app can see it and '
+            'run Paths & Setup > Scan for ROMs; it is filed into DRIVES/ for '
+            'you. Tapes, cartridges and .prg files work without it.',
       );
       return;
     }

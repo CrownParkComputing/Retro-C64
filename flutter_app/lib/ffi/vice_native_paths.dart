@@ -100,6 +100,18 @@ class ViceNativePaths {
     'chargen-901225-01.bin',
   ];
 
+  /// The 1541 drive ROM, which is a SEPARATE requirement from the three
+  /// above and fails in a completely different way.
+  ///
+  /// The machine boots fine without it -- you get a READY prompt and every
+  /// cartridge, tape and .prg works -- so nothing looks wrong until you load
+  /// a disk image and the drive answers `?DEVICE NOT PRESENT`. Because .d64
+  /// is most of the C64 library, "ROMs installed" must not be reported as
+  /// true on the strength of the machine ROMs alone; see [driveRomInstalled].
+  static const List<String> driveRomNames = [
+    'dos1541-325302-01+901229-05.bin',
+  ];
+
   /// Whether a usable ROM set is present.
   ///
   /// Deliberately checks for the files rather than just the directory: an
@@ -123,9 +135,26 @@ class ViceNativePaths {
         .whereType<File>()
         .map((f) => p.basename(f.path).toLowerCase())
         .toList();
-    bool hasPrefix(String prefix) =>
-        names.any((n) => n.startsWith(prefix) && n.endsWith('.bin'));
+    bool hasPrefix(String prefix) => names.any((n) => n.startsWith(prefix));
     return hasPrefix('kernal') && hasPrefix('basic') && hasPrefix('chargen');
+  }
+
+  /// Whether the 1541 drive ROM is present, i.e. whether disk images will
+  /// work. Independent of [romsInstalled] -- see [driveRomNames].
+  static Future<bool> driveRomInstalled() async =>
+      driveRomInstalledIn(Directory(p.join(await romDir(), 'DRIVES')));
+
+  /// Any `dos1541*` will do: VICE has shipped it as a bare `dos1541`, as
+  /// `dos1541.bin`, and (since 3.5) under its part numbers as
+  /// `dos1541-325302-01+901229-05.bin`. All three are the same ROM and all
+  /// three are what a user copying from their own VICE install will have.
+  static bool driveRomInstalledIn(Directory drivesDir) {
+    if (!drivesDir.existsSync()) return false;
+    return drivesDir
+        .listSync()
+        .whereType<File>()
+        .map((f) => p.basename(f.path).toLowerCase())
+        .any((n) => n.startsWith('dos1541'));
   }
 
   /// Where the user's imported SID tunes live.

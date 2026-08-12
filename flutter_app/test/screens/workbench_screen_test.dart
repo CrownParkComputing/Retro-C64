@@ -84,6 +84,11 @@ void main() {
     final core = FakeViceCore(isRunning: false);
     await pumpWorkbench(tester, core);
 
+    // Boulder Dash is a .d64, so this also covers the drive-ROM guard failing
+    // OPEN: the check needs the app support directory, which no test process
+    // has, and a guard that blocked on a failed check would stop the launch
+    // here. Whether it blocks when the ROM is genuinely absent is covered at
+    // the predicate level, in test/ffi/rom_detection_test.dart.
     await tester.tap(find.text('Boulder Dash'));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 16));

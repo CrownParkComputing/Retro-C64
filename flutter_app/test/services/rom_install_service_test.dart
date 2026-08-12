@@ -64,6 +64,49 @@ void main() {
       expect(RomInstallService.targetFor('KERNAL-901227-03.BIN'), 'C64');
       expect(RomInstallService.targetFor('DOS1541.BIN'), 'DRIVES');
     });
+
+    test('extensionless VICE ROMs are recognised', () {
+      // An existing VICE install -- which the guidance tells people to copy
+      // from -- has these with no extension at all. Requiring .bin found
+      // nothing there, so the drive ROM in particular never got imported.
+      expect(RomInstallService.targetFor('kernal'), 'C64');
+      expect(RomInstallService.targetFor('basic'), 'C64');
+      expect(RomInstallService.targetFor('chargen'), 'C64');
+      expect(RomInstallService.targetFor('/usr/share/vice/DRIVES/dos1541'),
+          'DRIVES');
+      expect(RomInstallService.targetFor('dos1571'), 'DRIVES');
+    });
+
+    test('extensionless files must match a name exactly', () {
+      // The scan walks Downloads recursively, so a prefix rule with no
+      // extension would import any stray file whose name starts right.
+      for (final name in [
+        'kernalsomething',
+        'basically',
+        'dos1541-notes',
+        'README',
+        'chargenerator',
+      ]) {
+        expect(RomInstallService.targetFor(name), isNull, reason: name);
+      }
+    });
+  });
+
+  group('what the user is told to supply', () {
+    test('names both groups, where they go, and how each one fails', () {
+      final reqs = RomInstallService.requirements;
+      expect(reqs, hasLength(2));
+
+      final machine = reqs.firstWhere((r) => r.folder == 'C64');
+      expect(machine.what, contains('kernal'));
+      expect(machine.why, contains('boot'));
+
+      // The drive ROM has to be called out separately: it is the one whose
+      // absence leaves a working emulator that cannot read a single .d64.
+      final drive = reqs.firstWhere((r) => r.folder == 'DRIVES');
+      expect(drive.what, contains('dos1541'));
+      expect(drive.why, contains('DEVICE NOT PRESENT'));
+    });
   });
 
   group('RomScanResult', () {

@@ -5,6 +5,25 @@ import 'package:path/path.dart' as p;
 import '../ffi/vice_native_paths.dart';
 import 'storage_access.dart';
 
+/// One line of "what you need to supply, and where it ends up".
+class RomRequirement {
+  /// The filenames, as the user will recognise them.
+  final String what;
+
+  /// Subfolder of the ROM directory the scan files them into. Shown because
+  /// people who prefer to copy files in by hand need to know, and because
+  /// the wrong folder is a silent failure.
+  final String folder;
+
+  final String why;
+
+  const RomRequirement({
+    required this.what,
+    required this.folder,
+    required this.why,
+  });
+}
+
 /// What a scan found and installed.
 class RomScanResult {
   /// Machine ROMs installed into vice/C64 (kernal, basic, chargen).
@@ -56,13 +75,34 @@ class RomInstallService {
   /// Human-readable guidance, kept next to the code that consumes it so the
   /// wording cannot drift from what the scan actually accepts.
   static const String guidance =
-      'The C64 ROMs (kernal, basic, chargen) are Commodore copyright, so they '
-      'are not included. Supply your own: dump them from a C64 you own, use a '
-      'licensed set such as C64 Forever, or copy them from an existing VICE '
-      'installation. Put them anywhere this app can see -- its own folder, or '
-      'Downloads on desktop -- and Scan will find them. Include the 1541 DOS '
-      'ROM too, or disk images fail with ?DEVICE NOT PRESENT. Games and '
-      'artwork have their own scans.';
+      'These are Commodore copyright, so they are not included. Supply your '
+      'own: dump them from a C64 you own, use a licensed set such as C64 '
+      'Forever, or copy them from an existing VICE installation. Put them '
+      'anywhere this app can see -- its own folder, or Downloads on desktop '
+      '-- and Scan will find them and file them in the right place. Names may '
+      'carry VICE part numbers (kernal-901227-03.bin) or no extension at all '
+      '(kernal); both are recognised. Games and artwork have their own scans.';
+
+  /// What the user has to supply, why, and where the scan puts it.
+  ///
+  /// A list rather than prose because the two groups fail in completely
+  /// different ways and people need to see which one they are missing: with
+  /// no machine ROMs nothing starts at all, while a missing drive ROM leaves
+  /// a perfectly working C64 that cannot read a single .d64 -- and .d64 is
+  /// most of the library.
+  static const List<RomRequirement> requirements = [
+    RomRequirement(
+      what: 'kernal, basic, chargen',
+      folder: 'C64',
+      why: 'Required. Without these the emulator cannot boot at all.',
+    ),
+    RomRequirement(
+      what: 'dos1541',
+      folder: 'DRIVES',
+      why: 'Required for disk images. Without it .d64 files fail with '
+          '?DEVICE NOT PRESENT, even though everything else works.',
+    ),
+  ];
 
   /// A machine ROM is recognised by the names VICE itself uses. Matching on
   /// prefix rather than exact filenames because revisions vary by machine
@@ -76,6 +116,22 @@ class RomInstallService {
   /// Drive ROMs all start `dos` in VICE's own DRIVES directory.
   static const String _driveRomPrefix = 'dos';
 
+  /// Exact names VICE uses when its ROMs carry no extension at all. Older
+  /// VICE installs -- and the ones most people already have -- ship
+  /// `C64/kernal`, `C64/basic`, `DRIVES/dos1541` with no suffix; only since
+  /// 3.5 are they `kernal-901227-03.bin` and friends.
+  ///
+  /// Requiring `.bin` therefore silently found nothing in exactly the place
+  /// this service's own guidance tells people to look ("copy them from an
+  /// existing VICE installation"). Extensionless files are accepted, but only
+  /// on an EXACT name match: the scan walks Downloads recursively, and a
+  /// prefix rule with no extension would happily import any stray file called
+  /// `basicsomething`.
+  static const Set<String> _extensionlessRomNames = {
+    'kernal', 'basic', 'chargen',
+    'dos1541', 'dos1541ii', 'dos1571', 'dos1581', 'dos2031', 'dos1001',
+  };
+
   /// Classifies one filename. Returns null if it is not something we install.
   ///
   /// Split out and kept pure so the routing rules can be tested without a
@@ -83,6 +139,10 @@ class RomInstallService {
   /// a failure (?DEVICE NOT PRESENT) a long way from its cause.
   static String? targetFor(String filename) {
     final name = p.basename(filename).toLowerCase();
+    if (p.extension(name).isEmpty) {
+      if (!_extensionlessRomNames.contains(name)) return null;
+      return name.startsWith(_driveRomPrefix) ? 'DRIVES' : 'C64';
+    }
     if (!name.endsWith('.bin')) return null;
     if (name.startsWith(_driveRomPrefix)) return 'DRIVES';
     if (_machineRomPrefixes.any(name.startsWith)) return 'C64';
