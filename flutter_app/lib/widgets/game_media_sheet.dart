@@ -1,14 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
+import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../services/artwork_service.dart';
 
-/// Everything the artwork pack holds for one game: box render, screenshot,
-/// title screen, logo.
+/// What a title is and what its artwork pack holds: format, size, how it
+/// loads, then box render, screenshot, title screen and logo.
 ///
-/// Reached by tapping a tile's info affordance rather than the tile itself --
-/// tapping a game should still launch it, which is the whole point of the
-/// grid.
+/// Opened by LONG-PRESSING a tile, not tapping it -- a tap launches the game,
+/// which is what the grid is for. The facts are shown whether or not artwork
+/// exists, so a library with no packs installed still gets something useful
+/// out of the gesture.
 Future<void> showGameMediaSheet(
   BuildContext context, {
   required MediaEntry entry,
@@ -88,12 +92,9 @@ class _GameMediaSheetState extends State<_GameMediaSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${widget.entry.extensionLabel} image',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
+              _InfoGrid(entry: widget.entry),
+              const SizedBox(height: 14),
               Flexible(child: _body(media)),
             ],
           ),
@@ -111,7 +112,7 @@ class _GameMediaSheetState extends State<_GameMediaSheet> {
     }
     if (media.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
+        padding: EdgeInsets.symmetric(vertical: 28),
         child: Column(
           children: [
             Icon(Icons.image_not_supported, size: 36, color: Colors.white38),
@@ -119,6 +120,14 @@ class _GameMediaSheetState extends State<_GameMediaSheet> {
             Text(
               'No artwork for this title.',
               style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            SizedBox(height: 4),
+            // Names the way out rather than leaving a dead end: artwork is
+            // installed by a scan, not fetched on demand.
+            Text(
+              'Add <name>.zip packs and run Paths > Scan for artwork.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white38, fontSize: 11),
             ),
           ],
         ),
@@ -154,6 +163,105 @@ class _GameMediaSheetState extends State<_GameMediaSheet> {
           ],
         );
       },
+    );
+  }
+}
+
+/// The facts about a title that are worth seeing before launching it.
+///
+/// Shown whether or not artwork exists, so the sheet is never just an empty
+/// box: the file is the thing being launched, and its format decides how the
+/// core loads it.
+class _InfoGrid extends StatelessWidget {
+  const _InfoGrid({required this.entry});
+
+  final MediaEntry entry;
+
+  static String _formatLabel(MediaFormatFilter type, String extension) =>
+      switch (type) {
+        MediaFormatFilter.disk => 'Disk image ($extension)',
+        MediaFormatFilter.tape => 'Tape image ($extension)',
+        MediaFormatFilter.cartridge => 'Cartridge ($extension)',
+        MediaFormatFilter.prg => 'Program ($extension)',
+        MediaFormatFilter.none => extension,
+      };
+
+  static String _size(String path) {
+    try {
+      final bytes = File(path).lengthSync();
+      if (bytes < 1024) return '$bytes bytes';
+      if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
+  /// How this title will actually load, which is the part people care about
+  /// and the part that differs most between formats.
+  static String _loadNote(MediaFormatFilter type) => switch (type) {
+        MediaFormatFilter.disk =>
+          'Autostarts from disk. Needs the 1541 DOS ROM.',
+        MediaFormatFilter.tape =>
+          'Loads from tape -- this can take several minutes.',
+        MediaFormatFilter.cartridge => 'Starts immediately on reset.',
+        MediaFormatFilter.prg => 'Loaded straight into memory.',
+        MediaFormatFilter.none => '',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final note = _loadNote(entry.mediaType);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 20,
+          runSpacing: 6,
+          children: [
+            _Fact(label: 'Format', value: _formatLabel(entry.mediaType, entry.extensionLabel)),
+            _Fact(label: 'Size', value: _size(entry.path)),
+            _Fact(label: 'File', value: entry.displayName),
+          ],
+        ),
+        if (note.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            note,
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 9,
+              letterSpacing: 1.1,
+              fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      ],
     );
   }
 }
