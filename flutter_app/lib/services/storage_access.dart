@@ -100,6 +100,24 @@ List<String> defaultMediaSearchPaths() {
   return const [];
 }
 
+/// Every directory a scan should look in, in search order.
+///
+/// The app's own folder first: that is where files pushed over USB, dragged
+/// into the app in the Files app, or opened in from elsewhere all land, and on
+/// iOS it is the only readable location. Downloads follows on the platforms
+/// whose sandbox permits it.
+Future<List<Directory>> mediaScanRoots() async {
+  final roots = <Directory>[];
+  if (Platform.isIOS) {
+    roots.add(Directory(await ViceNativePaths.iosDocumentsDirPath()));
+  }
+  for (final path in defaultMediaSearchPaths()) {
+    final dir = Directory(path);
+    if (dir.existsSync()) roots.add(dir);
+  }
+  return roots;
+}
+
 /// The first search path that actually exists, or null.
 String? firstExistingMediaSearchPath() {
   for (final path in defaultMediaSearchPaths()) {

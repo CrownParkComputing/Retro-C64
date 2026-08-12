@@ -13,16 +13,12 @@ class RomScanResult {
   /// Drive ROMs installed into vice/DRIVES (dos1541 and friends).
   final int driveRoms;
 
-  /// SID tunes installed into the music folder.
-  final int sids;
-
   const RomScanResult({
     this.machineRoms = 0,
     this.driveRoms = 0,
-    this.sids = 0,
   });
 
-  int get total => machineRoms + driveRoms + sids;
+  int get total => machineRoms + driveRoms;
   bool get isEmpty => total == 0;
 
   String get summary {
@@ -30,13 +26,16 @@ class RomScanResult {
     final parts = <String>[
       if (machineRoms > 0) '$machineRoms C64 ROM(s)',
       if (driveRoms > 0) '$driveRoms drive ROM(s)',
-      if (sids > 0) '$sids SID tune(s)',
     ];
     return 'Imported ${parts.join(', ')}.';
   }
 }
 
-/// Installs the C64 ROM set and SID tunes by scanning, not by asking.
+/// Installs the C64 BIOS ROM set by scanning, not by asking.
+///
+/// BIOS only. Game media and SID tunes are the games scan's job
+/// (StorageAccess.listImportable) and artwork is the artwork scan's -- three
+/// separate things, found in different ways, each useful without the others.
 ///
 /// The app cannot ship the ROMs: `kernal`, `basic` and `chargen` are
 /// Commodore's and still in copyright, so a store build has to source them
@@ -62,7 +61,8 @@ class RomInstallService {
       'licensed set such as C64 Forever, or copy them from an existing VICE '
       'installation. Put them anywhere this app can see -- its own folder, or '
       'Downloads on desktop -- and Scan will find them. Include the 1541 DOS '
-      'ROM too, or disk images fail with ?DEVICE NOT PRESENT.';
+      'ROM too, or disk images fail with ?DEVICE NOT PRESENT. Games and '
+      'artwork have their own scans.';
 
   /// A machine ROM is recognised by the names VICE itself uses. Matching on
   /// prefix rather than exact filenames because revisions vary by machine
@@ -83,30 +83,10 @@ class RomInstallService {
   /// a failure (?DEVICE NOT PRESENT) a long way from its cause.
   static String? targetFor(String filename) {
     final name = p.basename(filename).toLowerCase();
-    if (name.endsWith('.sid')) return 'sids';
     if (!name.endsWith('.bin')) return null;
     if (name.startsWith(_driveRomPrefix)) return 'DRIVES';
     if (_machineRomPrefixes.any(name.startsWith)) return 'C64';
     return null;
-  }
-
-  /// Every directory worth scanning, in the order they are searched.
-  ///
-  /// The app's own folder first: that is where files pushed over USB, dragged
-  /// into the app in the Files app, or opened in from elsewhere all land, and
-  /// on iOS it is the only readable location. Downloads follows on the
-  /// platforms whose sandbox permits it.
-  static Future<List<Directory>> _scanRoots() async {
-    final roots = <Directory>[];
-
-    if (Platform.isIOS) {
-      roots.add(Directory(await ViceNativePaths.iosDocumentsDirPath()));
-    }
-    for (final path in defaultMediaSearchPaths()) {
-      final dir = Directory(path);
-      if (dir.existsSync()) roots.add(dir);
-    }
-    return roots;
   }
 
   /// Scans for ROMs and SIDs and installs everything recognised.
@@ -115,7 +95,6 @@ class RomInstallService {
     final targets = {
       'C64': Directory(p.join(romRoot, 'C64')),
       'DRIVES': Directory(p.join(romRoot, 'DRIVES')),
-      'sids': Directory(await ViceNativePaths.sidDir()),
     };
     for (final dir in targets.values) {
       await dir.create(recursive: true);
@@ -123,9 +102,8 @@ class RomInstallService {
 
     var machineRoms = 0;
     var driveRoms = 0;
-    var sids = 0;
 
-    for (final root in await _scanRoots()) {
+    for (final root in await mediaScanRoots()) {
       final List<FileSystemEntity> entries;
       try {
         entries = root.listSync(recursive: true, followLinks: false);
@@ -154,8 +132,6 @@ class RomInstallService {
               machineRoms++;
             case 'DRIVES':
               driveRoms++;
-            case 'sids':
-              sids++;
           }
         } catch (_) {
           // Skip the file rather than abort the scan.
@@ -163,10 +139,6 @@ class RomInstallService {
       }
     }
 
-    return RomScanResult(
-      machineRoms: machineRoms,
-      driveRoms: driveRoms,
-      sids: sids,
-    );
+    return RomScanResult(machineRoms: machineRoms, driveRoms: driveRoms);
   }
 }

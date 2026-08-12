@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
+import 'storage_access.dart';
 
 /// The images a game pack contains, once extracted.
 ///
@@ -51,10 +52,9 @@ class GameArtwork {
 class ArtworkService {
   ArtworkService._();
 
-  /// Where the packs are served from. Set to your own host; until then the
-  /// grid simply keeps its placeholder tiles.
-  ///
-  /// Expected layout: `<base>/<slug>.zip`, e.g. `<base>/outrun.zip`.
+  /// Optional host to fetch packs from, as `<base>/<slug>.zip`. Left unset in
+  /// normal use: packs are found by scanning (see [scanAndImport]), the same
+  /// way ROMs and games are, so no server has to exist for artwork to work.
   static String? baseUrl;
 
   /// Titles already looked for and not found, so a missing pack costs one
@@ -153,10 +153,92 @@ class ArtworkService {
     );
   }
 
-  /// Forgets negative results, so a newly-configured host is retried without
+  /// Forgets negative results, so newly-installed packs are picked up without
   /// restarting the app.
   static void clearMisses() {
     _misses.clear();
     _inFlight.clear();
+  }
+
+  /// Extracts one pack's images into [dest], returning how many were written.
+  ///
+  /// Returns 0 for anything that is not an artwork pack -- the scan roots are
+  /// full of unrelated archives, and a game-media zip or a corrupt file must
+  /// be skipped rather than throwing the whole scan away.
+  ///
+  /// Public so it can be tested against a real pack without a device.
+  static Future<int> extractPack(File zip, Directory dest) async {
+    try {
+      final archive = ZipDecoder().decodeBytes(zip.readAsBytesSync());
+      var wrote = 0;
+      for (final file in archive) {
+        if (!file.isFile) continue;
+        // Flatten and sanitise: a pack is a flat set of images, and a name
+        // with a path in it has no business escaping this directory.
+        final name = p.basename(file.name);
+        if (name.isEmpty || name.startsWith('.')) continue;
+        if (p.extension(name).toLowerCase() != '.webp') continue;
+        await dest.create(recursive: true);
+        await File(p.join(dest.path, name))
+            .writeAsBytes(file.content as List<int>, flush: true);
+        wrote++;
+      }
+      return wrote;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// How many games currently have artwork extracted.
+  static Future<int> installedPackCount() async {
+    final cache = await _cacheDir();
+    if (!cache.existsSync()) return 0;
+    return cache
+        .listSync()
+        .whereType<Directory>()
+        .where((d) => !_read(d).isEmpty)
+        .length;
+  }
+
+  /// Finds artwork packs sitting in the app's folder (or Downloads on
+  /// desktop) and extracts them into the cache.
+  ///
+  /// A pack is a zip named after the game's slug -- `outrun.zip`,
+  /// `commando.zip` -- holding a handful of images. Deliberately a scan
+  /// rather than a download: it needs no host to exist, and it matches how
+  /// games and ROMs already arrive. Anything already extracted is skipped, so
+  /// running it repeatedly is cheap.
+  ///
+  /// Returns how many packs were installed.
+  static Future<int> scanAndImport() async {
+    final cache = await _cacheDir();
+    var installed = 0;
+
+    for (final root in await mediaScanRoots()) {
+      final List<FileSystemEntity> entries;
+      try {
+        entries = root.listSync(recursive: true, followLinks: false);
+      } catch (_) {
+        continue;
+      }
+
+      for (final entry in entries) {
+        if (entry is! File) continue;
+        if (p.extension(entry.path).toLowerCase() != '.zip') continue;
+
+        final slug = slugFor(p.basename(entry.path));
+        if (slug.isEmpty) continue;
+
+        final dest = Directory(p.join(cache.path, slug));
+        // Already extracted. Re-extracting on every scan would rewrite the
+        // whole library's images for nothing.
+        if (dest.existsSync() && !_read(dest).isEmpty) continue;
+
+        if (await extractPack(entry, dest) > 0) installed++;
+      }
+    }
+
+    if (installed > 0) clearMisses();
+    return installed;
   }
 }

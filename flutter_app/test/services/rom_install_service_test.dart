@@ -28,9 +28,11 @@ void main() {
       }
     });
 
-    test('SID tunes go to the music folder', () {
-      expect(RomInstallService.targetFor('Commando.sid'), 'sids');
-      expect(RomInstallService.targetFor('/tmp/x/Delta.SID'), 'sids');
+    test('SID tunes are NOT the ROM scan\'s job', () {
+      // Music is game media and belongs to the games scan. Claiming it here
+      // would copy every tune into the BIOS folder.
+      expect(RomInstallService.targetFor('Commando.sid'), isNull);
+      expect(RomInstallService.targetFor('/tmp/x/Delta.SID'), isNull);
     });
 
     test('a full path is classified by its filename alone', () {
@@ -50,6 +52,7 @@ void main() {
         '1942.d64',
         'delta.tap',
         'outrun.prg',
+        'Commando.sid',
         'notes.txt',
         'romantic.txt', // starts with "rom" but is not a .bin
       ]) {
@@ -65,12 +68,11 @@ void main() {
 
   group('RomScanResult', () {
     test('summarises what it took', () {
-      const r = RomScanResult(machineRoms: 3, driveRoms: 1, sids: 20);
-      expect(r.total, 24);
+      const r = RomScanResult(machineRoms: 3, driveRoms: 1);
+      expect(r.total, 4);
       expect(r.isEmpty, isFalse);
       expect(r.summary, contains('3 C64 ROM(s)'));
       expect(r.summary, contains('1 drive ROM(s)'));
-      expect(r.summary, contains('20 SID tune(s)'));
     });
 
     test('says so plainly when it found nothing', () {
@@ -83,7 +85,6 @@ void main() {
       const r = RomScanResult(machineRoms: 3);
       expect(r.summary, contains('3 C64 ROM(s)'));
       expect(r.summary, isNot(contains('drive')));
-      expect(r.summary, isNot(contains('SID')));
     });
   });
 }

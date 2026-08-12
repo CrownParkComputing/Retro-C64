@@ -44,7 +44,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   bool _hasStorageAccess = true;
   bool _romsInstalled = false;
   String _romDirPath = '';
-  String _artworkBaseUrl = '';
+  int _artworkPacks = 0;
 
   bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
 
@@ -60,7 +60,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final access = await PermissionsService.hasStorageAccess();
     final roms = await ViceNativePaths.romsInstalled();
     final romPath = await ViceNativePaths.romDir();
-    final artUrl = await AppPrefs.getArtworkBaseUrl();
+    final artPacks = await ArtworkService.installedPackCount();
     int imported = 0;
     if (!_isFolderScan) {
       imported = (await _storage.listImported(kGamesImportSubdir)).length;
@@ -73,53 +73,48 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _hasStorageAccess = access;
       _romsInstalled = roms;
       _romDirPath = romPath;
-      _artworkBaseUrl = artUrl;
+      _artworkPacks = artPacks;
       _loading = false;
     });
   }
 
-  /// Points the app at a host serving per-game artwork packs.
+  /// Extracts any artwork packs sitting in the app's folder or Downloads.
   ///
-  /// Clearing ArtworkService's negative cache matters: without it, every
-  /// title looked up before the host was set stays marked "no artwork" for
-  /// the rest of the session, and the grid looks broken after configuring it.
-  Future<void> _editArtworkUrl() async {
-    final controller = TextEditingController(text: _artworkBaseUrl);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF141A1F),
-        title: const Text('Artwork host',
-            style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'https://example.com/c64-art',
-            hintStyle: TextStyle(color: Colors.white38),
-            helperText: 'Packs are fetched as <host>/<title-slug>.zip',
-            helperStyle: TextStyle(color: Colors.white38, fontSize: 11),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
+  /// Separate from the ROM scan on purpose: they look for different things in
+  /// different places and either can be useful without the other.
+  /// Sweeps for game media and imports it, the same scan the wizard runs.
+  ///
+  /// Separate from the ROM scan: one looks for d64/tap/prg/sid, the other for
+  /// the three BIOS .bin files, and needing one says nothing about the other.
+  Future<void> _scanGames() async {
+    final pending =
+        await _storage.listImportable(destinationSubdir: kGamesImportSubdir);
+    final imported = pending.isEmpty
+        ? const <ImportedFile>[]
+        : await _storage.importFiles(pending,
+            destinationSubdir: kGamesImportSubdir);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(imported.isEmpty
+            ? 'No new game files found.'
+            : 'Imported ${imported.length} game file(s).'),
       ),
     );
-    if (result == null) return;
+    await _load();
+    widget.onLibraryShouldRescan?.call();
+  }
 
-    await AppPrefs.setArtworkBaseUrl(result);
-    ArtworkService.baseUrl = result.trim();
-    ArtworkService.clearMisses();
+  Future<void> _scanArtwork() async {
+    final count = await ArtworkService.scanAndImport();
     if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(count == 0
+            ? 'No artwork packs found. Add <game>.zip files and rescan.'
+            : 'Installed artwork for $count game(s).'),
+      ),
+    );
     await _load();
     widget.onLibraryShouldRescan?.call();
   }
@@ -236,13 +231,22 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
               style: TextStyle(color: Colors.white54, fontSize: 11),
             ),
           ),
+          if (!_isFolderScan)
+            _Row(
+              label: 'Game files',
+              value: '$_importedCount imported',
+              actionLabel: 'Scan for games',
+              onAction: _scanGames,
+            ),
           _Row(
-            label: 'Artwork host',
-            value: _artworkBaseUrl.isEmpty
-                ? 'not set -- tiles show format labels'
-                : _artworkBaseUrl,
-            actionLabel: 'Set...',
-            onAction: _editArtworkUrl,
+            label: 'Game artwork',
+            value: _artworkPacks == 0
+                ? 'none installed -- tiles show format labels'
+                : '$_artworkPacks pack(s) installed',
+            valueColor:
+                _artworkPacks == 0 ? null : ViceColors.accentTeal,
+            actionLabel: 'Scan for artwork',
+            onAction: _scanArtwork,
           ),
           // Storage access first: on Android nothing below it works without
           // this, and the failure mode (games listed but unreadable) is
