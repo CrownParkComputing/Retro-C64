@@ -8,12 +8,24 @@
 // time the Music tab actually tries to play something, via [ensureLoaded].
 // If loading or init fails (missing .so, missing ROMs) [loadError] is set
 // and every play attempt is a no-op, rather than crashing the app.
+import 'package:flutter/foundation.dart';
+
 import '../ffi/vice_native_paths.dart';
 import '../ffi/vice_vsid_bindings.dart';
 
 class VsidService {
   VsidService._();
-  static final VsidService instance = VsidService._();
+
+  /// Constructor for test doubles. The real one is private so that nothing
+  /// in the app can create a second core by accident -- two vsid instances
+  /// would each hold their own audio device.
+  @visibleForTesting
+  VsidService.forTesting();
+
+  /// Settable so widget tests can drive MusicScreen without the native core,
+  /// which cannot be loaded in a `flutter test` process. Assign a subclass
+  /// in setUp and restore it in tearDown; app code should only ever read it.
+  static VsidService instance = VsidService._();
 
   ViceVsidBindings? _bindings;
   String? _loadError;

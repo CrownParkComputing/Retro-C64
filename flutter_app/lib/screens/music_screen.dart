@@ -16,10 +16,13 @@ import '../theme/vice_theme.dart';
 /// layout, see the vice-android-porting skill's "UI layout rules").
 ///
 /// Real SID playback is wired up via VsidService (lazily loads
-/// libvicecore_vsid.so the first time a track is tapped -- see that file's
+/// libvicecore_vsid.so the first time a track is played -- see that file's
 /// header for why it's lazy and why loading it alongside the already-loaded
 /// game core is safe). Tapping a track plays it for real through ALSA;
 /// tapping the play/pause pill actually pauses/resumes the vsid core.
+///
+/// Opening the tab starts the first available tune on its own ([_autoStart]);
+/// a tap is only needed to choose a different one.
 ///
 /// No graphic EQ (removed deliberately in an earlier pass) -- the "now
 /// playing" indicator is a plain text/icon state driven by
@@ -125,6 +128,53 @@ class _MusicScreenState extends State<MusicScreen> {
       _musicDirs = dirs;
       _loading = false;
     });
+    await _autoStart();
+  }
+
+  /// Starts playing as soon as the tab is opened, instead of waiting for a
+  /// tap.
+  ///
+  /// Opening a music player and getting silence reads as a broken player.
+  /// Nothing on the grid says a tap is required, and on a fresh install most
+  /// cards are greyed out anyway, so the one tune that *is* present can be
+  /// anywhere among the twenty -- leaving the user to hunt for the one that
+  /// makes a sound.
+  ///
+  /// Two things it must not do. It must not restart a tune that is already
+  /// going: this widget is rebuilt from scratch every time the Music
+  /// category is selected (see WorkbenchScreen's category switch), while the
+  /// vsid core keeps playing across tab changes, so restarting here would
+  /// jump back to bar one every time the user glanced at another tab. And it
+  /// must not report an error when there is simply nothing to play -- the
+  /// grid already shows every card as "not downloaded", which says it better
+  /// than a red status line would.
+  Future<void> _autoStart() async {
+    if (_vsid.currentPath != null) {
+      // Already loaded from an earlier visit. Adopt it for the UI so the
+      // status bar and the highlighted card match what is actually audible.
+      final playing = _titleForPath(_vsid.currentPath!);
+      if (playing != null && mounted) {
+        setState(() => _nowPlayingTitle = playing);
+      }
+      return;
+    }
+    for (final (title, _, filename) in MusicScreen.playlist) {
+      final path = _pathFor(filename);
+      if (path != null) {
+        await _tap(title, path);
+        return;
+      }
+    }
+  }
+
+  /// The playlist title whose filename matches [path], if any -- used to
+  /// re-attach the UI to a tune this widget did not itself start.
+  String? _titleForPath(String path) {
+    final name = p.basename(path);
+    for (final (title, _, filename) in MusicScreen.playlist) {
+      if (filename == name) return title;
+    }
+    return null;
   }
 
   String? _pathFor(String filename) {
