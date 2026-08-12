@@ -257,13 +257,13 @@ jobs:
       - name: Package bundle
         run: |
           cd flutter_app/build/linux/x64/release
-          tar czf vice-multiplatform-linux-x64.tar.gz bundle
-          echo "packaged:"; ls -lh vice-multiplatform-linux-x64.tar.gz
+          tar czf c64-retro-emulator-linux-x64.tar.gz bundle
+          echo "packaged:"; ls -lh c64-retro-emulator-linux-x64.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x64
-          path: flutter_app/build/linux/x64/release/vice-multiplatform-linux-x64.tar.gz
+          path: flutter_app/build/linux/x64/release/c64-retro-emulator-linux-x64.tar.gz
           if-no-files-found: error
 
   release:

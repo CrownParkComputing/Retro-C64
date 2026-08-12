@@ -92,6 +92,20 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- The app only ever opens files you pick yourself (disk images, ROMs,
+	     SID tunes) through the system file picker. It has no camera, photo
+	     or location feature. These three strings exist because the file
+	     picker library links against those frameworks, and App Store
+	     validation rejects the upload without them (warning 90683). If a
+	     prompt ever does appear, these are what the user will read.
+	     Carried over from the ios-beta-prep branch, which found this the
+	     hard way against a real submission. -->
+	<key>NSCameraUsageDescription</key>
+	<string>C64-Retro Emulator does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>C64-Retro Emulator only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>C64-Retro Emulator does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
 	<!-- The only encryption here is the platform's own HTTPS, used by
 	     ArtworkService to fetch artwork packs; the app implements no crypto of
 	     its own, which is exactly Apple's exemption. Declaring it up front
