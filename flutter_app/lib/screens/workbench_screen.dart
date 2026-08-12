@@ -482,6 +482,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
     // Re-arms the countdown now that the workbench is showing again,
     // matching scheduleBackdropVisualiser() being called from onResume.
     _scheduleIdle();
+    // Music back on. Launching a game pauses the SID player, and starting it
+    // was only ever done from initState -- which does not run again on the
+    // way back, because the workbench is never rebuilt: it swaps _inEmulator
+    // and stays mounted. So the first game of a session silently killed the
+    // workbench music for good, which is exactly what "no music in the
+    // dashboard" looked like.
+    unawaited(_startWorkbenchMusic());
 
     final entry = _currentEntry;
     if (entry != null && widget.core.isRunning) {
