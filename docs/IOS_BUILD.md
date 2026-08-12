@@ -121,6 +121,34 @@ which needs a valid Apple ID session; when that session lapses, `install_app`
 fails with `signing failed: no valid cached credentials` and you re-authenticate
 in the MobAI app.
 
+`tools/device-push.sh` drives the whole thing -- start MobAI, wait for the
+device, install, launch:
+
+```bash
+tools/device-push.sh --build --launch     # iOS
+tools/device-push.sh --android --build    # Android, straight over adb
+```
+
+Three traps it exists to handle, because each one presents as "no device"
+and none of them says so:
+
+- **`systemctl start usbmuxd` is the wrong instinct.** There is no such unit
+  and the distro package is not needed: MobAI extracts and runs its own
+  usbmuxd from `~/.mobai/bin/usbmuxd`.
+- **That usbmuxd is elevated with `pkexec`, which needs a polkit agent** to
+  show the password dialog. `polkitd` running is not enough -- on Hyprland
+  the agent is a separate user unit (`hyprpolkitagent`), and with it stopped
+  pkexec cannot prompt, usbmuxd never starts, and the device list stays empty
+  forever with nothing in the UI explaining why. The script starts it.
+- **The device must be unlocked and trusted.** A locked or untrusted iPad is
+  indistinguishable from an unplugged one at this layer.
+
+Installing passes `resign: true` (the IPA is unsigned; without it you install
+something iOS refuses to run) and launching passes `withDebugger: true` --
+note that the HTTP API spells it `withDebugger` while the MCP tool calls the
+same thing `debug`. Both come from `GET /api/v1/openapi.json`, which is worth
+re-reading if a field ever stops working.
+
 ## The native core
 
 `libvicecore.dylib` and `libvicecore_vsid.dylib` are built for arm64 iOS by
