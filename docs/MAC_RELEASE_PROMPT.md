@@ -2,6 +2,16 @@
 
 Paste everything below the line into Claude Code on the macOS machine.
 
+> **Superseded for signing, as of 2026-08-12.** Everything here about building
+> is still accurate, but the local-signing route below is a dead end on the
+> shared VM: the Apple Distribution key lives in `vice-build.keychain-db`,
+> whose password nobody has, and codesign fails `errSecInternalComponent`
+> against a keychain it cannot unlock. `main` now builds for TestFlight on
+> Xcode Cloud, which signs on Apple's infrastructure and needs no local
+> signing material at all. See *Shipping via Xcode Cloud* in
+> `docs/IOS_BUILD.md`. Read this file for the build itself and the
+> do-not-"fix" list, which still hold.
+
 Why a Mac at all: the Linux toolchain (`iosbox`) can only produce a debug/JIT
 build. iOS kills a Flutter JIT process within a second unless a debugger is
 attached, so that build opens and instantly closes from the home screen and

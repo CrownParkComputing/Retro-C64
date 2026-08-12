@@ -270,3 +270,62 @@ Upload the resulting `build/ios/ipa/*.ipa` with Transporter or
 `xcrun altool --upload-app`. Encryption compliance
 (`ITSAppUsesNonExemptEncryption`) is already declared in `Info.plist`, so the
 build should reach testers without a manual answer in the console.
+
+## Shipping via Xcode Cloud
+
+Signing locally is a dead end on the shared VM, and the failure is worth
+recognising because it looks like a project fault and is not one:
+
+- Automatic signing insists on a *development* provisioning profile, Apple
+  requires every development profile to name a registered device, and no device
+  can be attached to a headless machine.
+- Manual signing with a hand-made App Store profile gets past that and then
+  fails `errSecInternalComponent` at the codesign step. The Apple Distribution
+  key sits in `vice-build.keychain-db`, a keychain created by an earlier session
+  whose password nobody recorded. `security find-identity` still *lists* the
+  identity, because listing certificates does not need the key -- so the
+  identity looks available right up to the moment it is used.
+
+Xcode Cloud sidesteps all of it: it builds on Apple's infrastructure and
+manages certificates and profiles itself, so no signing material has to exist
+on this machine. It also delivers straight to App Store Connect, so there is no
+IPA to hand to Transporter.
+
+Three things make the project buildable there:
+
+1. **`ios/ci_scripts/ci_post_clone.sh`** installs Flutter, which the Xcode Cloud
+   images do not carry. Xcode Cloud runs `xcodebuild` directly rather than
+   `flutter build`, and the Runner target's "Thin Binary" phase needs
+   `FLUTTER_ROOT` from `Generated.xcconfig`, which only Flutter can write. Apple
+   runs the script from the directory next to the Xcode project, hence
+   `ios/ci_scripts/` and not the repo root. It pins the same Flutter version CI
+   uses, because a newer toolchain rewrites `pubspec.lock` mid-build.
+2. **Release uses automatic signing with `DEVELOPMENT_TEAM` committed.** This is
+   the one place the "never commit the team" rule is deliberately broken: a
+   hard-coded `PROVISIONING_PROFILE_SPECIFIER` naming a profile that exists in
+   one local keychain would fail every cloud build.
+3. **`ios/scripts/raise_framework_min_os.sh`** runs as the Runner target's last
+   build phase. Validation **90068** rejects an upload whose embedded binaries
+   declare a `MinimumOSVersion` below Apple's floor, and two sources here sit
+   below it regardless of `IPHONEOS_DEPLOYMENT_TARGET`: the Flutter engine ships
+   `Flutter.framework` and `App.framework` at its own floor, and the committed
+   `libvicecore*.dylib` were cross-compiled at 13.0 and cannot be rebuilt here.
+   The phase patches both the `Info.plist` key and the Mach-O
+   `LC_BUILD_VERSION` load command, because Apple reads the load command too,
+   then re-signs each item with `EXPANDED_CODE_SIGN_IDENTITY` -- the identity
+   Xcode resolved for the build, which is what makes it work under cloud-managed
+   signing. The bare dylibs need the loop of their own that they get: they carry
+   no `Info.plist`, so the load command is the only record of the version.
+
+The deployment target is therefore **15.0**, not 13.0. Raising it is not
+optional -- Xcode 26 will not submit lower -- and it drops iOS 13 and 14
+devices.
+
+Setting the workflow up is a GUI step that cannot be scripted: in Xcode,
+*Product > Xcode Cloud > Create Workflow*, or create it in App Store Connect
+under the app's Xcode Cloud tab. Point it at this repository, archive the
+`Runner` scheme, and add a **TestFlight (Internal Testing Only)** post-action.
+Xcode Cloud builds from the remote, so the branch has to be pushed first.
+
+`version:` in `pubspec.yaml` still governs `CFBundleVersion`, and App Store
+Connect still refuses a number it has already seen. Builds 1 and 2 are spent.
