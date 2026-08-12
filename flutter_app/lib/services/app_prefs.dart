@@ -6,6 +6,7 @@
 // Android original -- here a plain filesystem path rather than a SAF URI,
 // since file_picker hands back a real path on both Linux and Android).
 import 'dart:convert';
+import 'dart:ui' show Offset;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +35,23 @@ enum OnScreenPadMode {
       OnScreenPadMode.values[(index + 1) % OnScreenPadMode.values.length];
 }
 
+/// Which directional control the on-screen pad draws. Both emit the same
+/// digital 8-way output; this is purely which one your thumb prefers.
+enum JoystickStyle {
+  wobble('Wobble stick', 'Analog-style stick that springs back to centre'),
+  dpad('D-pad buttons', 'Four-way cross; corners press two directions');
+
+  final String label;
+  final String description;
+  const JoystickStyle(this.label, this.description);
+}
+
+/// Identifies the movable on-screen controls in [AppPrefs.getControlPositions].
+/// Two clusters, not two widgets: the fire/custom buttons move together, the
+/// way they are stacked together on screen.
+const String kControlIdStick = 'stick';
+const String kControlIdButtons = 'buttons';
+
 class AppPrefs {
   AppPrefs._();
 
@@ -51,6 +69,8 @@ class AppPrefs {
   static const _keyJoystickPort = 'joystick_port';
   static const _keyCustomButtons = 'custom_on_screen_buttons';
   static const _keyArtworkBaseUrl = 'artwork_base_url';
+  static const _keyJoystickStyle = 'joystick_style';
+  static const _keyControlPositions = 'on_screen_control_positions';
 
   /// Sentinel stored in prefs for "use the joystick fire default" (no
   /// explicit key remap), mirroring Android's KEY_MAPPING_DEFAULT. Kept
@@ -166,6 +186,77 @@ class AppPrefs {
   static Future<void> setArtworkBaseUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyArtworkBaseUrl, url.trim());
+  }
+
+  /// Which directional control the on-screen pad draws.
+  static Future<JoystickStyle> getJoystickStyle() async {
+    final prefs = await SharedPreferences.getInstance();
+    final index = prefs.getInt(_keyJoystickStyle) ?? 0;
+    return (index >= 0 && index < JoystickStyle.values.length)
+        ? JoystickStyle.values[index]
+        : JoystickStyle.wobble;
+  }
+
+  static Future<void> setJoystickStyle(JoystickStyle style) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyJoystickStyle, style.index);
+  }
+
+  /// Where the user has dragged each on-screen control, keyed by
+  /// [kControlIdStick] / [kControlIdButtons].
+  ///
+  /// Stored as a FRACTION of the screen (0..1 from the top-left of the
+  /// control), not pixels. The same setting has to survive rotation, the
+  /// keyboard overlay appearing, and -- on iOS especially -- the identical
+  /// build running on a phone and an iPad. A control parked 40px from the
+  /// bottom of a phone in pixels lands mid-screen on a tablet; as a fraction
+  /// it stays where it looks like it belongs.
+  ///
+  /// An absent entry means "never moved", which is deliberately different
+  /// from a stored 0,0: the defaults follow the left-handed setting, and a
+  /// control the user has never touched should keep doing that.
+  static Future<Map<String, Offset>> getControlPositions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyControlPositions);
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      final out = <String, Offset>{};
+      decoded.forEach((key, value) {
+        if (key is! String || value is! List || value.length != 2) return;
+        final dx = (value[0] as num).toDouble();
+        final dy = (value[1] as num).toDouble();
+        if (dx.isNaN || dy.isNaN) return;
+        out[key] = Offset(dx.clamp(0.0, 1.0), dy.clamp(0.0, 1.0));
+      });
+      return out;
+    } catch (_) {
+      // A corrupt layout costs the user their custom positions, not the app:
+      // returning empty puts every control back at its default corner.
+      return const {};
+    }
+  }
+
+  static Future<void> setControlPosition(String id, Offset fraction) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = Map<String, Offset>.from(await getControlPositions());
+    current[id] = Offset(
+      fraction.dx.clamp(0.0, 1.0),
+      fraction.dy.clamp(0.0, 1.0),
+    );
+    await prefs.setString(
+      _keyControlPositions,
+      jsonEncode({
+        for (final e in current.entries) e.key: [e.value.dx, e.value.dy],
+      }),
+    );
+  }
+
+  /// Puts every control back to its default corner.
+  static Future<void> clearControlPositions() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyControlPositions);
   }
 
   static Future<List<CustomButton>> getCustomButtons() async {

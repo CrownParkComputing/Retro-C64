@@ -87,6 +87,7 @@ class InputSettingsScreen extends StatelessWidget {
             ],
           ),
         ),
+        _card(child: const _JoystickStyleCard()),
         _card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,6 +241,68 @@ class InputSettingsScreen extends StatelessWidget {
           child: Text(
               'Full remap-any-key UI and per-device configuration deferred to a later milestone.',
               style: TextStyle(color: Colors.white38)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Picks between the wobble stick and the D-pad.
+///
+/// Reads and writes AppPrefs itself instead of being plumbed down from the
+/// workbench like the settings above. Nothing between here and the emulator
+/// screen needs to know about it -- EmulatorScreen reads the same preference
+/// when it builds its controls -- so threading a value and a callback
+/// through two widgets would add wiring without adding a reader.
+class _JoystickStyleCard extends StatefulWidget {
+  const _JoystickStyleCard();
+
+  @override
+  State<_JoystickStyleCard> createState() => _JoystickStyleCardState();
+}
+
+class _JoystickStyleCardState extends State<_JoystickStyleCard> {
+  JoystickStyle? _style;
+
+  @override
+  void initState() {
+    super.initState();
+    AppPrefs.getJoystickStyle().then((s) {
+      if (mounted) setState(() => _style = s);
+    });
+  }
+
+  Future<void> _select(JoystickStyle style) async {
+    setState(() => _style = style);
+    await AppPrefs.setJoystickStyle(style);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _style;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Directional control',
+            style: TextStyle(color: Colors.white, fontSize: 14)),
+        const SizedBox(height: 4),
+        Text(
+          style == null
+              ? 'Loading...'
+              : '${style.description}. Both send the same digital 8-way '
+                  'signal to the C64 -- this is only which one is drawn. '
+                  'Move it, and the buttons, with the arrows button in-game.',
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+        SegmentedButton<JoystickStyle>(
+          segments: [
+            for (final s in JoystickStyle.values)
+              ButtonSegment(value: s, label: Text(s.label)),
+          ],
+          selected: {style ?? JoystickStyle.wobble},
+          showSelectedIcon: false,
+          onSelectionChanged: style == null ? null : (s) => _select(s.first),
         ),
       ],
     );

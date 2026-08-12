@@ -12,6 +12,7 @@ import '../data/custom_button.dart';
 import '../widgets/assignable_action_button.dart';
 import '../widgets/custom_key_button.dart';
 import '../widgets/c64_keyboard_overlay.dart';
+import '../widgets/dpad_view.dart';
 import '../widgets/wobble_joystick.dart';
 import '../widgets/framebuffer_view.dart';
 import '../widgets/media_activity_overlay.dart';
@@ -87,6 +88,19 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
 
   StreamSubscription<int>? _padSub;
 
+  /// Which directional control to draw, and where the user has dragged the
+  /// two control clusters. Both are read once on entry: they are settings,
+  /// not live state, and re-reading them per frame would hit prefs on every
+  /// rebuild of a screen that rebuilds constantly.
+  JoystickStyle _joystickStyle = JoystickStyle.wobble;
+  Map<String, Offset> _controlPositions = const {};
+
+  /// Layout-edit mode: controls stop driving the emulator and start moving
+  /// under the finger instead. Deliberately not persisted -- it is a mode
+  /// you are in for ten seconds, and coming back into a game already in it
+  /// would be baffling.
+  bool _editingLayout = false;
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +108,46 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
       _padMask = mask;
       _updateJoystick();
     });
+    _loadControlLayout();
+  }
+
+  Future<void> _loadControlLayout() async {
+    final style = await AppPrefs.getJoystickStyle();
+    final positions = await AppPrefs.getControlPositions();
+    if (!mounted) return;
+    setState(() {
+      _joystickStyle = style;
+      _controlPositions = positions;
+    });
+  }
+
+  /// Default spot for a cluster, as a fraction of the play area, used until
+  /// the user drags it somewhere else. Mirrors with the left-handed setting,
+  /// which is the whole point of that setting.
+  Offset _defaultPosition(String id) {
+    final stickOnLeft = !widget.leftHanded;
+    final onLeft = (id == kControlIdStick) == stickOnLeft;
+    return Offset(onLeft ? 0.13 : 0.87, 0.76);
+  }
+
+  Offset _positionFor(String id) =>
+      _controlPositions[id] ?? _defaultPosition(id);
+
+  void _moveControl(String id, Offset fraction) {
+    setState(() {
+      _controlPositions = {..._controlPositions, id: fraction};
+    });
+  }
+
+  Future<void> _commitControlPosition(String id) async {
+    final pos = _controlPositions[id];
+    if (pos != null) await AppPrefs.setControlPosition(id, pos);
+  }
+
+  Future<void> _resetControlLayout() async {
+    await AppPrefs.clearControlPositions();
+    if (!mounted) return;
+    setState(() => _controlPositions = const {});
   }
 
   @override
@@ -224,48 +278,70 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                     .visibleWith(controllerConnected: padConnected)) {
                   return const SizedBox.shrink();
                 }
-                return Stack(
-                  children: [
-                    Positioned(
-                      left: widget.leftHanded ? null : 16,
-                      right: widget.leftHanded ? 16 : null,
-                      bottom: 16,
-                      child: WobbleJoystick(onDirections: _joystickDirections),
-                    ),
-                    Positioned(
-                      left: widget.leftHanded ? 16 : null,
-                      right: widget.leftHanded ? null : 16,
-                      bottom: 16,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // User-added key buttons sit above the fire
-                          // buttons rather than replacing them.
-                          for (final binding in widget.customButtons) ...[
-                            CustomKeyButton(
-                              binding: binding,
-                              core: widget.core,
-                              onDirectionChanged: _setDirectionButtonBit,
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          ActionButton(
-                            label: 'A',
-                            onFireBitChanged: (down) =>
-                                _setFireBit(ViceJoyBits.fire1, down),
-                          ),
-                          const SizedBox(height: 10),
-                          ActionButton(
-                            label: 'B',
-                            onFireBitChanged: (down) =>
-                                _setFireBit(ViceJoyBits.fire2, down),
-                          ),
-                        ],
+                // LayoutBuilder, because positions are stored as a fraction
+                // of the play area and can only become pixels once that area
+                // has a size (see AppPrefs.getControlPositions for why they
+                // are fractions).
+                return LayoutBuilder(builder: (context, constraints) {
+                  final area = constraints.biggest;
+                  return Stack(
+                    children: [
+                      _MovableControl(
+                        id: kControlIdStick,
+                        area: area,
+                        fraction: _positionFor(kControlIdStick),
+                        editing: _editingLayout,
+                        label: 'Joystick',
+                        onMoved: (f) => _moveControl(kControlIdStick, f),
+                        onMoveEnd: () =>
+                            _commitControlPosition(kControlIdStick),
+                        child: switch (_joystickStyle) {
+                          JoystickStyle.wobble =>
+                            WobbleJoystick(onDirections: _joystickDirections),
+                          JoystickStyle.dpad =>
+                            DpadView(onDirections: _joystickDirections),
+                        },
                       ),
-                    ),
-                  ],
-                );
+                      _MovableControl(
+                        id: kControlIdButtons,
+                        area: area,
+                        fraction: _positionFor(kControlIdButtons),
+                        editing: _editingLayout,
+                        label: 'Buttons',
+                        onMoved: (f) => _moveControl(kControlIdButtons, f),
+                        onMoveEnd: () =>
+                            _commitControlPosition(kControlIdButtons),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // User-added key buttons sit above the fire
+                            // buttons rather than replacing them.
+                            for (final binding in widget.customButtons) ...[
+                              CustomKeyButton(
+                                binding: binding,
+                                core: widget.core,
+                                onDirectionChanged: _setDirectionButtonBit,
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            ActionButton(
+                              label: 'A',
+                              onFireBitChanged: (down) =>
+                                  _setFireBit(ViceJoyBits.fire1, down),
+                            ),
+                            const SizedBox(height: 10),
+                            ActionButton(
+                              label: 'B',
+                              onFireBitChanged: (down) =>
+                                  _setFireBit(ViceJoyBits.fire2, down),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                });
               },
             ),
           ),
@@ -280,6 +356,49 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
               ),
             ),
           ),
+          // Says what mode you are in and how to leave it. Without this the
+          // controls just stop working and grow a border, which reads as a
+          // bug rather than a mode.
+          if (_editingLayout)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 34,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.tealAccent, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Drag the controls where you want them',
+                        style: TextStyle(
+                            color: Colors.tealAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: _resetControlLayout,
+                        child: const Text(
+                          'RESET',
+                          style: TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (_keyboardVisible)
             Positioned(
               left: 0,
@@ -327,6 +446,24 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                   onPressed: () =>
                       widget.onPadModeChanged?.call(widget.padMode.next),
                   child: const Icon(Icons.videogame_asset, color: Colors.white),
+                ),
+                const SizedBox(height: 10),
+                // Layout editing lives out here beside the pad toggle, not
+                // in Input Settings: you can only judge where a control
+                // should go while looking at the game it has to sit on top
+                // of, so the edit has to be reachable from in here.
+                FloatingActionButton.small(
+                  heroTag: 'layoutFab',
+                  backgroundColor: _editingLayout
+                      ? const Color(0xFF008080)
+                      : const Color(0xFF24292E),
+                  tooltip: _editingLayout
+                      ? 'Finish moving controls'
+                      : 'Move the on-screen controls',
+                  onPressed: () =>
+                      setState(() => _editingLayout = !_editingLayout),
+                  child: Icon(_editingLayout ? Icons.check : Icons.open_with,
+                      color: Colors.white),
                 ),
               ],
             ),
@@ -377,6 +514,103 @@ class _AlwaysFalse implements ValueListenable<bool> {
   void addListener(VoidCallback listener) {}
   @override
   void removeListener(VoidCallback listener) {}
+}
+
+/// One on-screen control cluster, placed by fraction and draggable while
+/// [editing].
+///
+/// The child is positioned by its CENTRE, not its top-left corner, so that
+/// nothing here needs to know how big the child is -- the button column
+/// grows and shrinks as the user adds custom buttons, and measuring it would
+/// mean a post-layout pass and a frame of the control in the wrong place.
+///
+/// While editing, an [AbsorbPointer] sits between the drag handler and the
+/// control: without it a drag across the stick would also be a drag of the
+/// stick, so setting up the layout would fire the joystick into whatever
+/// game is paused behind the editor.
+class _MovableControl extends StatelessWidget {
+  const _MovableControl({
+    required this.id,
+    required this.area,
+    required this.fraction,
+    required this.editing,
+    required this.label,
+    required this.onMoved,
+    required this.onMoveEnd,
+    required this.child,
+  });
+
+  final String id;
+  final Size area;
+  final Offset fraction;
+  final bool editing;
+  final String label;
+  final ValueChanged<Offset> onMoved;
+  final VoidCallback onMoveEnd;
+  final Widget child;
+
+  /// Keeps a control from being dragged so far that its centre leaves the
+  /// screen and it can never be grabbed again.
+  static const _minFraction = 0.06;
+  static const _maxFraction = 0.94;
+
+  @override
+  Widget build(BuildContext context) {
+    final positioned = Positioned(
+      left: fraction.dx * area.width,
+      top: fraction.dy * area.height,
+      child: FractionalTranslation(
+        translation: const Offset(-0.5, -0.5),
+        child: editing
+            ? GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (d) {
+                  if (area.width == 0 || area.height == 0) return;
+                  onMoved(Offset(
+                    (fraction.dx + d.delta.dx / area.width)
+                        .clamp(_minFraction, _maxFraction),
+                    (fraction.dy + d.delta.dy / area.height)
+                        .clamp(_minFraction, _maxFraction),
+                  ));
+                },
+                onPanEnd: (_) => onMoveEnd(),
+                child: _editChrome(child),
+              )
+            : child,
+      ),
+    );
+    return positioned;
+  }
+
+  Widget _editChrome(Widget inner) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.tealAccent, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.black.withValues(alpha: 0.35),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.open_with, size: 14, color: Colors.tealAccent),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: const TextStyle(
+                      color: Colors.tealAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          AbsorbPointer(child: inner),
+        ],
+      ),
+    );
+  }
 }
 
 class _QuickSettingsPanel extends StatelessWidget {

@@ -207,4 +207,56 @@ void main() {
       expect(mode, OnScreenPadMode.auto);
     });
   });
+
+  group('on-screen control layout', () {
+    test('defaults to the wobble stick and no saved positions', () async {
+      expect(await AppPrefs.getJoystickStyle(), JoystickStyle.wobble);
+      expect(await AppPrefs.getControlPositions(), isEmpty);
+    });
+
+    test('remembers the chosen style', () async {
+      await AppPrefs.setJoystickStyle(JoystickStyle.dpad);
+      expect(await AppPrefs.getJoystickStyle(), JoystickStyle.dpad);
+    });
+
+    test('stores each control independently', () async {
+      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
+      await AppPrefs.setControlPosition(
+          kControlIdButtons, const Offset(0.8, 0.6));
+
+      final positions = await AppPrefs.getControlPositions();
+      expect(positions[kControlIdStick], const Offset(0.2, 0.7));
+      expect(positions[kControlIdButtons], const Offset(0.8, 0.6));
+    });
+
+    test('moving one control does not forget the other', () async {
+      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
+      await AppPrefs.setControlPosition(
+          kControlIdButtons, const Offset(0.8, 0.6));
+      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.3, 0.5));
+
+      final positions = await AppPrefs.getControlPositions();
+      expect(positions[kControlIdStick], const Offset(0.3, 0.5));
+      expect(positions[kControlIdButtons], const Offset(0.8, 0.6),
+          reason: 'the buttons were not touched');
+    });
+
+    test('clamps positions that would put a control off screen', () async {
+      await AppPrefs.setControlPosition(kControlIdStick, const Offset(-4, 9));
+      expect((await AppPrefs.getControlPositions())[kControlIdStick],
+          const Offset(0.0, 1.0));
+    });
+
+    test('a corrupt layout resets to defaults instead of throwing', () async {
+      SharedPreferences.setMockInitialValues(
+          {'on_screen_control_positions': 'not json at all'});
+      expect(await AppPrefs.getControlPositions(), isEmpty);
+    });
+
+    test('reset clears every stored position', () async {
+      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
+      await AppPrefs.clearControlPositions();
+      expect(await AppPrefs.getControlPositions(), isEmpty);
+    });
+  });
 }
