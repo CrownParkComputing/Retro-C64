@@ -272,7 +272,7 @@ class ViceNativePaths {
   /// native/vice_core under the app sandbox, but this is explicit.)
   static String? get gameCoreLibraryPath {
     if (Platform.isAndroid) return null;
-    if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore.dylib');
+    if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore');
     final root = _findRepoRoot();
     if (root == null) return null;
     final path = p.join(root.path, 'native', 'vice_core', 'linux', 'build',
@@ -282,7 +282,7 @@ class ViceNativePaths {
 
   static String? get vsidCoreLibraryPath {
     if (Platform.isAndroid) return null;
-    if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore_vsid.dylib');
+    if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore_vsid');
     final root = _findRepoRoot();
     if (root == null) return null;
     final path = p.join(root.path, 'native', 'vice_core', 'linux', 'build',
@@ -298,9 +298,15 @@ class ViceNativePaths {
   /// the dylib is bundled, not linked into the Runner binary, so its symbols
   /// are not in the global namespace until something dlopens it. Nothing else
   /// references it, so nothing else will.
+  /// [name] is the bare library name, e.g. `libvicecore`. The cores ship as
+  /// framework bundles rather than loose dylibs: an App Store bundle's
+  /// Frameworks/ directory is expected to hold .framework wrappers, and a bare
+  /// dylib sitting there is what the Swift runtime used to look like, which
+  /// makes Apple's validator demand a SwiftSupport folder that Xcode will not
+  /// generate for a 15.0 deployment target (rejection 90426).
   static String? _iosFrameworkLibrary(String name) {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
-    final path = p.join(exeDir, 'Frameworks', name);
+    final path = p.join(exeDir, 'Frameworks', '$name.framework', name);
     return File(path).existsSync() ? path : null;
   }
 

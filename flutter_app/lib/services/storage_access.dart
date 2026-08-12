@@ -28,6 +28,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
+import 'zip_import.dart';
 
 /// Whether a given platform's storage strategy is "pick a folder and scan
 /// it" (Linux/Android) or "pick individual files and import them"  (iOS).
@@ -45,7 +46,23 @@ class FolderPickResult {
 class ImportedFile {
   final String displayName;
   final String path;
-  const ImportedFile({required this.displayName, required this.path});
+
+  /// Set when this entry lives inside the zip at [path] rather than being a
+  /// file in its own right; [path] is then the archive and this is the member
+  /// to pull out of it.
+  ///
+  /// Carried as a field rather than encoded into [path] so that nothing which
+  /// treats [path] as a filesystem path can be handed something that is not
+  /// one -- importing is the only step that knows how to open an archive.
+  final String? zipEntry;
+
+  const ImportedFile({
+    required this.displayName,
+    required this.path,
+    this.zipEntry,
+  });
+
+  bool get isZipMember => zipEntry != null;
 }
 
 /// Extensions the wizard's games-folder step cares about, kept in one place
@@ -410,6 +427,27 @@ class _IOSFileImportStorage extends StorageAccess {
       // Skip anything already sitting in the destination -- those are
       // imported, not importable.
       if (p.isWithin(destDir.path, entry.path)) continue;
+
+      // A game arrives as its own zip far more often than as a loose file.
+      // Its members are offered individually, exactly as if they had been
+      // unpacked here, and nothing is written until one is actually imported
+      // -- listing must stay free of side effects.
+      if (ZipImport.isZip(entry.path)) {
+        for (final member in ZipImport.memberNames(entry)) {
+          final name = p.basename(member);
+          final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
+          if (!wanted.contains(ext)) continue;
+          if (alreadyImported.contains(name.toLowerCase())) continue;
+          if (!seen.add(name.toLowerCase())) continue;
+          results.add(ImportedFile(
+            displayName: name,
+            path: entry.path,
+            zipEntry: member,
+          ));
+        }
+        continue;
+      }
+
       final ext = p.extension(entry.path).replaceFirst('.', '').toLowerCase();
       if (!wanted.contains(ext)) continue;
       final name = p.basename(entry.path);
@@ -435,6 +473,20 @@ class _IOSFileImportStorage extends StorageAccess {
       if (!source.existsSync()) continue;
       final destPath = p.join(destDir.path, file.displayName);
       if (p.equals(source.path, destPath)) continue;
+
+      // Zip members are extracted, and the archive is deliberately left in
+      // place: the user may have picked one game out of a collection, and
+      // deleting it the way a loose source is deleted would take the rest
+      // with it. Members already imported stop being offered anyway, so a
+      // fully-imported archive quietly lists nothing.
+      if (file.isZipMember) {
+        if (ZipImport.extractMember(source, file.zipEntry!, destPath)) {
+          imported.add(
+              ImportedFile(displayName: file.displayName, path: destPath));
+        }
+        continue;
+      }
+
       try {
         source.copySync(destPath);
         imported.add(

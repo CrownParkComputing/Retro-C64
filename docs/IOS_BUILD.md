@@ -164,6 +164,78 @@ note that the HTTP API spells it `withDebugger` while the MCP tool calls the
 same thing `debug`. Both come from `GET /api/v1/openapi.json`, which is worth
 re-reading if a field ever stops working.
 
+## The cores ship as .framework bundles, and must
+
+`Runner.app/Frameworks/` holds `libvicecore.framework` and
+`libvicecore_vsid.framework`, not the bare dylibs, and that is not cosmetic:
+**a loose .dylib in Frameworks/ makes App Store validation reject the upload**
+with
+
+    90426: Invalid Swift Support. The SwiftSupport folder is missing.
+
+Historically the only bare dylibs in an app's Frameworks/ were the Swift
+runtime, so Apple's scanner reads them as an embedded Swift runtime and
+demands a SwiftSupport folder -- which Xcode will never generate for a 15.0
+deployment target, because ABI-stable Swift lives in the OS and there is
+nothing to embed. The rejection is therefore unfixable while a bare dylib is
+there, and every step of it misdirects:
+
+- The error names Swift, which this app does not embed.
+- Adding a SwiftSupport folder by hand converts it to 90429 ("aren't at the
+  expected location /Payload/Runner.app/Frameworks") -- which is still
+  reported when the files ARE at that exact location.
+- `xcrun altool --validate-app` passes every time. The check only runs during
+  server-side processing after the upload, so validation success means
+  nothing here.
+- Xcode's own GUI archive is identical to `xcodebuild archive`; neither
+  produces SwiftSupport, so "let Xcode do it properly" is not a fix.
+
+The Dart side loads them at `Frameworks/<name>.framework/<name>` -- see
+`ViceNativePaths._iosFrameworkLibrary`. `tools/build-ios-linux.sh` still copies
+the bare dylibs and needs the same treatment before its output can be shipped.
+
+## Do not rewrite the frameworks' load commands
+
+There was a build phase that raised the embedded frameworks' minimum OS with
+`vtool -set-build-version ios $MIN $MIN`. It is gone, and it was wrong twice
+over: the second argument is the **SDK** version, so every framework went out
+claiming it was built against the iOS 15.0 SDK, and `-replace` drops the
+`LC_BUILD_VERSION` tool records that identify the toolchain (`ntools` becomes
+0). Apple reads both, concludes the app was built with an ancient SDK, and
+demands the legacy embedded-Swift layout -- the same 90426/90429 above,
+arriving with the boilerplate "rebuild your app using the current public (GM)
+version of Xcode", which is literal advice and not boilerplate at all.
+
+Check with `otool -l <binary> | grep -A6 LC_BUILD_VERSION` and compare to the
+pristine engine copy under `bin/cache/artifacts/engine/ios-release/`. A
+framework declaring a lower `minos` than the app is normal and permitted;
+nothing needs raising.
+
+## Signing on a machine with no Xcode account
+
+Automatic signing cannot work without an Apple account in Xcode -- and it hunts
+for a *development* profile even when exporting for the App Store. Use manual
+signing, set on the **Runner target only**: passing
+`PROVISIONING_PROFILE_SPECIFIER` on the `xcodebuild` command line applies it to
+every Swift Package and Pod target too, none of which support profiles, and the
+archive fails. Those settings are deliberately uncommitted -- they are
+account-specific, and `main` keeps automatic signing so Xcode Cloud works.
+
+Two keychain traps, both of which present as `errSecInternalComponent` and look
+like a broken certificate:
+
+- **Search-list order.** `codesign` resolves an identity hash to the first
+  keychain in the list. If two keychains hold the same certificate and the
+  first is locked, signing fails even though a working copy exists. Check with
+  `security list-keychains -d user`.
+- **A locked keychain lists its certificates perfectly happily.**
+  `security find-identity` needs no private key, so a certificate can look
+  present and valid right up to the moment codesign reaches for the key.
+
+Also: openssl 3 writes PKCS#12 files Apple's Security framework cannot read
+("MAC verification failed"). Export needs
+`-keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1`.
+
 ## The native core
 
 `libvicecore.dylib` and `libvicecore_vsid.dylib` are built for arm64 iOS by

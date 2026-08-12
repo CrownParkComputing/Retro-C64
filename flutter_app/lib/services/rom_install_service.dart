@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
 import 'storage_access.dart';
+import 'zip_import.dart';
 
 /// One line of "what you need to supply, and where it ends up".
 class RomRequirement {
@@ -79,9 +80,11 @@ class RomInstallService {
       'own: dump them from a C64 you own, use a licensed set such as C64 '
       'Forever, or copy them from an existing VICE installation. Put them '
       'anywhere this app can see -- its own folder, or Downloads on desktop '
-      '-- and Scan will find them and file them in the right place. Names may '
-      'carry VICE part numbers (kernal-901227-03.bin) or no extension at all '
-      '(kernal); both are recognised. Games and artwork have their own scans.';
+      '-- and Scan will find them and file them in the right place. A zip is '
+      'fine: leave the download as it is and Scan will look inside it. Names '
+      'may carry VICE part numbers (kernal-901227-03.bin) or no extension at '
+      'all (kernal); both are recognised. Games and artwork have their own '
+      'scans.';
 
   /// What the user has to supply, why, and where the scan puts it.
   ///
@@ -175,6 +178,30 @@ class RomInstallService {
 
       for (final entry in entries) {
         if (entry is! File) continue;
+
+        // A ROM set is almost always downloaded as one archive. Its members
+        // go through targetFor exactly as loose files do, so a zip cannot
+        // install anything a loose file could not -- and a zip of the whole
+        // VICE data directory files kernal and dos1541 correctly rather than
+        // dumping both into one folder.
+        if (ZipImport.isZip(entry.path)) {
+          for (final dir in ZipImport.extractWhere(
+            entry,
+            (name) => switch (targetFor(name)) {
+              'C64' => targets['C64']!.path,
+              'DRIVES' => targets['DRIVES']!.path,
+              _ => null,
+            },
+          )) {
+            if (dir == targets['C64']!.path) {
+              machineRoms++;
+            } else {
+              driveRoms++;
+            }
+          }
+          continue;
+        }
+
         final target = targetFor(entry.path);
         if (target == null) continue;
 
