@@ -142,20 +142,51 @@ class ViceNativePaths {
   /// Whether the 1541 drive ROM is present, i.e. whether disk images will
   /// work. Independent of [romsInstalled] -- see [driveRomNames].
   static Future<bool> driveRomInstalled() async =>
-      driveRomInstalledIn(Directory(p.join(await romDir(), 'DRIVES')));
+      await driveRomFile() != null;
 
-  /// Any `dos1541*` will do: VICE has shipped it as a bare `dos1541`, as
-  /// `dos1541.bin`, and (since 3.5) under its part numbers as
-  /// `dos1541-325302-01+901229-05.bin`. All three are the same ROM and all
-  /// three are what a user copying from their own VICE install will have.
-  static bool driveRomInstalledIn(Directory drivesDir) {
-    if (!drivesDir.existsSync()) return false;
-    return drivesDir
-        .listSync()
-        .whereType<File>()
-        .map((f) => p.basename(f.path).toLowerCase())
-        .any((n) => n.startsWith('dos1541'));
+  /// The drive ROM the app is actually using, for display. See
+  /// [driveRomFileIn].
+  static Future<String?> driveRomFile() async =>
+      driveRomFileIn(Directory(p.join(await romDir(), 'DRIVES')));
+
+  /// Every file sitting in DRIVES, so the UI can show what IS there when the
+  /// one that matters is not -- "you have dos1541ii, you need dos1541" is a
+  /// fixable message; "missing" when the folder looks full is not.
+  static Future<List<String>> driveRomsPresent() async {
+    final dir = Directory(p.join(await romDir(), 'DRIVES'));
+    if (!dir.existsSync()) return const [];
+    return dir.listSync().whereType<File>().map((f) => p.basename(f.path)).toList()
+      ..sort();
   }
+
+  /// The drive ROM file present, or null. Returned rather than a bare bool so
+  /// the UI can name the file it accepted: "Installed" with no evidence is
+  /// exactly how a wrong file hides.
+  ///
+  /// VICE has shipped this ROM as a bare `dos1541`, as `dos1541.bin`, and
+  /// (since 3.5) under its part numbers as `dos1541-325302-01+901229-05.bin`.
+  /// All three are the same ROM and any is fine.
+  ///
+  /// `dos1541ii` is NOT. It is the 1541-II's ROM, a different drive, and it
+  /// starts with the same seven characters -- so a prefix test accepts it,
+  /// reports "disk images can load", and every .d64 then fails with ?DEVICE
+  /// NOT PRESENT because the emulated drive is a 1541 and its ROM is absent.
+  /// That combination (green status, dead drive) is worse than saying nothing,
+  /// which is why the exclusion is here and not left to the caller.
+  static String? driveRomFileIn(Directory drivesDir) {
+    if (!drivesDir.existsSync()) return null;
+    for (final f in drivesDir.listSync().whereType<File>()) {
+      final name = p.basename(f.path);
+      final lower = name.toLowerCase();
+      if (lower.startsWith('dos1541') && !lower.startsWith('dos1541ii')) {
+        return name;
+      }
+    }
+    return null;
+  }
+
+  static bool driveRomInstalledIn(Directory drivesDir) =>
+      driveRomFileIn(drivesDir) != null;
 
   /// Where the user's imported SID tunes live.
   static Future<String> sidDir() async =>

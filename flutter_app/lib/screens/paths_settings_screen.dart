@@ -44,6 +44,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   bool _hasStorageAccess = true;
   bool _romsInstalled = false;
   bool _driveRomInstalled = false;
+  String? _driveRomFile;
+  List<String> _drivesDirFiles = const [];
   String _romDirPath = '';
   int _artworkPacks = 0;
 
@@ -61,6 +63,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final access = await PermissionsService.hasStorageAccess();
     final roms = await ViceNativePaths.romsInstalled();
     final driveRom = await ViceNativePaths.driveRomInstalled();
+    final driveRomFile = await ViceNativePaths.driveRomFile();
+    final drivesFiles = await ViceNativePaths.driveRomsPresent();
     final romPath = await ViceNativePaths.romDir();
     final artPacks = await ArtworkService.installedPackCount();
     int imported = 0;
@@ -75,6 +79,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _hasStorageAccess = access;
       _romsInstalled = roms;
       _driveRomInstalled = driveRom;
+      _driveRomFile = driveRomFile;
+      _drivesDirFiles = drivesFiles;
       _romDirPath = romPath;
       _artworkPacks = artPacks;
       _loading = false;
@@ -232,10 +238,20 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
           // without it, right up until a disk image refuses to load.
           _Row(
             label: '1541 drive ROM',
+            // Names the file. "Installed" on its own is how the wrong ROM
+            // hides: dos1541ii shares the first seven characters with the one
+            // VICE actually wants, so a folder holding only that reads as
+            // ready and then fails on every disk.
             value: _driveRomInstalled
-                ? 'Installed -- disk images can load'
-                : 'MISSING in $_romDirPath/DRIVES/ -- .d64 files will fail '
-                    'with ?DEVICE NOT PRESENT',
+                ? 'Installed -- disk images can load ($_driveRomFile)'
+                : _drivesDirFiles.isEmpty
+                    ? 'MISSING in $_romDirPath/DRIVES/ -- .d64 files will fail '
+                        'with ?DEVICE NOT PRESENT'
+                    : 'MISSING -- DRIVES/ holds '
+                        '${_drivesDirFiles.join(", ")}, but none of those is '
+                        'the plain 1541 ROM. dos1541ii is the 1541-II, a '
+                        'different drive. Add dos1541 or .d64 files fail with '
+                        '?DEVICE NOT PRESENT.',
             valueColor: _driveRomInstalled
                 ? ViceColors.accentTeal
                 : Colors.orangeAccent,
