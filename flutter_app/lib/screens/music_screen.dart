@@ -8,6 +8,7 @@ import '../ffi/vice_native_paths.dart';
 import '../services/app_prefs.dart';
 import 'setup_wizard_screen.dart' show kGamesImportSubdir;
 import '../services/storage_access.dart';
+import '../services/music_library.dart';
 import '../services/vsid_service.dart';
 import '../theme/vice_theme.dart';
 
@@ -33,28 +34,11 @@ class MusicScreen extends StatefulWidget {
   /// (title, artist, filename-within-the-music-folder). All 20 ship inside
   /// the app as assets/sids/ (see ViceNativePaths.extractBundledSidDir), so
   /// the playlist works out of the box on every platform.
-  static const List<(String, String, String)> playlist = [
-    ('Commando', 'Rob Hubbard', 'Commando.sid'),
-    ('Arkanoid', 'Martin Galway', 'Arkanoid.sid'),
-    ('Monty on the Run', 'Rob Hubbard', 'Monty_on_the_Run.sid'),
-    ('Delta', 'Rob Hubbard', 'Delta.sid'),
-    ('Sanxion', 'Rob Hubbard', 'Sanxion.sid'),
-    ('Spellbound', 'Rob Hubbard', 'Spellbound.sid'),
-    ('International Karate', 'Rob Hubbard', 'International_Karate.sid'),
-    ('Warhawk', 'Rob Hubbard', 'Warhawk.sid'),
-    ('The Last V8', 'Rob Hubbard', 'Last_V8.sid'),
-    ('Cybernoid II', 'Jeroen Tel', 'Cybernoid_II.sid'),
-    ('Lightforce', 'Rob Hubbard', 'Lightforce.sid'),
-    ('Thing on a Spring', 'Rob Hubbard', 'Thing_on_a_Spring.sid'),
-    ('Crazy Comets', 'Rob Hubbard', 'Crazy_Comets.sid'),
-    ('Zoids', 'Rob Hubbard', 'Zoids.sid'),
-    ('Auf Wiedersehen Monty', 'Rob Hubbard', 'Auf_Wiedersehen_Monty.sid'),
-    ('Nemesis the Warlock', 'Rob Hubbard', 'Nemesis_the_Warlock.sid'),
-    ('Comic Bakery', 'Martin Galway', 'Comic_Bakery.sid'),
-    ('Wizball', 'Martin Galway', 'Wizball.sid'),
-    ('Parallax', 'Martin Galway', 'Parallax.sid'),
-    ('Rambo: First Blood Part II', 'Martin Galway', 'Rambo_First_Blood_Part_II.sid'),
-  ];
+  /// The playlist lives in MusicLibrary now: the workbench starts tunes
+  /// too, and two copies of the list is how the two screens end up
+  /// disagreeing about what exists.
+  static const List<(String, String, String)> playlist = MusicLibrary.playlist;
+
 
   @override
   State<MusicScreen> createState() => _MusicScreenState();

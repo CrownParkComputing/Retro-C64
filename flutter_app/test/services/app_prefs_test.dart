@@ -259,4 +259,15 @@ void main() {
       expect(await AppPrefs.getControlPositions(), isEmpty);
     });
   });
+
+  group('workbench music', () {
+    test('is on by default -- silence is the wrong first impression', () async {
+      expect(await AppPrefs.getWorkbenchMusic(), isTrue);
+    });
+
+    test('the off switch is remembered', () async {
+      await AppPrefs.setWorkbenchMusic(false);
+      expect(await AppPrefs.getWorkbenchMusic(), isFalse);
+    });
+  });
 }

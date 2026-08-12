@@ -70,6 +70,7 @@ class AppPrefs {
   static const _keyCustomButtons = 'custom_on_screen_buttons';
   static const _keyArtworkBaseUrl = 'artwork_base_url';
   static const _keyJoystickStyle = 'joystick_style';
+  static const _keyWorkbenchMusic = 'workbench_music';
   static const _keyControlPositions = 'on_screen_control_positions';
 
   /// Sentinel stored in prefs for "use the joystick fire default" (no
@@ -186,6 +187,22 @@ class AppPrefs {
   static Future<void> setArtworkBaseUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyArtworkBaseUrl, url.trim());
+  }
+
+  /// Whether a SID tune plays while you are browsing the workbench.
+  ///
+  /// Defaults to ON: a C64 front end in silence is the wrong first
+  /// impression, and the demo backdrop's equaliser has nothing to show
+  /// without it. Music always stops when a game launches regardless -- the
+  /// game's own audio wins -- so this only governs the workbench.
+  static Future<bool> getWorkbenchMusic() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyWorkbenchMusic) ?? true;
+  }
+
+  static Future<void> setWorkbenchMusic(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyWorkbenchMusic, value);
   }
 
   /// Which directional control the on-screen pad draws.
