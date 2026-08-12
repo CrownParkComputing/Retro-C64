@@ -7,7 +7,6 @@ import '../ffi/vice_bindings.dart';
 import '../ffi/vice_core.dart';
 import '../services/app_prefs.dart';
 import '../services/gamepad_service.dart';
-import '../theme/vice_theme.dart';
 import '../data/custom_button.dart';
 import '../widgets/assignable_action_button.dart';
 import '../widgets/custom_key_button.dart';
@@ -71,7 +70,6 @@ class EmulatorScreen extends StatefulWidget {
 }
 
 class _EmulatorScreenState extends State<EmulatorScreen> {
-  bool _settingsOpen = false;
   bool _keyboardVisible = false;
 
   // The full joystick mask is the OR of three independent sources that must
@@ -185,7 +183,6 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
   /// is a modal, and leaving a full-height panel open behind it means
   /// dismissing two things to get back to play.
   Future<void> _addCustomButton() async {
-    setState(() => _settingsOpen = false);
     final binding = await showC64KeyPicker(context);
     if (binding == null) return;
     widget.onCustomButtonsChanged
@@ -383,7 +380,22 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                             fontSize: 12,
                             fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
+                      // Adding a button belongs in the mode where you are
+                      // already arranging buttons -- you add one and then
+                      // immediately want to put it somewhere, which is this.
+                      GestureDetector(
+                        onTap: _addCustomButton,
+                        child: Text(
+                          '+ ADD BUTTON',
+                          style: const TextStyle(
+                              color: Colors.tealAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold),
+                          semanticsLabel: _customButtonsLabel,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
                       GestureDetector(
                         onTap: _resetControlLayout,
                         child: const Text(
@@ -419,11 +431,17 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
             top: 16,
             child: Column(
               children: [
+                // Pause, and that is all it does: leave the game and go back
+                // to the workbench (which saves the session). It replaces a
+                // hamburger that opened a panel of things now reachable
+                // where they are actually used -- a menu whose every row had
+                // a better home was just an extra tap in front of them.
                 FloatingActionButton.small(
-                  heroTag: 'settingsFab',
+                  heroTag: 'pauseFab',
                   backgroundColor: const Color(0xFF24292E),
-                  onPressed: () => setState(() => _settingsOpen = !_settingsOpen),
-                  child: const Icon(Icons.menu, color: Colors.white),
+                  tooltip: 'Pause and return to the workbench',
+                  onPressed: widget.onBackToLibrary,
+                  child: const Icon(Icons.pause, color: Colors.white),
                 ),
                 const SizedBox(height: 10),
                 FloatingActionButton.small(
@@ -448,10 +466,28 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                   child: const Icon(Icons.videogame_asset, color: Colors.white),
                 ),
                 const SizedBox(height: 10),
-                // Layout editing lives out here beside the pad toggle, not
-                // in Input Settings: you can only judge where a control
-                // should go while looking at the game it has to sit on top
-                // of, so the edit has to be reachable from in here.
+                // Port swap, as a button that shows the port it is on. This
+                // is the first thing to try when a game ignores the stick
+                // entirely, and "nothing moves" is not a moment to go
+                // hunting through menus. The number IS the label.
+                FloatingActionButton.small(
+                  heroTag: 'portFab',
+                  backgroundColor: const Color(0xFF24292E),
+                  tooltip: _portLabel,
+                  onPressed: () => widget.onJoystickPortChanged
+                      ?.call(widget.joystickPort == 1 ? 2 : 1),
+                  child: Text(
+                    'P${widget.joystickPort}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Layout editing lives out here rather than in Input
+                // Settings: you can only judge where a control should go
+                // while looking at the game it has to sit on top of.
                 FloatingActionButton.small(
                   heroTag: 'layoutFab',
                   backgroundColor: _editingLayout
@@ -459,7 +495,7 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                       : const Color(0xFF24292E),
                   tooltip: _editingLayout
                       ? 'Finish moving controls'
-                      : 'Move the on-screen controls',
+                      : 'Move or add on-screen controls',
                   onPressed: () =>
                       setState(() => _editingLayout = !_editingLayout),
                   child: Icon(_editingLayout ? Icons.check : Icons.open_with,
@@ -468,30 +504,6 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
               ],
             ),
           ),
-          if (_settingsOpen)
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              width: ViceMetrics.quickSettingsPanelWidth(
-                  MediaQuery.of(context).size.width),
-              child: _QuickSettingsPanel(
-                portLabel: _portLabel,
-                customButtonsLabel: _customButtonsLabel,
-                onAddButton: _addCustomButton,
-                onSwapPort: () => widget.onJoystickPortChanged
-                    ?.call(widget.joystickPort == 1 ? 2 : 1),
-                onReset: () {
-                  widget.core.stop();
-                  widget.core.start(mediaType: ViceMedia.none);
-                },
-                onGameLibrary: () {
-                  setState(() => _settingsOpen = false);
-                  widget.onBackToLibrary();
-                },
-                onClose: () => setState(() => _settingsOpen = false),
-              ),
-            ),
         ],
       ),
     );
@@ -608,130 +620,3 @@ class _MovableControl extends StatelessWidget {
   }
 }
 
-class _QuickSettingsPanel extends StatelessWidget {
-  final String portLabel, customButtonsLabel;
-  final VoidCallback onSwapPort,
-      onAddButton,
-      onReset,
-      onGameLibrary,
-      onClose;
-
-  const _QuickSettingsPanel({
-    required this.portLabel,
-    required this.customButtonsLabel,
-    required this.onSwapPort,
-    required this.onAddButton,
-    required this.onReset,
-    required this.onGameLibrary,
-    required this.onClose,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF0B0D10),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('Quick Settings',
-                    style: TextStyle(color: Colors.white, fontSize: 18)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: onClose,
-              ),
-            ],
-          ),
-          // Deliberately short. This panel is for things you only discover
-          // you need ONCE THE GAME IS RUNNING; set-once display preferences
-          // (screen size, bezel, CRT) are not that, and now live on the
-          // Video settings screen -- which is also the only place they ever
-          // did anything, since the rows here drove local booleans the
-          // render path never read.
-          //
-          // Port swap goes first: "nothing moves" is the first thing you
-          // notice on a game that reads the other port, and this is the fix.
-          _Card(icon: '🔀', title: 'Joystick Port', subtitle: portLabel, onTap: onSwapPort),
-          // No keyboard or on-screen-pad row here. Both have a permanent
-          // button in the corner of the game, lit to show their own state,
-          // and a panel row that does the same thing is not a shortcut --
-          // it is a second place to look, a second thing to keep in sync,
-          // and a second answer to "where is the keyboard toggle?". The
-          // buttons win because they are one tap from play; this panel is
-          // three.
-          // Adding a button belongs here as much as in Input settings: which
-          // key or direction a game wants is something you find out by
-          // playing it, and going out to Settings means leaving the game.
-          _Card(
-            icon: '➕',
-            title: 'Add Button',
-            subtitle: customButtonsLabel,
-            onTap: onAddButton,
-          ),
-          _Card(icon: '↺', title: 'Reset C64', subtitle: 'Reset the running core', onTap: onReset),
-          _Card(icon: '▦', title: 'Workbench', subtitle: 'Leave the game (it pauses and is saved)', onTap: onGameLibrary),
-        ],
-      ),
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  final String icon, title, subtitle;
-  final VoidCallback onTap;
-  const _Card({required this.icon, required this.title, required this.subtitle, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF22272E),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF3D4652)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF303844),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF596474)),
-                  ),
-                  child: Text(icon, style: const TextStyle(fontSize: 22)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          maxLines: 1,
-                          style: const TextStyle(color: Colors.white, fontSize: 14)),
-                      Text(subtitle,
-                          maxLines: 2,
-                          style: const TextStyle(color: ViceColors.accentTeal, fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

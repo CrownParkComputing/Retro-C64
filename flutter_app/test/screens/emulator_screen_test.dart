@@ -43,6 +43,8 @@ void main() {
     List<CustomButton> customButtons = const [],
     int joystickPort = 2,
     bool leftHanded = false,
+    VoidCallback? onBackToLibrary,
+    ValueChanged<int>? onJoystickPortChanged,
   }) async {
     tester.view.physicalSize = screenSize;
     tester.view.devicePixelRatio = 1.0;
@@ -51,7 +53,8 @@ void main() {
       home: EmulatorScreen(
         core: core,
         mediaLabel: 'Boulder Dash.d64',
-        onBackToLibrary: () {},
+        onBackToLibrary: onBackToLibrary ?? () {},
+        onJoystickPortChanged: onJoystickPortChanged,
         padMode: padMode,
         gamepad: gamepad,
         customButtons: customButtons,
@@ -96,7 +99,7 @@ void main() {
 
         // ...and so is the chrome that sits over it.
         expect(find.text('Boulder Dash.d64'), findsOneWidget);
-        expect(find.byIcon(Icons.menu), findsOneWidget);
+        expect(find.byIcon(Icons.pause), findsOneWidget);
       });
     }
 
@@ -173,37 +176,50 @@ void main() {
     });
   });
 
-  group('quick settings', () {
-    testWidgets('opens, reports the live state, and closes', (tester) async {
-      final core = FakeViceCore();
-      await pumpEmulator(tester, core: core, joystickPort: 1);
+  group('in-game controls', () {
+    testWidgets('pause returns to the workbench, with no menu in between',
+        (tester) async {
+      var back = 0;
+      await pumpEmulator(tester,
+          core: FakeViceCore(), onBackToLibrary: () => back++);
 
-      await tester.tap(find.byIcon(Icons.menu));
+      // There is no hamburger and no panel. Every row the old Quick Settings
+      // held is now either a button in this corner or a settings page, so a
+      // menu in front of them was purely an extra tap.
+      expect(find.byIcon(Icons.menu), findsNothing);
+
+      await tester.tap(find.byIcon(Icons.pause));
+      await tester.pumpAndSettle();
+      expect(back, 1);
+    });
+
+    testWidgets('the port button shows the port and swaps it', (tester) async {
+      int? swapped;
+      await pumpEmulator(tester,
+          core: FakeViceCore(),
+          joystickPort: 1,
+          onJoystickPortChanged: (p) => swapped = p);
+
+      // The number IS the label: "nothing moves" is the symptom of the wrong
+      // port, and that is not a moment to go hunting through menus.
+      expect(find.text('P1'), findsOneWidget);
+      await tester.tap(find.text('P1'));
+      await tester.pumpAndSettle();
+      expect(swapped, 2);
+    });
+
+    testWidgets('adding a button lives in the move-controls mode',
+        (tester) async {
+      await pumpEmulator(tester, core: FakeViceCore());
+
+      expect(find.text('+ ADD BUTTON'), findsNothing);
+      await tester.tap(find.byIcon(Icons.open_with));
       await tester.pumpAndSettle();
 
-      expect(find.text('Quick Settings'), findsOneWidget);
-      // The port row shows the port that is actually in use, not a fixed
-      // string -- "nothing moves" is the symptom of the wrong port.
-      expect(find.text('Port 1 (some games)'), findsOneWidget);
-
-      // The keyboard and on-screen-pad toggles are NOT in here. Each has a
-      // permanent button in the corner of the game that shows its own state,
-      // and a panel row doing the same job is a second place to look and a
-      // second thing to keep in sync rather than a shortcut.
-      expect(find.text('Virtual Keyboard'), findsNothing);
-      expect(find.text('On-screen Pad'), findsNothing);
-
-      // Reset really does go to the core.
-      await tester.tap(find.text('Reset C64'));
-      await tester.pumpAndSettle();
-      expect(core.stopCount, 1);
-      expect(core.startCount, 1);
-
-      await tester.tap(find.byIcon(Icons.close));
-      await tester.pumpAndSettle();
-      expect(find.text('Quick Settings'), findsNothing);
-      // Closing the panel must not take the screen with it.
-      expect(tester.getSize(find.byType(Scaffold)), screenSize);
+      // You add a button and then immediately want to put it somewhere,
+      // which is exactly what this mode is for.
+      expect(find.text('+ ADD BUTTON'), findsOneWidget);
+      expect(find.text('RESET'), findsOneWidget);
     });
 
     testWidgets('the virtual keyboard opens over the picture', (tester) async {

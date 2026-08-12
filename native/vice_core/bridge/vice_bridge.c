@@ -54,6 +54,10 @@
 
 extern int main_program(int argc, char **argv);
 
+/* Declared here rather than via drive.h: that header drags in the whole
+ * drive subsystem's types, and this bridge only needs the one query. */
+extern int drive_check_type(unsigned int drive_type, unsigned int dnr);
+
 /* ---------------------------------------------------------------------- */
 /* Logging                                                                 */
 /* ---------------------------------------------------------------------- */
@@ -561,8 +565,20 @@ static void apply_pending_media_if_any(void) {
         resources_get_int_sprintf("Drive%dTrueEmulation", &tde, 8);
         resources_get_int_sprintf("Drive%dType", &type, 8);
         resources_get_int_sprintf("FileSystemDevice%d", &fsdev, 8);
-        LOGI("drive 8 before autostart: truedrive=%d type=%d fsdevice=%d",
-             tde, type, fsdev);
+
+        /* The decisive one. VICE refuses a drive-type change unless that
+         * type's ROM is loaded in the running machine (drive_check_type ->
+         * drive_rom_check_loaded), and "Error - Failed to set drive type"
+         * does not say which of the two it is. Tapes and PRGs need no drive
+         * at all, which is exactly why they work while every .d64 fails.
+         *
+         * rom1541=0 means DRIVES/dos1541-325302-01+901229-05.bin was never
+         * loaded, whatever the file browser shows, and the fault is in
+         * finding it. rom1541=1 means it IS loaded and the type change is
+         * being refused for another reason. */
+        const int rom1541 = drive_check_type(1541 /* DRIVE_TYPE_1541 */, 0);
+        LOGI("drive 8 before autostart: truedrive=%d type=%d fsdevice=%d "
+             "rom1541=%d", tde, type, fsdev, rom1541);
     }
 
     const int result = autostart_autodetect(path, NULL, 0, AUTOSTART_MODE_RUN);
