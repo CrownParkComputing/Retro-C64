@@ -59,6 +59,39 @@
 		<integer>1</integer>
 		<integer>2</integer>
 	</array>
+	<!-- Loose icon files, the pre-asset-catalogue mechanism iOS still
+	     honours. Needed because the Linux iosbox build cannot run actool, so
+	     it ships no Assets.car and the app sat on the home screen under the
+	     grey placeholder grid. A macOS build compiles the catalogue and that
+	     takes precedence, so these cost nothing there. Generated together by
+	     tools/make-ios-icons.py; the files are copied into the bundle root
+	     by tools/build-ios-linux.sh. -->
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>AppIcon29x29</string>
+				<string>AppIcon40x40</string>
+				<string>AppIcon60x60</string>
+			</array>
+		</dict>
+	</dict>
+	<key>CFBundleIcons~ipad</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>AppIcon29x29</string>
+				<string>AppIcon40x40</string>
+				<string>AppIcon60x60</string>
+				<string>AppIcon76x76</string>
+				<string>AppIcon83.5x83.5</string>
+			</array>
+		</dict>
+	</dict>
 	<!-- The only encryption here is the platform's own HTTPS, used by
 	     ArtworkService to fetch artwork packs; the app implements no crypto of
 	     its own, which is exactly Apple's exemption. Declaring it up front

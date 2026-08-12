@@ -66,6 +66,20 @@ CORE_BUILD="$REPO_ROOT/flutter_app/ios/Frameworks"
 APP="$REPO_ROOT/flutter_app/build/iosbox/Runner.app"
 IPA="$REPO_ROOT/flutter_app/build/iosbox/Runner.ipa"
 
+# Loose app icons into the bundle root. iosbox cannot run actool, so there is
+# no Assets.car and iOS falls back to the CFBundleIcons list in Info.plist --
+# which only works if the PNGs are actually here. Without this the app shows
+# the grey placeholder grid on the home screen, which looks like a broken
+# install rather than a missing build step.
+ICON_SRC="$REPO_ROOT/flutter_app/ios/Runner"
+if compgen -G "$ICON_SRC/AppIcon*.png" >/dev/null; then
+  echo "==> bundling app icons"
+  cp "$ICON_SRC"/AppIcon*.png "$APP/" && echo "    $(ls "$ICON_SRC"/AppIcon*.png | wc -l) icon file(s)"
+else
+  echo "==> WARNING: no loose AppIcon*.png -- run tools/make-ios-icons.py or"
+  echo "    the app will show iOS's placeholder icon."
+fi
+
 if [ -f "$CORE_BUILD/libvicecore.dylib" ]; then
   echo "==> bundling native core"
   mkdir -p "$APP/Frameworks"
