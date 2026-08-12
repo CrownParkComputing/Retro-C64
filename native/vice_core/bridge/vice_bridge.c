@@ -853,7 +853,18 @@ int32_t vice_core_start(int32_t media_type, const char *media_path, const char *
     int argc = 0;
     args[argc++] = "x64sc";
     args[argc++] = "-default";
-    args[argc++] = "-verbose";
+    /* NOT -verbose. It used to be, from when the only way to see anything was
+     * to squint at logcat and more output was strictly better. That stopped
+     * being true when the app grew a Logs page users are asked to send in:
+     * -verbose makes vicii_chip_model_set() dump its entire cycle table
+     * through log_verbose() at every start -- around 126 lines of
+     * "VIC-II: 44 Phi1 $0f4 27 *-------- FetchG" before the machine has done
+     * anything -- which buries the handful of lines a bug report needs and
+     * bloats the file the user has to mail.
+     *
+     * Nothing diagnostic is lost: the messages that matter are log_message(),
+     * not log_verbose(), so ROM loading, "D64 disk image recognised", the
+     * unit-8 attach and every warning still print. */
     /* VICE's log_helper() has a NULL-deref bug (log.c) when log_colorize is
      * on but stdout is not a terminal (e.g. piped/redirected, as when run
      * headless from another process): it computes the "no color" strings

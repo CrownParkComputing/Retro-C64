@@ -476,16 +476,11 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
               width: ViceMetrics.quickSettingsPanelWidth(
                   MediaQuery.of(context).size.width),
               child: _QuickSettingsPanel(
-                keyboardLabel: _keyboardLabel,
                 portLabel: _portLabel,
-                padModeLabel: _padModeLabel,
                 customButtonsLabel: _customButtonsLabel,
                 onAddButton: _addCustomButton,
                 onSwapPort: () => widget.onJoystickPortChanged
                     ?.call(widget.joystickPort == 1 ? 2 : 1),
-                onCyclePadMode: () =>
-                    widget.onPadModeChanged?.call(widget.padMode.next),
-                onToggleKeyboard: () => setState(() => _keyboardVisible = !_keyboardVisible),
                 onReset: () {
                   widget.core.stop();
                   widget.core.start(mediaType: ViceMedia.none);
@@ -614,23 +609,17 @@ class _MovableControl extends StatelessWidget {
 }
 
 class _QuickSettingsPanel extends StatelessWidget {
-  final String keyboardLabel, portLabel, padModeLabel, customButtonsLabel;
+  final String portLabel, customButtonsLabel;
   final VoidCallback onSwapPort,
-      onCyclePadMode,
-      onToggleKeyboard,
       onAddButton,
       onReset,
       onGameLibrary,
       onClose;
 
   const _QuickSettingsPanel({
-    required this.keyboardLabel,
     required this.portLabel,
-    required this.padModeLabel,
     required this.customButtonsLabel,
     required this.onSwapPort,
-    required this.onCyclePadMode,
-    required this.onToggleKeyboard,
     required this.onAddButton,
     required this.onReset,
     required this.onGameLibrary,
@@ -666,8 +655,13 @@ class _QuickSettingsPanel extends StatelessWidget {
           // Port swap goes first: "nothing moves" is the first thing you
           // notice on a game that reads the other port, and this is the fix.
           _Card(icon: '🔀', title: 'Joystick Port', subtitle: portLabel, onTap: onSwapPort),
-          _Card(icon: '🎮', title: 'On-screen Pad', subtitle: padModeLabel, onTap: onCyclePadMode),
-          _Card(icon: '⌨', title: 'Virtual Keyboard', subtitle: keyboardLabel, onTap: onToggleKeyboard),
+          // No keyboard or on-screen-pad row here. Both have a permanent
+          // button in the corner of the game, lit to show their own state,
+          // and a panel row that does the same thing is not a shortcut --
+          // it is a second place to look, a second thing to keep in sync,
+          // and a second answer to "where is the keyboard toggle?". The
+          // buttons win because they are one tap from play; this panel is
+          // three.
           // Adding a button belongs here as much as in Input settings: which
           // key or direction a game wants is something you find out by
           // playing it, and going out to Settings means leaving the game.

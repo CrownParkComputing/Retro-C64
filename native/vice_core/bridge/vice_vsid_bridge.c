@@ -332,7 +332,9 @@ int32_t vice_vsid_launch(const char *media_path, const char *command_line) {
         int argc = 0;
         args[argc++] = "vsid";
         args[argc++] = "-default";
-        args[argc++] = "-verbose";
+        /* Not -verbose, for the same reason as the game core -- see the note
+         * in vice_bridge.c. Both cores share one log file now, so verbose
+         * output from either buries the other. */
         args[argc++] = "+logcolorize";
         if (g_data_dir[0] != '\0') {
             args[argc++] = "-directory";

@@ -185,7 +185,13 @@ void main() {
       // The port row shows the port that is actually in use, not a fixed
       // string -- "nothing moves" is the symptom of the wrong port.
       expect(find.text('Port 1 (some games)'), findsOneWidget);
-      expect(find.text('Keyboard hidden'), findsOneWidget);
+
+      // The keyboard and on-screen-pad toggles are NOT in here. Each has a
+      // permanent button in the corner of the game that shows its own state,
+      // and a panel row doing the same job is a second place to look and a
+      // second thing to keep in sync rather than a shortcut.
+      expect(find.text('Virtual Keyboard'), findsNothing);
+      expect(find.text('On-screen Pad'), findsNothing);
 
       // Reset really does go to the core.
       await tester.tap(find.text('Reset C64'));
@@ -202,9 +208,10 @@ void main() {
 
     testWidgets('the virtual keyboard opens over the picture', (tester) async {
       await pumpEmulator(tester, core: FakeViceCore());
-      await tester.tap(find.byIcon(Icons.menu));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Virtual Keyboard'));
+
+      // Straight from the corner button -- one tap from play, which is why
+      // the duplicate panel row was dropped.
+      await tester.tap(find.byIcon(Icons.keyboard));
       await tester.pumpAndSettle();
 
       expect(find.text('RUN/STOP'), findsOneWidget);
