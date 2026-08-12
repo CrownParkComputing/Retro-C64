@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'about_screen.dart';
+import 'audio_settings_screen.dart';
 import '../data/category.dart';
 import '../data/custom_button.dart';
 import '../data/media_entry.dart';
@@ -16,17 +17,18 @@ import '../widgets/sidebar.dart';
 import 'emulator_screen.dart';
 import 'input_settings_screen.dart';
 import 'library_grid.dart';
+import 'history_screen.dart';
 import 'logs_screen.dart';
 import 'music_screen.dart';
 import 'paths_settings_screen.dart';
 import 'resume_screen.dart';
-import 'settings_placeholder.dart';
 import 'video_settings_screen.dart';
 import '../services/app_prefs.dart';
 import 'setup_wizard_screen.dart' show kGamesImportSubdir;
 import '../services/storage_access.dart';
 import '../services/gamepad_service.dart';
 import '../services/library_scanner.dart';
+import '../services/music_library.dart';
 import '../services/permissions_service.dart';
 import '../services/platform_info.dart';
 import '../services/save_state_service.dart';
@@ -112,6 +114,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   void initState() {
     super.initState();
     _refreshDriveRomState();
+    _startWorkbenchMusic();
     _scanLibrary();
     _scheduleIdle();
     _loadInputPrefs();
@@ -163,6 +166,29 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
         libraryCount: _library.length,
         fps: widget.core.isRunning ? widget.core.fps : 0,
       );
+
+  /// Puts a tune on while the user is in the workbench.
+  ///
+  /// The backdrop demo has an equaliser and a C64 front end in silence is the
+  /// wrong first impression, so this is on by default and switched off in
+  /// Audio settings. It deliberately does NOT restart anything already
+  /// playing: coming back from a game, or from the Music tab, should pick up
+  /// where the tune was rather than jump to the top of the playlist.
+  Future<void> _startWorkbenchMusic() async {
+    if (!await AppPrefs.getWorkbenchMusic()) return;
+    final vsid = VsidService.instance;
+    if (vsid.currentPath != null) {
+      // Already loaded from earlier -- just make sure it is audible, since
+      // launching a game pauses it (see _launch).
+      if (vsid.isPaused) vsid.togglePause();
+      return;
+    }
+    final dirs = await MusicLibrary.searchDirs();
+    final pick = MusicLibrary.firstAvailable(dirs);
+    if (pick == null) return;
+    if (!await vsid.ensureLoaded()) return;
+    vsid.play(pick.$2);
+  }
 
   Future<void> _refreshDriveRomState() async {
     bool installed;
@@ -541,8 +567,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
               child: C64Background(
                 active: _screensaverActive,
                 infoText: _backdropInfoText(),
-                audioLevel: () =>
-                    widget.core.isRunning ? widget.core.audioLevel : 0,
+                // Whichever core is actually making a sound. In the
+                // workbench that is the SID player, not the game core --
+                // feeding the game core here is why the equaliser sat flat
+                // while music was audibly playing.
+                audioLevel: () {
+                  final vsid = VsidService.instance;
+                  if (vsid.isRunning && !vsid.isPaused) return vsid.audioLevel;
+                  return widget.core.isRunning ? widget.core.audioLevel : 0;
+                },
                 onWake: _scheduleIdle,
               ),
             ),
@@ -617,12 +650,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
           onLibraryShouldRescan: _scanLibrary,
           onRerunSetup: widget.onRerunSetup,
         );
+      case WorkbenchCategory.history:
+        return const HistoryScreen();
       case WorkbenchCategory.logs:
         return const LogsScreen();
       case WorkbenchCategory.video:
         return const VideoSettingsScreen();
       case WorkbenchCategory.audio:
-        return const SettingsPlaceholder(title: 'Audio & Advanced');
+        return const AudioSettingsScreen();
       case WorkbenchCategory.input:
         return InputSettingsScreen(
           leftHanded: _leftHanded,

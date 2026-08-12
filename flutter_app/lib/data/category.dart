@@ -21,6 +21,7 @@ enum WorkbenchCategory {
   video('📺', 'Video'),
   audio('🔊', 'Audio'),
   input('🕹️', 'Input'),
+  history('📜', 'History'),
   logs('📝', 'Logs'),
   about('ℹ️', 'About');
 
