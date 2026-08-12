@@ -76,7 +76,7 @@ if compgen -G "$ICON_SRC/AppIcon*.png" >/dev/null; then
   echo "==> bundling app icons"
   cp "$ICON_SRC"/AppIcon*.png "$APP/" && echo "    $(ls "$ICON_SRC"/AppIcon*.png | wc -l) icon file(s)"
 else
-  echo "==> WARNING: no loose AppIcon*.png -- run tools/make-ios-icons.py or"
+  echo "==> WARNING: no loose AppIcon*.png -- run tools/make-app-icons.py or"
   echo "    the app will show iOS's placeholder icon."
 fi
 

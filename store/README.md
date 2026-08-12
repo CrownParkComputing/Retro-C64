@@ -22,7 +22,7 @@ it currently claims to), that set is still needed.
 
 ## Icons
 
-`tools/make-ios-icons.py` regenerates every iOS icon from
+`tools/make-app-icons.py` regenerates every iOS and Android icon from
 `flutter_app/assets/images/retro_recomp_logo.png` and the Android plate
 colour. Run it after changing the logo. See the note in that file about why
 the artwork is recomposed rather than copied from the Android PNGs.

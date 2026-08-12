@@ -64,7 +64,7 @@
 	     it ships no Assets.car and the app sat on the home screen under the
 	     grey placeholder grid. A macOS build compiles the catalogue and that
 	     takes precedence, so these cost nothing there. Generated together by
-	     tools/make-ios-icons.py; the files are copied into the bundle root
+	     tools/make-app-icons.py; the files are copied into the bundle root
 	     by tools/build-ios-linux.sh. -->
 	<key>CFBundleIcons</key>
 	<dict>
