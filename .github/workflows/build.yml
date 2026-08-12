@@ -142,14 +142,42 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
+      # Same contract as the Android job above: the arm64 iOS cores are
+      # checked in (flutter_app/ios/Frameworks) because building them needs
+      # the cross-compiled VICE object tree, which is not in this repo. The
+      # Runner target's "Embed Frameworks" phase copies them into
+      # Runner.app/Frameworks and signs them with the app's identity.
+      - name: Verify native libraries are present
+        run: |
+          for lib in libvicecore.dylib libvicecore_vsid.dylib; do
+            path="flutter_app/ios/Frameworks/$lib"
+            if [ ! -f "$path" ]; then
+              echo "::error::Missing native library $path (see docs/NATIVE_BUILD.md)"
+              exit 1
+            fi
+            echo "found $path ($(du -h "$path" | cut -f1))"
+          done
+
       # Unsigned build always runs, so iOS compilation breakage is caught even
-      # without Apple credentials configured. NOTE: the native core is not yet
-      # built for iOS (no .xcframework) -- see docs/NATIVE_BUILD.md. This job
-      # proves the Dart/Flutter layer compiles for iOS; it will not produce a
-      # runnable app until the native build lands.
+      # without Apple credentials configured.
       - name: Build iOS (no codesign)
         working-directory: flutter_app
         run: flutter build ios --release --no-codesign
+
+      # An app that builds but ships no core installs fine and then dies at
+      # "Failed to load libvicecore" on the device -- which looks like a
+      # signing fault and is not one. Prove the embed phase actually ran.
+      - name: Verify the core is embedded in the app
+        run: |
+          app=flutter_app/build/ios/iphoneos/Runner.app
+          for lib in libvicecore.dylib libvicecore_vsid.dylib; do
+            if [ ! -f "$app/Frameworks/$lib" ]; then
+              echo "::error::$lib is missing from $app/Frameworks -- the Runner"
+              echo "::error::target's Embed Frameworks phase did not copy it."
+              exit 1
+            fi
+            file "$app/Frameworks/$lib"
+          done
 
       # Signed App Store build. Skipped unless the Apple secrets are set, so
       # the job still gives useful "does it compile for iOS" signal without

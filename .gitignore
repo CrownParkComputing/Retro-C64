@@ -9,9 +9,12 @@ native/vice_core/android/build/
 native/vice_core/linux/build_verify/
 
 # Native libraries ARE tracked where the app consumes them
-# (flutter_app/android/app/src/main/jniLibs/**) -- CI needs them to build the
-# AAB, and rebuilding them requires the cross-compiled VICE object tree which
-# lives outside this repo. See docs/NATIVE_BUILD.md.
+# (flutter_app/android/app/src/main/jniLibs/** and flutter_app/ios/Frameworks/**)
+# -- CI needs them to build the AAB and the IPA, and rebuilding them requires
+# the cross-compiled VICE object tree which lives outside this repo. Note that
+# the `build/` rule above already hides native/vice_core/*/build/, which is
+# where those files are produced; the committed copies are the ones both
+# toolchains actually read. See docs/NATIVE_BUILD.md.
 
 # --- Local machine config (paths, SDK locations) --------------------------
 flutter_app/android/local.properties

@@ -15,6 +15,8 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		C64R00012F0000000000001A /* libvicecore.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C64R00032F0000000000001A /* libvicecore.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		C64R00022F0000000000001A /* libvicecore_vsid.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C64R00042F0000000000001A /* libvicecore_vsid.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +36,8 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
+				C64R00012F0000000000001A /* libvicecore.dylib in Embed Frameworks */,
+				C64R00022F0000000000001A /* libvicecore_vsid.dylib in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -57,6 +61,8 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C64R00032F0000000000001A /* libvicecore.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libvicecore.dylib; path = Frameworks/libvicecore.dylib; sourceTree = "<group>"; };
+		C64R00042F0000000000001A /* libvicecore_vsid.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libvicecore_vsid.dylib; path = Frameworks/libvicecore_vsid.dylib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,9 +100,19 @@
 			children = (
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
+				C64R00052F0000000000001A /* Frameworks */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 			);
+			sourceTree = "<group>";
+		};
+		C64R00052F0000000000001A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C64R00032F0000000000001A /* libvicecore.dylib */,
+				C64R00042F0000000000001A /* libvicecore_vsid.dylib */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		97C146EF1CF9000F007C117D /* Products */ = {

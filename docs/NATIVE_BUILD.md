@@ -38,11 +38,25 @@ Consequences, reflected in `.github/workflows/build.yml`:
   CoreAudio backend (`bridge/audio_backend_ios.m`, the third implementation of
   `audio_backend.h` alongside ALSA and AAudio).
 
-  Unlike Android these are **not committed** — they are rebuilt from the VICE
-  tree, same as the Linux core. `tools/build-ios-linux.sh` copies them into
-  `Runner.app/Frameworks`, and the Dart side dlopens them by path. There is
-  still no `.xcframework`, so the `ios` CI job on `macos-14` continues to prove
-  only that the Dart/Flutter layer compiles.
+  Like Android, these **are committed**, under `flutter_app/ios/Frameworks/`,
+  and for the same reason: a Mac has no way to rebuild them (the cross-compile
+  needs the VICE object tree, which is not in this repo), so without the
+  checked-in copies a `git clone` on macOS produces an app that installs and
+  then dies at "Failed to load libvicecore". Both toolchains read that one
+  directory — the Xcode "Embed Frameworks" phase on macOS, and
+  `tools/build-ios-linux.sh` on Linux — so the two IPAs ship the same bytes.
+  Rebuild and re-commit them whenever `native/vice_core/bridge/*.c` changes:
+
+  ```bash
+  native/vice_core/ios/build.sh
+  cp native/vice_core/ios/build/libvicecore{,_vsid}.dylib \
+     flutter_app/ios/Frameworks/
+  ```
+
+  There is deliberately no `.xcframework`: these are arm64 **device** dylibs
+  only, matching the arm64-only Android build. The iOS Simulator is x86_64/
+  arm64-simulator and would need a second slice nobody here builds, so the app
+  runs on real hardware only.
 
   Read `docs/IOS_BUILD.md` before changing any of it — the ELF-only `--wrap`
   trick used here does not exist on Mach-O, and nothing in the launch path may
@@ -57,6 +71,10 @@ cd native/vice_core/linux/build && cmake .. && cmake --build . -j4
 
 # Android arm64 -> flutter_app/android/app/src/main/jniLibs/arm64-v8a/
 native/vice_core/android/build.sh
+
+# iOS arm64 -> copy into flutter_app/ios/Frameworks/ and commit
+native/vice_core/ios/build.sh
+cp native/vice_core/ios/build/libvicecore{,_vsid}.dylib flutter_app/ios/Frameworks/
 ```
 
 ## Tests

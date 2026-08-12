@@ -59,6 +59,13 @@
 		<integer>1</integer>
 		<integer>2</integer>
 	</array>
+	<!-- The only encryption here is the platform's own HTTPS, used by
+	     ArtworkService to fetch artwork packs; the app implements no crypto of
+	     its own, which is exactly Apple's exemption. Declaring it up front
+	     matters because without the key every upload stops in App Store
+	     Connect waiting for the answer by hand before it can reach testers. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

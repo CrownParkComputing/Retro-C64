@@ -1,4 +1,26 @@
-# Building the iOS app on Linux
+# Building the iOS app
+
+There are two iOS toolchains here and they do different jobs. Pick by what you
+need:
+
+| | Linux (`iosbox`) | macOS (Xcode) |
+|---|---|---|
+| Configuration | debug/JIT only | release/AOT |
+| Signing | unsigned; signed at install by MobAI | Apple Distribution cert |
+| App icon | none (no `actool`) | yes |
+| Good for | the fast device-test loop | **anything going to TestFlight or the App Store** |
+
+`iosbox` cannot produce a store build — it has exactly two commands (`setup`,
+`build`), `build` takes no configuration flag, and codesigning needs Apple's
+own tools. **The App Store path is a Mac**: either the `ios` job in
+`.github/workflows/build.yml` on `macos-14`, or a checkout on a real/rented
+Mac. Both are covered in "Shipping to TestFlight" at the bottom.
+
+The rest of this document is the Linux path, which is where most of the
+hard-won detail lives; nearly all of it (storyboards, `Info.plist`, the native
+core) applies to both.
+
+## Building on Linux
 
 There is no Mac in this project's loop. The iOS app is compiled on Linux by the
 `mobaiapp/iosbox` image, which pairs Clang/Swift targeting `arm64-apple-ios`
@@ -126,6 +148,20 @@ flags. That is why the Dart side dlopens them by absolute path
 `DynamicLibrary.process()` -- nothing else references them, so nothing else
 would load them.
 
+Both toolchains take the dylibs from the **committed** copies in
+`flutter_app/ios/Frameworks/`, never from `native/vice_core/ios/build/`:
+
+- **macOS** -- the Runner target's *Embed Frameworks* build phase copies them
+  into `Runner.app/Frameworks` with `CodeSignOnCopy`, so they are re-signed
+  with whatever identity signs the app. App Store validation rejects an
+  embedded dylib signed by anyone else.
+- **Linux** -- `tools/build-ios-linux.sh` copies the same two files in after
+  `iosbox` has run, then repacks the IPA.
+
+Rebuild them with `native/vice_core/ios/build.sh` and **copy the output into
+`flutter_app/ios/Frameworks/` and commit it**, or the change ships on neither
+platform. See `docs/NATIVE_BUILD.md`.
+
 ## path_provider does not work in this build
 
 `path_provider` 2.6's Apple implementation goes through `package:objective_c`,
@@ -153,3 +189,41 @@ run `iosbox` by hand, do the same:
 ```bash
 docker run --rm -v "$PWD:/proj" alpine chown -R "$(id -u):$(id -g)" /proj
 ```
+
+It also re-resolves `pubspec.lock` with its own newer Flutter, bumping `meta`
+and `test_api` past what the pinned `FLUTTER_VERSION` (3.41.9) allows. Leave
+the lock at what the pinned toolchain produces -- `git checkout
+flutter_app/pubspec.lock && flutter pub get` -- or CI rewrites it right back on
+the next run.
+
+## Shipping to TestFlight / the App Store
+
+This needs a Mac (or the `macos-14` CI job). On a fresh clone:
+
+```bash
+cd flutter_app
+flutter pub get
+flutter build ipa --release --export-method app-store
+```
+
+Before the first upload, four things have to be true:
+
+1. **The bundle ID is registered** in the Apple Developer portal and an app
+   record exists in App Store Connect. It is currently
+   `com.vicemultiplatform.app`, which no longer matches the app's name --
+   change it *before* creating the record, because a bundle ID can never be
+   changed afterwards.
+2. **An Apple Distribution certificate and an App Store provisioning profile**
+   for that bundle ID are installed in the Mac's keychain. For CI instead, set
+   the repo secrets the workflow already reads: `APPSTORE_CERT_BASE64`,
+   `APPSTORE_CERT_PASSWORD`, `APPSTORE_PROFILE_BASE64`.
+3. **The native cores are committed** under `flutter_app/ios/Frameworks/`. The
+   build succeeds without them and then dies on launch; CI checks explicitly.
+4. **`version:` in `pubspec.yaml` is bumped.** App Store Connect rejects a
+   build whose `CFBundleVersion` it has already seen, and the error arrives
+   after the upload, not before it.
+
+Upload the resulting `build/ios/ipa/*.ipa` with Transporter or
+`xcrun altool --upload-app`. Encryption compliance
+(`ITSAppUsesNonExemptEncryption`) is already declared in `Info.plist`, so the
+build should reach testers without a manual answer in the console.

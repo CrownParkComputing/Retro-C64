@@ -53,7 +53,16 @@ docker run --rm -v "$REPO_ROOT:/proj" alpine \
 # dylibs are copied into the app afterwards instead and dlopened by path at
 # runtime (ViceNativePaths._iosFrameworkLibrary). The IPA is then repacked,
 # because iosbox has already zipped one without them.
-CORE_BUILD="$REPO_ROOT/native/vice_core/ios/build"
+#
+# The source is the CHECKED-IN copy under flutter_app/ios/Frameworks, not the
+# local output of native/vice_core/ios/build.sh. Both toolchains must ship the
+# same bytes: on macOS the Xcode "Embed Frameworks" phase copies exactly these
+# two files, so reading them from an untracked local build directory here would
+# let the Linux IPA and the App Store IPA drift apart without anything saying
+# so. Rebuild the core with native/vice_core/ios/build.sh, then copy the result
+# into ios/Frameworks and commit it -- same contract as the Android .so files
+# under android/app/src/main/jniLibs.
+CORE_BUILD="$REPO_ROOT/flutter_app/ios/Frameworks"
 APP="$REPO_ROOT/flutter_app/build/iosbox/Runner.app"
 IPA="$REPO_ROOT/flutter_app/build/iosbox/Runner.ipa"
 
@@ -74,7 +83,8 @@ if [ -f "$CORE_BUILD/libvicecore.dylib" ]; then
 else
   echo "==> WARNING: no native core at $CORE_BUILD -- the app will build and"
   echo "    launch but report 'Failed to load libvicecore'. Build it with"
-  echo "    native/vice_core/ios/build.sh"
+  echo "    native/vice_core/ios/build.sh and copy the two dylibs into"
+  echo "    flutter_app/ios/Frameworks/"
 fi
 
 echo "==> done: flutter_app/build/iosbox/Runner.ipa"
