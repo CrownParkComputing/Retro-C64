@@ -961,6 +961,22 @@ int32_t vice_core_start(int32_t media_type, const char *media_path, const char *
                 args[argc++] = media_buf;
                 break;
             case 1: /* DISK */
+                /* Say what the drive IS before attaching anything to it.
+                 *
+                 * Without this, autostart finds unit 8 is not a 1541, tries
+                 * to change it, and VICE answers "Failed to set drive type" --
+                 * after which device 8 does not exist and every .d64 dies on
+                 * ?DEVICE NOT PRESENT. Tapes and PRGs were unaffected because
+                 * neither needs a drive at all, which is exactly the pattern
+                 * that was observed.
+                 *
+                 * Set on the command line rather than as a resource
+                 * afterwards, so the drive is a 1541 before autostart ever
+                 * inspects it. Its ROM is present (the log shows no "1541 ROM
+                 * image not found" among the errors for every other drive
+                 * type), so the type is accepted here. */
+                args[argc++] = "-drive8type";
+                args[argc++] = "1541";
                 args[argc++] = "-8";
                 args[argc++] = media_buf;
                 args[argc++] = "-autostart";
@@ -996,7 +1012,11 @@ static void remember_cold_start_tde(void) {
     if (resources_get_int_sprintf("Drive%dTrueEmulation", &tde, 8) == 0) {
         g_cold_start_tde = tde;
     }
-    LOGI("cold-start drive 8 truedrive=%d", g_cold_start_tde);
+    int type = -1, fsdev = -1;
+    resources_get_int_sprintf("Drive%dType", &type, 8);
+    resources_get_int_sprintf("FileSystemDevice%d", &fsdev, 8);
+    LOGI("cold-start drive 8: truedrive=%d type=%d fsdevice=%d rom1541=%d",
+         g_cold_start_tde, type, fsdev, drive_check_type(1541, 0));
 }
 
 void vice_core_stop(void) {
