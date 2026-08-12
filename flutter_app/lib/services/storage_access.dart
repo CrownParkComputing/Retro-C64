@@ -127,7 +127,11 @@ String? firstExistingMediaSearchPath() {
 }
 
 abstract class StorageAccess {
-  static final StorageAccess instance = _createInstance();
+  /// Settable so tests can drive the screens that depend on storage --
+  /// chiefly the setup wizard, which is the first thing a new user sees and
+  /// was completely untested because every path through it goes through a
+  /// real picker or a real directory. App code should only read it.
+  static StorageAccess instance = _createInstance();
 
   static StorageAccess _createInstance() {
     if (Platform.isIOS) return _IOSFileImportStorage();

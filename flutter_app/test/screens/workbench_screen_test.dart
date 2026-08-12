@@ -14,7 +14,26 @@ import 'package:vice_multiplatform/screens/emulator_screen.dart';
 import 'package:vice_multiplatform/screens/workbench_screen.dart';
 import 'package:vice_multiplatform/services/platform_info.dart';
 
+import 'package:vice_multiplatform/services/vsid_service.dart';
+
 import '../fakes/fake_vice_core.dart';
+
+/// Records what the workbench asked of the SID player.
+class _FakeVsid extends VsidService {
+  _FakeVsid() : super.forTesting();
+  int pauseCalls = 0;
+  final String _path = '/music/Commando.sid';
+  @override
+  Future<bool> ensureLoaded() async => true;
+  @override
+  void pause() => pauseCalls++;
+  @override
+  String? get currentPath => _path;
+  @override
+  bool get isRunning => true;
+  @override
+  bool get isPaused => false;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -99,5 +118,24 @@ void main() {
     // The title is named on the emulator screen, so it is obvious what is
     // loaded.
     expect(find.text('Boulder Dash.d64'), findsOneWidget);
+  });
+
+  testWidgets('launching a game silences the workbench music', (tester) async {
+    // Every route into the emulator must stop the tune, not just this one:
+    // the workbench resumes its music on the way back, so a route that
+    // forgets leaves the SID player audible underneath the game.
+    final real = VsidService.instance;
+    final vsid = _FakeVsid();
+    VsidService.instance = vsid;
+    addTearDown(() => VsidService.instance = real);
+
+    await pumpWorkbench(tester, FakeViceCore(isRunning: false));
+    await tester.tap(find.text('Boulder Dash'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(vsid.pauseCalls, greaterThan(0),
+        reason: 'the SID player should have been paused for the game');
   });
 }

@@ -174,6 +174,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// Audio settings. It deliberately does NOT restart anything already
   /// playing: coming back from a game, or from the Music tab, should pick up
   /// where the tune was rather than jump to the top of the playlist.
+  /// Stops the workbench tune because a game is about to play.
+  ///
+  /// Every route into the emulator has to do this, not just _launch: resuming
+  /// the current session and restoring a save state both put a game on screen
+  /// with its own audio, and both used to leave the SID player running
+  /// underneath it. That only became audible once the workbench started
+  /// resuming its music on the way back, which is exactly the kind of pair
+  /// where fixing one half exposes the other.
+  void _silenceWorkbenchMusic() => VsidService.instance.pause();
+
   Future<void> _startWorkbenchMusic() async {
     if (!await AppPrefs.getWorkbenchMusic()) return;
     final vsid = VsidService.instance;
@@ -254,7 +264,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
     // before C64Native.launch()). Unconditional pause (not toggle) so this
     // reliably silences music regardless of whether it was already
     // paused/stopped/never started.
-    VsidService.instance.pause();
+_silenceWorkbenchMusic();
     // Fail loudly rather than dropping the user on a blank emulator screen:
     // if the bytes can't be read (scoped storage, removed media, bad
     // permissions) there is nothing for the core to boot.
@@ -337,6 +347,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// picture and concludes the emulator crashed.
   void _resumeCurrent() {
     if (_currentEntry == null) return;
+    _silenceWorkbenchMusic();
     widget.core.setPaused(false);
     setState(() => _inEmulator = true);
     _idleTimer?.cancel();
@@ -362,6 +373,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
       path: entry.mediaPath,
       mediaType: entry.mediaType,
     );
+
+    _silenceWorkbenchMusic();
 
     // No usable snapshot: this is a Restart, and the Resume screen already
     // told the user so. Launch it the ordinary way rather than pretending.
