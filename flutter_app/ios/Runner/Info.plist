@@ -49,14 +49,21 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<!-- iPhone + iPad, matching TARGETED_DEVICE_FAMILY = "1,2" in the Xcode
-	     project. Xcode injects this key from that build setting, but the Linux
-	     build does not read the project file, and an app with no UIDeviceFamily
-	     is treated as iPhone-only: on iPad it ran letterboxed in compatibility
-	     mode at 320x480 instead of filling the screen. -->
+	<!-- iPad only, matching TARGETED_DEVICE_FAMILY = "2" in the Xcode project.
+	     Xcode injects this key from that build setting, but the Linux build
+	     does not read the project file, and an app with no UIDeviceFamily is
+	     treated as iPhone-only: on iPad it ran letterboxed in compatibility
+	     mode at 320x480 instead of filling the screen.
+
+	     Deliberately iPad-only for the first release. Apple demands a
+	     screenshot set for every family the binary claims, so declaring
+	     iPhone here obliges a 6.9-inch set; padded iPad captures satisfy the
+	     upload and look like what they are. Widening to "1,2" later is
+	     allowed and costs only the iPhone screenshots; narrowing after
+	     release is what strands existing users, so this direction is the
+	     safe one. -->
 	<key>UIDeviceFamily</key>
 	<array>
-		<integer>1</integer>
 		<integer>2</integer>
 	</array>
 	<!-- Loose icon files, the pre-asset-catalogue mechanism iOS still
