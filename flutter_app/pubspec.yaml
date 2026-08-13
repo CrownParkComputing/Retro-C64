@@ -21,7 +21,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # App Store Connect refuses a CFBundleVersion it has already seen, and it says
 # so after the upload rather than before it. Xcode Cloud takes CFBundleVersion
 # from here via ios/ci_scripts/ci_post_clone.sh, so the bump has to live here.
-version: 1.0.0+8
+version: 1.0.0+9
 
 environment:
   sdk: ^3.11.5

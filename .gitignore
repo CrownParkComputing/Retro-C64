@@ -52,3 +52,6 @@ native/vice_core/linux/test/testdata/*.wav
 # the tests at your own local copies instead -- every test takes the media
 # path as an argument. See docs/NATIVE_BUILD.md.
 native/vice_core/linux/test/testdata/games/
+
+# asc CLI review artifacts
+.asc/

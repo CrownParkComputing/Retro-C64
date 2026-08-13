@@ -1,0 +1,19 @@
+This is a hardware emulator for the Commodore 64 (1982), permitted under
+App Review Guideline 4.7. It ships with no games and no system ROMs.
+
+The Commodore system ROMs are still under copyright and cannot legally be
+distributed with the app, so the user supplies their own, exactly as with
+every other C64 emulator. On first launch the app explains this and offers a
+scan that finds and installs them.
+
+To evaluate a working emulator, place any C64 ROM set (kernal, basic,
+chargen, and dos1541 for disk images) in the app's Documents folder via the
+Files app, then use Paths > Scan for ROMs. A zipped set works as-is, with no
+unpacking.
+
+Without those files the app intentionally shows setup guidance rather than a
+black screen, so nothing here is a crash or a non-functional state.
+
+The app has no accounts, no login, no server, and no network features, so no
+demo account is needed. It collects no data at all; the privacy policy is at
+https://github.com/CrownParkComputing/ViceMultiplatform/blob/main/PRIVACY.md
