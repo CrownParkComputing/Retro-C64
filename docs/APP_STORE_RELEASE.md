@@ -214,6 +214,37 @@ steps to a working state, with a demo account or sample data where legal.
 Better: make first launch degrade into guidance rather than a blank screen. That
 fixes the reviewer's experience and every user's at once.
 
+## A build can upload, validate and ship while being completely broken
+
+Apple checks the bundle, not whether it draws. A binary that launches to a
+black screen passes validation, passes processing, reaches TestFlight, and only
+fails when a human opens it.
+
+The instance that cost this project a day: on iOS 13+ the window and root view
+controller belong to the scene, and something has to create them -- a
+storyboard named by `UIMainStoryboardFile`/`UISceneStoryboardFile`, or code in
+the scene delegate. A Flutter app whose scene delegate only *adopts* an
+existing window (because some other build path creates one) and whose
+storyboard is wired to nothing will never construct a `FlutterViewController`.
+No view controller means no engine, which means **Dart never starts**: no
+crash, no log line, `flutter run` hanging at "Waiting for VM Service port".
+
+Two greps say whether an app has it:
+
+```sh
+grep -c "UIWindow(windowScene" ios/Runner/SceneDelegate.swift
+grep -c "UIMainStoryboardFile\|UISceneStoryboardFile" ios/Runner/Info.plist
+```
+
+Both zero and every Xcode build of that app is black. A `.storyboard` file in
+the project proves nothing if neither key names it.
+
+The general lesson is cheaper than the specific one: **install the exact
+artefact you are about to ship on real hardware and open it.** Every automated
+signal in this pipeline -- build success, `altool` validation, App Store
+processing, TestFlight availability -- can be green for a build that shows
+users nothing at all.
+
 ## Habits that would have saved the time
 
 - **Check which artifact you actually uploaded.** Two rejections went on a stale

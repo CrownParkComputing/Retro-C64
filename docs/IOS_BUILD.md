@@ -60,7 +60,8 @@ the app off that path, and both must stay:
 
 - `ios/Runner/SceneDelegate.swift` creates the `UIWindow` and the
   `FlutterViewController` in code, instead of letting UIKit instantiate them
-  from `UISceneStoryboardFile`.
+  from `UISceneStoryboardFile`. It did not always do so, and the gap cost a
+  day -- see "Nothing creates the window on an Xcode build" below.
 - `ios/Runner/Info.plist` uses a `UILaunchScreen` dictionary rather than
   `UILaunchStoryboardName`, and declares no `UIMainStoryboardFile`. The
   dictionary is deliberately empty: a `UIImageName` or `UIColorName` would have
@@ -73,6 +74,43 @@ runtime any more. The same code path serves both toolchains.
 For the same reason the app has no icon in these builds -- `AppIcon` needs a
 compiled `Assets.car`. Ship an icon by building on macOS, or by adding loose
 PNGs plus `CFBundleIcons` entries.
+
+## Nothing creates the window on an Xcode build
+
+The symptom: the app launches, the scene connects, and the screen stays black.
+No crash, no exception, nothing in the device log, and `flutter run` sits at
+`Waiting for VM Service port to be available...` for ever. Dart never executes
+-- not "runs and fails", *never starts*.
+
+The cause is the seam between the two toolchains. On Linux, `iosbox` does not
+compile the `AppDelegate.swift` in this repo: it substitutes its own, which
+creates the window and the `FlutterViewController` itself. `SceneDelegate` was
+therefore written only to *adopt* that window into the scene. The AppDelegate
+committed here does no such thing -- it registers plugins on the implicit
+engine and nothing else -- and no storyboard is wired to make one either
+(that is the whole point of the section above). So on an Xcode build nothing
+ever constructed a `FlutterViewController`, which is what brings the engine up.
+No view controller, no engine, no Dart.
+
+`SceneDelegate` now builds the window itself when there is none to adopt. The
+Linux path still takes the adopt branch and is unaffected.
+
+**This is not simulator-only.** The same path runs on device, so an
+Xcode-built or Xcode Cloud-built IPA is black for testers while uploading and
+validating perfectly -- Apple checks the bundle, not whether it draws.
+
+### Checking another app for the same bug
+
+Both apps in this family grew the same SceneDelegate from the same `iosbox`
+constraint, so anything sharing that lineage has it. Two greps:
+
+```sh
+grep -c "UIWindow(windowScene" ios/Runner/SceneDelegate.swift        # 0 = never builds one
+grep -c "UIMainStoryboardFile\|UISceneStoryboardFile" ios/Runner/Info.plist  # 0 = nothing else will
+```
+
+Both zero means every Xcode build of that app is black. A `Main.storyboard`
+sitting in the project proves nothing: if neither key names it, it is inert.
 
 ## Info.plist must not lean on Xcode
 
