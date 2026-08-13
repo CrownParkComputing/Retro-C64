@@ -35,6 +35,7 @@ codebase in particular has hit, with the symptom each presents as.
 | `No profiles for '...' were found` | missing profile | automatic signing with no Apple ID in Xcode. It also seeks a *development* profile even when exporting for the App Store. Use manual signing. |
 | `MAC verification failed` on `.p12` import | wrong password | OpenSSL 3 writes PKCS#12 Apple cannot read. Re-export with `-keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1`. |
 | `no suitable application record found` | wrong account | bundle ID does not match any App Store Connect record. A bundle ID can **never** change once a record exists. |
+| `The specified pre-release build could not be added` | a version-string mismatch | *also* fires when the build's `buildAudienceType` is `INTERNAL_ONLY`. See "Internal-only builds cannot be submitted" below. Check `buildAudienceType` before re-reading version strings. |
 
 **Never rewrite Mach-O load commands.** `vtool -set-build-version ios <minos>
 <sdk>` takes *two* versions, and `-replace` drops the `LC_BUILD_VERSION` tool
@@ -118,6 +119,74 @@ codesign -d --entitlements :- $A 2>/dev/null | grep beta-reports-active
 
 Anything inside `Frameworks/` signed by an identity other than the app's own
 fails validation, so check the frameworks and not just the app.
+
+## Internal-only builds cannot be submitted
+
+A build carrying `buildAudienceType: INTERNAL_ONLY` installs and tests
+perfectly through TestFlight and can **never** be attached to an App Store
+version. The attach fails with
+
+    The specified pre-release build could not be added
+
+which is the same sentence Apple returns for a `CFBundleShortVersionString`
+that does not match the version record -- so the obvious reading sends you
+checking version strings that are already correct.
+
+The audience is fixed when the build is produced and cannot be changed
+afterwards. `asc builds update` only sets encryption compliance. So a run of
+internal-only builds is a run of builds none of which can ship, and the only
+fix is to change the producer and rebuild.
+
+For Xcode Cloud that producer is the workflow's archive action:
+
+```sh
+asc xcode-cloud workflows view --id <WORKFLOW_ID> | grep buildDistributionAudience
+```
+
+`INTERNAL_ONLY` is what *Deployment Preparation: TestFlight (Internal Testing
+Only)* sets, and it is the natural first choice when the workflow is created
+for a TestFlight loop. It must become `APP_STORE_ELIGIBLE` -- in the browser
+under **Xcode Cloud -> Manage Workflows -> <workflow> -> Actions -> Archive ->
+Deployment Preparation**, set to *TestFlight and App Store*. Widening it costs
+nothing: App Store eligible builds still reach TestFlight, so the internal
+loop is unaffected.
+
+Check the audience on the first build of any new app, not on the day you
+submit.
+
+## A failed submit is not always a failed submission
+
+`asc review submit` is a wrapper over four calls -- attach the build, create
+the submission, add the version as an item, submit it. Its final validation
+compared the submission's items against the target version, could not match
+them, and reported
+
+    review submission <id> does not contain target version <id>
+
+The submission was correct. `asc review items-list --submission <id>` showed
+one item in `READY_FOR_REVIEW`; the items endpoint simply does not return the
+relationship the validator wanted. Re-running the wrapper would have created a
+*second* submission.
+
+**Before retrying any submission step, read the state.** `asc review status
+--app <APP_ID>` names the latest submission and the next action; here it said
+"Submit the prepared review submission", and
+
+```sh
+asc review submissions-submit --id <SUBMISSION_ID> --confirm
+```
+
+completed immediately. The same caution applies to `--dry-run`: it reported
+`wouldSubmit: true` against an internal-only build that could not, in fact, be
+submitted, because it never checked the audience.
+
+## Xcode Cloud triggers twice if you let it
+
+A workflow with a `branchStartCondition` builds on every push. Triggering
+`asc xcode-cloud run` after pushing produces a **second** build of the same
+commit, and Xcode Cloud numbers each run, so build numbers arrive in pairs
+(9+10, 11+12, 13+14) with no indication why. Pick one trigger and stop using
+the other. The build number is Xcode Cloud's run counter, not `pubspec.yaml`.
 
 ## Product page
 
