@@ -15,16 +15,16 @@ dimensions on the app's own background colour, which is invisible against
 these screens -- the alternative, stretching to fit, distorts the picture and
 looks it.
 
-Sizes are Apple's 13-inch iPad, Apple's 6.9-inch iPhone, and Google's
-guidance. The 13-inch set is what App Store Connect asks for even when you
-shot on an 11-inch device; a set that matches the device you happen to own is
-not one of the options.
+Sizes are Apple's 13-inch iPad and Google's guidance. The 13-inch set is what
+App Store Connect asks for even when you shot on an 11-inch device; a set that
+matches the device you happen to own is not one of the options.
 
-The iPhone target exists because UIDeviceFamily claims iPhone, so Apple
-demands that set at submission. Feeding it an iPad capture produces a legal
-upload that unblocks the listing and looks terrible: bars down both sides of
-a 4:3 picture in a 2.2:1 frame. Treat anything it makes as a placeholder and
-replace it with a real iPhone capture before submitting.
+There is deliberately no iPhone target. Apple demands a screenshot set for
+every family the binary claims, and the app now declares iPad only
+(UIDeviceFamily = [2], TARGETED_DEVICE_FAMILY = "2"). Padding an iPad capture
+into a 6.9-inch iPhone frame produces a legal upload that looks exactly like
+what it is: a 4:3 picture with bars down both sides. If iPhone is ever added
+back to the binary, add the target here AND shoot on a real iPhone.
 """
 import pathlib
 import sys
@@ -41,12 +41,6 @@ TARGETS = {
     # whatever you captured on.
     "ios-ipad-13-landscape": (2752, 2064),
     "ios-ipad-13-portrait": (2064, 2752),
-    # App Store Connect: "iPhone 6.9-inch display". Required because
-    # UIDeviceFamily claims iPhone. Padding an iPad capture into this frame
-    # leaves bars down both sides and looks exactly like what it is, so these
-    # are only ever placeholders until the app is shot on an iPhone.
-    "ios-iphone-69-portrait": (1320, 2868),
-    "ios-iphone-69-landscape": (2868, 1320),
     # Play Store: no fixed size, but wants 16:9-ish and at least 1080 on the
     # short edge. This is a clean 1080p landscape.
     "android-landscape": (1920, 1080),
