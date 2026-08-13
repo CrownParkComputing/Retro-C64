@@ -16,4 +16,4 @@ black screen, so nothing here is a crash or a non-functional state.
 
 The app has no accounts, no login, no server, and no network features, so no
 demo account is needed. It collects no data at all; the privacy policy is at
-https://github.com/CrownParkComputing/ViceMultiplatform/blob/main/PRIVACY.md
+https://www.crownparkcomputing.com/privacy
