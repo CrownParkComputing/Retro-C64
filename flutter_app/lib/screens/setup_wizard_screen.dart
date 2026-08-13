@@ -84,7 +84,7 @@ class SetupWizardScreen extends StatefulWidget {
 /// Downloads. That folder belongs to the Files app and the sandbox forbids
 /// reaching into it, so no amount of scanning will find it. What this screen
 /// scans is everywhere the app genuinely can read -- its own container,
-/// including anything dropped into "C64-Retro Emulator" in the Files app,
+/// including anything dropped into "C64-Retro" in the Files app,
 /// opened into the app from elsewhere (Documents/Inbox), or pushed over USB.
 /// Downloads is reachable only through the picker, which is what
 /// "Import from Files..." opens.

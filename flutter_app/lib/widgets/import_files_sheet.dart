@@ -5,7 +5,7 @@
 // already inside this app's own sandbox -- and that is exactly where C64 media
 // arrives from every route that does not involve the picker:
 //
-//   * dragged into "C64-Retro Emulator" in the Files app (UIFileSharingEnabled);
+//   * dragged into "C64-Retro" in the Files app (UIFileSharingEnabled);
 //   * opened into the app from another app, landing in Documents/Inbox;
 //   * pushed over USB from the build machine.
 //
@@ -207,7 +207,7 @@ class _ImportFilesSheetState extends State<_ImportFilesSheet> {
             const SizedBox(height: 8),
             Text(
               'Nothing waiting to import.\n'
-              'Add .d64/.tap files to "C64-Retro Emulator" in the Files app, '
+              'Add .d64/.tap files to "C64-Retro" in the Files app, '
               'then pull to refresh.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium,

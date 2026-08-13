@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>C64-Retro Emulator</string>
+	<string>C64-Retro</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -30,7 +30,7 @@
 	<true/>
 	<!-- Expose the app's Documents directory as a file provider, so C64 media
 	     can actually get onto the device:
-	       * the Files app shows "C64-Retro Emulator" under On My iPad, and
+	       * the Files app shows "C64-Retro" under On My iPad, and
 	         users can drag .d64/.tap straight in;
 	       * pymobiledevice3's "apps push" in documents mode can do the same
 	         over USB from the build machine, which is how the test images are
@@ -101,11 +101,11 @@
 	     Carried over from the ios-beta-prep branch, which found this the
 	     hard way against a real submission. -->
 	<key>NSCameraUsageDescription</key>
-	<string>C64-Retro Emulator does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
+	<string>C64-Retro does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>C64-Retro Emulator only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
+	<string>C64-Retro only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>C64-Retro Emulator does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
+	<string>C64-Retro does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
 	<!-- The only encryption here is the platform's own HTTPS, used by
 	     ArtworkService to fetch artwork packs; the app implements no crypto of
 	     its own, which is exactly Apple's exemption. Declaring it up front

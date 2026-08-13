@@ -136,7 +136,7 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'C64-Retro Emulator',
+      title: 'C64-Retro',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
       home: _loadError != null
