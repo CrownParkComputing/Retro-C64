@@ -58,6 +58,30 @@ class SceneDelegate: FlutterSceneDelegate {
       appDelegate.window = nil
 
       existingWindow.makeKeyAndVisible()
+    } else if let windowScene = scene as? UIWindowScene {
+      // Nothing built a window, so build one here.
+      //
+      // The branch above handles the Linux path, where `iosbox` substitutes an
+      // AppDelegate that creates the window itself. The AppDelegate committed
+      // next to this file does not: it only registers plugins on the implicit
+      // engine. Normally a storyboard would instantiate the
+      // FlutterViewController that brings that engine up, but this app has no
+      // Main.storyboard on purpose (ibtool is macOS-only -- see
+      // docs/IOS_BUILD.md), so on an Xcode build nothing ever created one.
+      //
+      // No FlutterViewController means no engine, which means Dart never runs:
+      // the app launches, the scene connects, and the screen stays black with
+      // no crash and nothing in the log. That is what an Xcode-built binary
+      // did on the simulator, and the same code path runs on device.
+      let engine = FlutterEngine(name: "main")
+      engine.run()
+      GeneratedPluginRegistrant.register(with: engine)
+
+      let window = UIWindow(windowScene: windowScene)
+      window.rootViewController = FlutterViewController(
+        engine: engine, nibName: nil, bundle: nil)
+      self.window = window
+      window.makeKeyAndVisible()
     }
 
     // Still call super: it registers the engine for scene life-cycle events,
