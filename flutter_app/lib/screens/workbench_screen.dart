@@ -490,6 +490,16 @@ _silenceWorkbenchMusic();
   ///     background: burning CPU and battery, playing audio over the
   ///     workbench, and letting the game advance (die, time out, lose a
   ///     life) while the user was just browsing.
+  /// Close, as distinct from pause: the session is dropped on the floor.
+  /// No snapshot is taken and the entry is forgotten, so the game will not
+  /// offer to resume - which is the entire difference from _backToLibrary.
+  /// The machine itself is left parked in the pause gate; starting the next
+  /// game goes through the same media-swap path a resume would.
+  Future<void> _closeGame() async {
+    _currentEntry = null;
+    await _backToLibrary();
+  }
+
   Future<void> _backToLibrary() async {
     setState(() => _inEmulator = false);
     // Re-arms the countdown now that the workbench is showing again,
@@ -563,6 +573,7 @@ _silenceWorkbenchMusic();
         core: widget.core,
         mediaLabel: _emulatorLabel,
         onBackToLibrary: _backToLibrary,
+        onCloseGame: _closeGame,
         leftHanded: _leftHanded,
         gamepad: _gamepad,
         padMode: _padMode,

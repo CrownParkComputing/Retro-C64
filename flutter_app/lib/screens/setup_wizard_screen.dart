@@ -31,8 +31,8 @@ import 'package:flutter/material.dart';
 import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../services/app_prefs.dart';
+import '../services/startup_import.dart';
 import '../services/storage_access.dart';
-import '../widgets/import_files_sheet.dart';
 
 const String kGamesImportSubdir = 'games';
 
@@ -161,8 +161,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       return;
     }
 
-    await showImportFilesSheet(context, destinationSubdir: kGamesImportSubdir);
+    // iOS has no picker any more: the app's folder in Files is the one door,
+    // and everything dropped there imports itself. "Import more" is therefore
+    // a rescan - run the startup import again and re-read the shelf.
+    setState(() => _busy = true);
+    await StartupImport.run();
     if (!mounted) return;
+    setState(() => _busy = false);
     await _scanOnStartup();
   }
 
@@ -222,7 +227,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ..writeln()
         ..write(_isFolderScan
             ? '? NO GAMES FOLDER SET - CHOOSE ONE'
-            : '? NOTHING FOUND - TAP IMPORT');
+            : '? NOTHING FOUND - PUT ZIPS IN THIS APP\'S FOLDER\n'
+                '  (FILES > ON MY IPAD > C64-RETRO), THEN SCAN');
       return buffer.toString();
     }
 
@@ -311,7 +317,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          _button(_isFolderScan ? 'Choose folder' : 'Import from Files…',
+          _button(_isFolderScan ? 'Choose folder' : 'Scan',
               _busy ? null : _importMore),
           const SizedBox(width: 8),
           _button('Start', _busy ? null : _finishSetup),

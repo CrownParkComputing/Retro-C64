@@ -26,6 +26,10 @@ class EmulatorScreen extends StatefulWidget {
   final ViceCore core;
   final String mediaLabel;
   final VoidCallback onBackToLibrary;
+
+  /// Close, as distinct from pause: the session is dropped, nothing is
+  /// snapshotted, and the game will not appear in the resume list.
+  final VoidCallback? onCloseGame;
   final bool leftHanded;
   final GamepadService? gamepad;
 
@@ -55,6 +59,7 @@ class EmulatorScreen extends StatefulWidget {
     required this.core,
     required this.mediaLabel,
     required this.onBackToLibrary,
+    this.onCloseGame,
     this.leftHanded = false,
     this.gamepad,
     this.padMode = OnScreenPadMode.auto,
@@ -436,6 +441,17 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
                 // hamburger that opened a panel of things now reachable
                 // where they are actually used -- a menu whose every row had
                 // a better home was just an extra tap in front of them.
+                // X closes the session - no snapshot, no resume entry.
+                // Pause below keeps it. Two buttons because they answer two
+                // different questions: "keep my place?" yes and no.
+                FloatingActionButton.small(
+                  heroTag: 'closeFab',
+                  backgroundColor: const Color(0xFF24292E),
+                  tooltip: 'Close the game',
+                  onPressed: widget.onCloseGame ?? widget.onBackToLibrary,
+                  child: const Icon(Icons.close, color: Colors.white),
+                ),
+                const SizedBox(height: 10),
                 FloatingActionButton.small(
                   heroTag: 'pauseFab',
                   backgroundColor: const Color(0xFF24292E),

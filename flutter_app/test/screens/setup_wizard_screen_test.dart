@@ -68,8 +68,9 @@ void main() {
   testWidgets('an empty library still offers a way forward', (tester) async {
     await pumpWizard(tester, storage: FakeStorageAccess());
 
-    // Nothing found is the common first-run case, not an error state.
-    expect(find.textContaining('Import'), findsWidgets);
+    // Nothing found is the common first-run case, not an error state. The
+    // way forward is the folder plus a rescan - the Files picker is gone.
+    expect(find.textContaining('Scan'), findsWidgets);
   });
 
   testWidgets('a failed sweep does not strand the user', (tester) async {
@@ -78,7 +79,7 @@ void main() {
     await pumpWizard(tester, storage: FakeStorageAccess(throwOnScan: true));
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Import'), findsWidgets);
+    expect(find.textContaining('Scan'), findsWidgets);
   });
 
   testWidgets('finishing marks setup complete and calls back', (tester) async {

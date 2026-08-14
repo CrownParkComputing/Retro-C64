@@ -11,7 +11,7 @@ import '../services/rom_install_service.dart';
 import '../ffi/vice_native_paths.dart';
 import '../services/permissions_service.dart';
 import '../services/storage_access.dart';
-import '../widgets/import_files_sheet.dart';
+import '../services/startup_import.dart';
 import '../theme/vice_theme.dart';
 import 'setup_wizard_screen.dart';
 
@@ -174,17 +174,21 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     widget.onRerunSetup?.call();
   }
 
+  /// Everything arrives through the app's folder now - drop zips there and
+  /// this reruns the startup import over them. The Files picker is gone: it
+  /// filed .sid tunes onto the games shelf (sid is a game extension to the
+  /// picker) and offered a second road when the folder must be the only one.
   Future<void> _importFiles() async {
-    final imported = await showImportFilesSheet(
-      context,
-      destinationSubdir: kGamesImportSubdir,
-    );
+    final imported = await StartupImport.run();
     if (!mounted) return;
-    if (imported.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported ${imported.length} file(s).')),
-      );
-    }
+    final total = imported.roms + imported.tunes + imported.games;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(total == 0
+              ? 'Nothing new. Put zips in this app\'s folder in Files first.'
+              : 'Imported ${imported.roms} ROM(s), ${imported.tunes} '
+                  'tune(s), ${imported.games} game(s).')),
+    );
     await _load();
     widget.onLibraryShouldRescan?.call();
   }
@@ -343,7 +347,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             _Row(
               label: 'Imported game / SID files',
               value: '$_importedCount file(s) in app storage',
-              actionLabel: 'Add files...',
+              actionLabel: 'Scan',
               onAction: _importFiles,
             ),
           ],
