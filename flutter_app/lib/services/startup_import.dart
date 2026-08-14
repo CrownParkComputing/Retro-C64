@@ -29,6 +29,19 @@ import 'zip_import.dart';
 class StartupImport {
   StartupImport._();
 
+  /// Whether a member name carries no identity of its own. These come from
+  /// multi-disk releases, where the zip is the game and the members are just
+  /// its sides.
+  static bool _isGenericName(String name) {
+    final stem = name.contains('.')
+        ? name.substring(0, name.lastIndexOf('.')).toLowerCase()
+        : name.toLowerCase();
+    const generic = ['disk', 'side', 'game', 'program', 'boot', 'saves',
+        'save', 'character', 'player', 'story', 'data', 'dungeon', 'questions'];
+    return generic.any((g) =>
+        stem == g || (stem.startsWith(g) && stem.length <= g.length + 14));
+  }
+
   /// What one launch imported, for the log and the setup screen.
   static Future<({int roms, int tunes, int games})> run() async {
     // ROMs first, and through the existing service: it already knows every
@@ -55,9 +68,18 @@ class StartupImport {
 
     for (final entry in docs.listSync()) {
       if (entry is! File || !ZipImport.isZip(entry.path)) continue;
+      final zipName = p.basenameWithoutExtension(entry.path);
       for (final member in ZipImport.memberNames(entry)) {
-        final name = p.basename(member);
+        var name = p.basename(member);
         final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
+        // Multi-disk games name their members Disk1, SideA, Game - names
+        // that say nothing on a shelf and collide across zips, so the last
+        // zip imported silently owned every "Disk1.d64". A generic member
+        // takes its zip's name; a member that already names its game keeps
+        // its own.
+        if (_isGenericName(name)) {
+          name = '$zipName - $name';
+        }
         String? destPath;
         if (ext == 'sid') {
           destPath = p.join(sidRoot, name);
