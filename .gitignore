@@ -59,7 +59,4 @@ native/vice_core/linux/test/testdata/games/
 # Commodore's ROMs, fetched by tools/fetch-test-roms.sh for local testing.
 # Kept out of the public repo: shipping or committing them is redistribution
 # that is not ours to do (see the script's own header).
-docs/c64-roms.zip
-# The sample games are commercial titles, equally not ours to redistribute.
-# The music zip is the repo's own bundled SID set re-zipped, and travels.
-docs/c64-games.zip
+docs/*.zip
