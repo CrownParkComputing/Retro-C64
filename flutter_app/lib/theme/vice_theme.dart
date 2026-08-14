@@ -53,9 +53,24 @@ class ViceMetrics {
   // 853dp-wide device the fixed value left a wide dead strip beside every
   // label. These are the clamp bounds for that measurement.
   static const double sidebarMinWidth = 118.0;
+
+  /// Upper bound for the measured rail, never below [sidebarMinWidth].
+  ///
+  /// The floor matters: a quarter of the screen is under 118 on any display
+  /// narrower than 472pt, which is every iPhone in portrait. Returning the
+  /// bare quarter then handed sidebar.dart a clamp whose lower bound was above
+  /// its upper one, and `double.clamp` throws on that -- "Invalid argument(s):
+  /// 118.0". The build failed, the rail never laid out, and what a tester saw
+  /// was a white screen in portrait that came right in landscape, where the
+  /// quarter finally exceeds the floor.
+  ///
+  /// A quarter is a preference, not a constraint. On a narrow screen the rail
+  /// takes its minimum and gives up a little more of the width, which is the
+  /// intended trade: the labels stay readable either way.
   static double sidebarMaxWidth(double screenWidth) {
     final quarter = screenWidth * 0.25;
-    return quarter < 190.0 ? quarter : 190.0;
+    final capped = quarter < 190.0 ? quarter : 190.0;
+    return capped < sidebarMinWidth ? sidebarMinWidth : capped;
   }
 
   // LauncherLayoutHelper.createMenuButton: dp(36) height, 12sp text, 10dp

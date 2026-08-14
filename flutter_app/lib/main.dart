@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 
@@ -25,8 +26,48 @@ void main() {
   // interesting failures are -- would already have been written to a stdout
   // nobody was reading.
   unawaited(AppLog.init());
+  _logFrameworkErrors();
   unawaited(VideoSettings.instance.load());
   runApp(const ViceMultiplatformApp());
+}
+
+/// Writes framework and unhandled async errors into the app's own log.
+///
+/// Without this a layout failure is invisible from outside. In release there
+/// is no red error screen: the widget that threw simply does not paint, so a
+/// tester reports "white screen" or "it just shows nothing" and there is
+/// nothing to go on -- the exception never leaves the device. That is exactly
+/// how a portrait-only overflow on iPhone was reported, and it could not be
+/// diagnosed from the report alone.
+///
+/// The default handler still runs, so debug builds keep their red screen and
+/// console output. This only adds a copy to Documents/c64retro-log.txt, which
+/// the user can send back from the Files app.
+void _logFrameworkErrors() {
+  final defaultHandler = FlutterError.onError;
+  FlutterError.onError = (details) {
+    // Library and context say which subsystem and which widget, which is the
+    // part that turns "white screen" into a place to look.
+    AppLog.log('FLUTTER ERROR [${details.library}] ${details.exception}');
+    if (details.context != null) {
+      AppLog.log('  while ${details.context!.toDescription()}');
+    }
+    final stack = details.stack;
+    if (stack != null) {
+      // Trimmed: the frames below the app's own code are framework internals
+      // and the same for every report.
+      AppLog.log(stack.toString().split('\n').take(12).join('\n'));
+    }
+    defaultHandler?.call(details);
+  };
+
+  // Errors outside the widget tree -- a failed await in a timer or an isolate
+  // callback -- never reach FlutterError.onError at all.
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppLog.log('UNCAUGHT $error');
+    AppLog.log(stack.toString().split('\n').take(12).join('\n'));
+    return false;
+  };
 }
 
 class ViceMultiplatformApp extends StatefulWidget {

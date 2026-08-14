@@ -4,7 +4,11 @@
 #
 #     tools/run-simulator.sh                 # iPhone 17 Pro Max
 #     tools/run-simulator.sh "iPad Pro 13-inch (M4)"
-#     tools/run-simulator.sh "iPhone 17 Pro Max" ~/Desktop/c64-roms.zip
+#     tools/run-simulator.sh "iPhone 17 Pro Max" ~/Desktop/c64-roms.zip \
+#         ~/Downloads/"1942 (1986)(Elite).zip"     # any number of zips, or a dir
+#
+# App data (imported ROMs, library) is preserved across the reinstall, so the
+# zips only need supplying the first time.
 #
 # WHY THIS EXISTS. `flutter run` alone gives a black screen or "Failed to load
 # libvicecore", for two reasons that have nothing to do with the app:
@@ -89,18 +93,48 @@ clang++ -dynamiclib -arch arm64 -target "$TARGET" -isysroot "$SDK" \
   -o "$APP/Frameworks/libvicecore_vsid.framework/libvicecore_vsid"
 
 echo "--- installing"
+# Uninstall wipes the data container, taking the imported ROMs under
+# Library/Application Support/vice with it -- so without this every run starts
+# from no ROMs and the zips have to be copied again. Keep the data, reinstall
+# the code.
+OLD_CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data 2>/dev/null || true)"
+if [ -n "$OLD_CONTAINER" ] && [ -d "$OLD_CONTAINER" ]; then
+  mkdir -p "$WORK/keep"
+  for d in Documents "Library/Application Support"; do
+    [ -d "$OLD_CONTAINER/$d" ] || continue
+    mkdir -p "$WORK/keep/$(dirname "$d")"
+    cp -R "$OLD_CONTAINER/$d" "$WORK/keep/$d"
+  done
+  echo "--- kept the existing app data"
+fi
+
 xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
 xcrun simctl uninstall "$UDID" "$BUNDLE_ID" 2>/dev/null || true
 xcrun simctl install "$UDID" "$APP"
 
+CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)"
+if [ -d "$WORK/keep" ]; then
+  ( cd "$WORK/keep" && find . -mindepth 1 -maxdepth 2 -type d -print0 2>/dev/null \
+    | xargs -0 -I{} mkdir -p "$CONTAINER/{}" ) 2>/dev/null || true
+  cp -R "$WORK/keep/". "$CONTAINER/" 2>/dev/null || true
+  echo "--- restored it, so imported ROMs survive the reinstall"
+fi
+
+# Every remaining argument is a zip (or a directory of them) to drop in. They
+# go straight into Documents, the only directory iOS lets the app read -- the
+# same place a user reaches through Files, now that the folder is the door.
 if [ -n "$ROMZIP" ]; then
-  # Straight into the app's Documents, which is the only place iOS lets it
-  # read. On a real device the user does this through the Files app; there is
-  # no picker any more, the folder is the door.
-  CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)"
   mkdir -p "$CONTAINER/Documents"
-  cp "$ROMZIP" "$CONTAINER/Documents/"
-  echo "--- placed $(basename "$ROMZIP") in the app's Documents"
+  for item in "$@"; do
+    [ "$item" = "$DEVICE" ] && continue
+    if [ -d "$item" ]; then
+      find "$item" -maxdepth 1 -name '*.zip' -exec cp {} "$CONTAINER/Documents/" \;
+      echo "--- placed $(find "$item" -maxdepth 1 -name '*.zip' | wc -l | tr -d ' ') zip(s) from $(basename "$item")"
+    elif [ -f "$item" ]; then
+      cp "$item" "$CONTAINER/Documents/"
+      echo "--- placed $(basename "$item")"
+    fi
+  done
 fi
 
 xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null
