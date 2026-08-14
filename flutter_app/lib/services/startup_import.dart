@@ -69,6 +69,9 @@ class StartupImport {
     for (final entry in docs.listSync()) {
       if (entry is! File || !ZipImport.isZip(entry.path)) continue;
       final zipName = p.basenameWithoutExtension(entry.path);
+      // Whether this zip still owes anything: only a fully-banked zip is
+      // deleted, so the folder empties itself without ever eating content.
+      var owes = false;
       for (final member in ZipImport.memberNames(entry)) {
         var name = p.basename(member);
         final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
@@ -86,7 +89,16 @@ class StartupImport {
         } else if (kGameFileExtensions.contains(ext)) {
           destPath = p.join(gamesRoot.path, name);
         }
-        if (destPath == null) continue; // ROM names were the service's job.
+        if (destPath == null) {
+          // A ROM member is satisfied once the ROM set is installed; anything
+          // else unrecognised keeps the zip alive for the user to look at.
+          if (RomInstallService.targetFor(name) != null) {
+            owes = !await ViceNativePaths.romsInstalled();
+          } else {
+            owes = true;
+          }
+          continue;
+        }
         if (File(destPath).existsSync()) continue; // already imported
         if (ZipImport.extractMember(entry, member, destPath)) {
           if (ext == 'sid') {
@@ -94,6 +106,17 @@ class StartupImport {
           } else {
             games++;
           }
+        } else {
+          owes = true;
+        }
+      }
+      // Everything banked: the zip has done its job, and the folder stays
+      // the drop zone rather than becoming a museum of spent archives.
+      if (!owes) {
+        try {
+          entry.deleteSync();
+        } on FileSystemException {
+          // A zip that will not delete is only a zip that gets rescanned.
         }
       }
     }

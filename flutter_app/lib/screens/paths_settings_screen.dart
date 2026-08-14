@@ -363,8 +363,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                 'not matter.\n'
                 '3.  Tap Scan above (or just relaunch the app).\n'
                 'Games (.d64 .tap .t64 .crt .prg) go to the shelf, .sid '
-                'tunes go to Music. Zips stay where you put them, and '
-                'nothing is imported twice.',
+                'tunes go to Music. A zip is removed once everything in it '
+                'is imported, so the folder stays a drop zone.',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.5,
