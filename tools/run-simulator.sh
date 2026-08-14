@@ -28,6 +28,21 @@
 # and nothing else), and swaps them into the built .app. Device builds are
 # untouched: they link the real archive and never see the stubs.
 #
+# WHAT THE SIMULATOR CANNOT TELL YOU. Those archives are an old build of the
+# core, so the simulator runs old emulator behaviour however current the Dart
+# side is. Most visibly, they predate a9a1a4d ("Tell VICE the drive is a 1541
+# before attaching a disk"), which changed vice_bridge.c and the prebuilt
+# binaries but never the simulator archives. So in the simulator every .d64
+# dies on ?DEVICE NOT PRESENT, exactly as it did before that fix -- and that is
+# the simulator being out of date, not a regression. Check with:
+#
+#     strings ios/Frameworks/libvicecore.framework/libvicecore | grep 'cold-start drive'
+#     strings ios/vicecore/iphonesimulator/libvicecore.a       | grep 'cold-start drive'
+#
+# One hit and no hit: the device core has the fix, the simulator core does not.
+# Tapes (.tap) and programs (.prg) need no drive and do work here, so use those
+# to exercise media in the simulator, and test disks on a device.
+#
 # The proper fix is a simulator target in native/vice_core/ios/build.sh, which
 # needs the cross-compiled VICE tree that is not in this repo.
 set -eu
