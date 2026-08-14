@@ -350,6 +350,28 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
               actionLabel: 'Scan',
               onAction: _importFiles,
             ),
+            // The whole growing-the-library story, told where the button is.
+            // Nothing here is a control - it is the answer to "how do I add
+            // more?", asked at the moment it gets asked.
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
+              child: Text(
+                'Adding more games and music\n'
+                '1.  In the Files app, open On My iPad > C64-Retro.\n'
+                '2.  Drop in a zip - add games to your games zip, tunes to '
+                'your music zip, or bring a whole new zip; the name does '
+                'not matter.\n'
+                '3.  Tap Scan above (or just relaunch the app).\n'
+                'Games (.d64 .tap .t64 .crt .prg) go to the shelf, .sid '
+                'tunes go to Music. Zips stay where you put them, and '
+                'nothing is imported twice.',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: Color(0xFF9AA4AE),
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           Align(
