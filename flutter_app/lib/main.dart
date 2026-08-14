@@ -8,7 +8,7 @@ import 'screens/setup_wizard_screen.dart';
 import 'screens/workbench_screen.dart';
 import 'services/app_prefs.dart';
 import 'services/artwork_service.dart';
-import 'services/rom_install_service.dart';
+import 'services/startup_import.dart';
 import 'services/app_log.dart';
 import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
@@ -107,9 +107,10 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
       // whole job: no browse, no button, the next launch finds it. Runs
       // before resolveRomDir so a first launch with a zip waiting boots the
       // machine rather than reporting no ROMs.
-      if (!await ViceNativePaths.romsInstalled()) {
-        final scanned = await RomInstallService.scanAndImport();
-        if (!scanned.isEmpty) AppLog.log('auto-import: ${scanned.summary}');
+      final imported = await StartupImport.run();
+      if (imported.tunes > 0 || imported.games > 0 || imported.roms > 0) {
+        AppLog.log('startup import: ${imported.roms} ROM(s), '
+            '${imported.tunes} tune(s), ${imported.games} game(s)');
       }
       final romDir = await ViceNativePaths.resolveRomDir();
       // Bundled SID tunes are extracted in the background at startup rather
