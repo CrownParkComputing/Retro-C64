@@ -55,3 +55,8 @@ native/vice_core/linux/test/testdata/games/
 
 # asc CLI review artifacts
 .asc/
+
+# Commodore's ROMs, fetched by tools/fetch-test-roms.sh for local testing.
+# Kept out of the public repo: shipping or committing them is redistribution
+# that is not ours to do (see the script's own header).
+docs/c64-roms.zip

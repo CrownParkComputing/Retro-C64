@@ -83,8 +83,17 @@ fi
 if [ -f "$CORE_BUILD/libvicecore.dylib" ]; then
   echo "==> bundling native core"
   mkdir -p "$APP/Frameworks"
-  cp -v "$CORE_BUILD"/libvicecore.dylib "$CORE_BUILD"/libvicecore_vsid.dylib \
-        "$APP/Frameworks/"
+  # As framework bundles, not loose dylibs: the Dart side loads
+  # Frameworks/libvicecore.framework/libvicecore (see _iosFrameworkLibrary),
+  # and a bare dylib in Frameworks/ is also what makes App Store validation
+  # demand a SwiftSupport folder (rejection 90426). The .framework shells with
+  # their Info.plists live in ios/Frameworks; the binary inside each is
+  # refreshed from the dylib just built.
+  for core in libvicecore libvicecore_vsid; do
+    rm -rf "$APP/Frameworks/$core.framework"
+    cp -a "$CORE_BUILD/$core.framework" "$APP/Frameworks/"
+    cp -v "$CORE_BUILD/$core.dylib" "$APP/Frameworks/$core.framework/$core"
+  done
 
   rm -rf "$REPO_ROOT/flutter_app/build/iosbox/Payload"
   mkdir -p "$REPO_ROOT/flutter_app/build/iosbox/Payload"
