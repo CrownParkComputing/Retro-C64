@@ -10,69 +10,6 @@
 	<string>C64-Retro</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<!-- Short name; CFBundleDisplayName is what the home screen shows, but
-	     this is the fallback and appears in some system UI. -->
-	<key>CFBundleName</key>
-	<string>C64-Retro</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(FLUTTER_BUILD_NAME)</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<!-- Expose the app's Documents directory as a file provider, so C64 media
-	     can actually get onto the device:
-	       * the Files app shows "C64-Retro" under On My iPad, and
-	         users can drag .d64/.tap straight in;
-	       * pymobiledevice3's "apps push" in documents mode can do the same
-	         over USB from the build machine, which is how the test images are
-	         loaded.
-	     Without UIFileSharingEnabled the container is invisible to both, and
-	     house-arrest document vending fails with InstallationLookupFailed.
-	     LSSupportsOpeningDocumentsInPlace lets the app open a file where it
-	     sits rather than only through a copy.
-
-	     WARNING: never write two hyphens in a row anywhere in this file. XML
-	     forbids them inside a comment, and Apple's tooling does not complain:
-	     the plist simply fails to parse, iOS ignores the scene configuration,
-	     and the app launches to a black screen with no error anywhere. That
-	     cost a full debugging cycle once already. -->
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
-	<!-- iPad only, matching TARGETED_DEVICE_FAMILY = "2" in the Xcode project.
-	     Xcode injects this key from that build setting, but the Linux build
-	     does not read the project file, and an app with no UIDeviceFamily is
-	     treated as iPhone-only: on iPad it ran letterboxed in compatibility
-	     mode at 320x480 instead of filling the screen.
-
-	     Deliberately iPad-only for the first release. Apple demands a
-	     screenshot set for every family the binary claims, so declaring
-	     iPhone here obliges a 6.9-inch set; padded iPad captures satisfy the
-	     upload and look like what they are. Widening to "1,2" later is
-	     allowed and costs only the iPhone screenshots; narrowing after
-	     release is what strands existing users, so this direction is the
-	     safe one. -->
-	<key>UIDeviceFamily</key>
-	<array>
-		<integer>2</integer>
-	</array>
-	<!-- Loose icon files, the pre-asset-catalogue mechanism iOS still
-	     honours. Needed because the Linux iosbox build cannot run actool, so
-	     it ships no Assets.car and the app sat on the home screen under the
-	     grey placeholder grid. A macOS build compiles the catalogue and that
-	     takes precedence, so these cost nothing there. Generated together by
-	     tools/make-app-icons.py; the files are copied into the bundle root
-	     by tools/build-ios-linux.sh. -->
 	<key>CFBundleIcons</key>
 	<dict>
 		<key>CFBundlePrimaryIcon</key>
@@ -99,27 +36,32 @@
 			</array>
 		</dict>
 	</dict>
-	<!-- The app only ever opens files you pick yourself (disk images, ROMs,
-	     SID tunes) through the system file picker. It has no camera, photo
-	     or location feature. These three strings exist because the file
-	     picker library links against those frameworks, and App Store
-	     validation rejects the upload without them (warning 90683). If a
-	     prompt ever does appear, these are what the user will read.
-	     Carried over from the ios-beta-prep branch, which found this the
-	     hard way against a real submission. -->
-	<key>NSCameraUsageDescription</key>
-	<string>C64-Retro does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>C64-Retro only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>C64-Retro does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
-	<!-- The only encryption here is the platform's own HTTPS, used by
-	     ArtworkService to fetch artwork packs; the app implements no crypto of
-	     its own, which is exactly Apple's exemption. Declaring it up front
-	     matters because without the key every upload stops in App Store
-	     Connect waiting for the answer by hand before it can reach testers. -->
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>C64-Retro</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>C64-Retro does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>C64-Retro does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>C64-Retro only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -133,14 +75,6 @@
 					<string>UIWindowScene</string>
 					<key>UISceneConfigurationName</key>
 					<string>flutter</string>
-					<!-- Spelled out rather than $(PRODUCT_MODULE_NAME).SceneDelegate:
-					     the Linux iOS build (docs/IOS_BUILD.md) expands only a
-					     fixed set of build variables, and this is not one of
-					     them. Left as a variable it reached the device
-					     verbatim, UIKit could not resolve the class, no scene
-					     connected and the app showed a black screen. The
-					     Runner target's module name is Runner, so this is the
-					     same value Xcode would substitute. -->
 					<key>UISceneDelegateClassName</key>
 					<string>Runner.SceneDelegate</string>
 				</dict>
@@ -149,9 +83,13 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- Plist-driven launch screen. Deliberately empty: any UIImageName or
-	     UIColorName here would have to resolve through an asset catalog, and
-	     compiling one needs actool, which is macOS-only (see SceneDelegate). -->
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
