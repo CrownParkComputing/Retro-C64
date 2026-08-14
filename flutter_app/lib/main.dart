@@ -8,6 +8,7 @@ import 'screens/setup_wizard_screen.dart';
 import 'screens/workbench_screen.dart';
 import 'services/app_prefs.dart';
 import 'services/artwork_service.dart';
+import 'services/rom_install_service.dart';
 import 'services/app_log.dart';
 import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
@@ -100,6 +101,16 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
       // real filesystem path first (see extractBundledRomDir). This must
       // be awaited before core.init() runs, since VICE needs the ROM files
       // on disk at init time.
+      // A ROM zip dropped in the app's folder installs itself. The Files app
+      // is the only road files travel on iOS - apps cannot see the system
+      // Downloads folder - so "put the zip in the app's folder" has to be the
+      // whole job: no browse, no button, the next launch finds it. Runs
+      // before resolveRomDir so a first launch with a zip waiting boots the
+      // machine rather than reporting no ROMs.
+      if (!await ViceNativePaths.romsInstalled()) {
+        final scanned = await RomInstallService.scanAndImport();
+        if (!scanned.isEmpty) AppLog.log('auto-import: ${scanned.summary}');
+      }
       final romDir = await ViceNativePaths.resolveRomDir();
       // Bundled SID tunes are extracted in the background at startup rather
       // than on first tap of the Music tab, so the playlist is ready when
