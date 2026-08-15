@@ -63,18 +63,51 @@ class ViceNativePaths {
 
   /// Resolves [relative] inside the iOS app data container, creating it.
   ///
-  /// Both routes here find the container without a plugin. HOME is the
-  /// documented one, but it comes back empty in this build, so the real
-  /// workhorse is systemTemp: on iOS that is NSTemporaryDirectory
-  /// (`<container>/tmp`), whose parent is the container root.
+  /// Both routes here find the container without a plugin, but they are NOT
+  /// interchangeable and the order matters.
+  ///
+  /// systemTemp is the authoritative one: on iOS it is NSTemporaryDirectory
+  /// (`<container>/tmp`), whose parent is the container root, and nothing can
+  /// move it. HOME is only a fallback, because on iOS the native core shares
+  /// this process and `prepare_vice_environment()` in vice_bridge.c does
+  /// `setenv("HOME", <support>/vice)` so VICE puts its XDG dirs somewhere
+  /// writable. Dart caches `Platform.environment` on first read, so whichever
+  /// of the two happens first decides the answer for the life of the process:
+  /// read it after a game has started and HOME is the ROM tree, every path
+  /// below resolves one level down inside it, and Dart and the core then
+  /// disagree about where the ROMs live -- the app writes dos1541 somewhere
+  /// VICE will never search, reports it installed, and every .d64 dies on
+  /// ?DEVICE NOT PRESENT.
+  ///
+  /// Today that is only survived by accident of ordering (AppLog.init runs
+  /// before any core start). Preferring systemTemp removes the ordering
+  /// dependency entirely, and the HOME branch additionally refuses a value
+  /// that is our own ROM directory.
   static Future<String> _iosContainerSubdir(String relative) async {
-    final home = Platform.environment['HOME'];
-    final container = (home != null && home.isNotEmpty)
-        ? Directory(home)
-        : Directory.systemTemp.parent;
-    final dir = Directory(p.join(container.path, relative));
+    final dir = Directory(p.join(_iosContainerRoot(), relative));
     await dir.create(recursive: true);
     return dir.path;
+  }
+
+  /// The container root, resolved once. Cached because the fallback reads an
+  /// environment the core rewrites underneath us.
+  static String? _iosContainerRootCache;
+
+  static String _iosContainerRoot() {
+    final cached = _iosContainerRootCache;
+    if (cached != null) return cached;
+
+    String root = Directory.systemTemp.parent.path;
+    if (root.isEmpty || root == '.' || root == '/') {
+      // systemTemp did not give us a container; fall back to HOME, unless the
+      // core has already pointed it at the ROM tree.
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty && p.basename(home) != 'vice') {
+        root = home;
+      }
+    }
+    _iosContainerRootCache = root;
+    return root;
   }
 
   /// The C64 ROM set the emulator needs: kernal, BASIC and chargen, plus the
