@@ -21,6 +21,7 @@
  * by a thin JNI shim on Android without touching the core logic.
  */
 
+#include <dirent.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -854,6 +855,61 @@ static void start_core_thread(char **args, int argc) {
 /* Public C API (vice_bridge.h)                                            */
 /* ---------------------------------------------------------------------- */
 
+/* What the CORE can see in one of its ROM subdirectories, listed from C.
+ *
+ * The Dart side already reports whether a ROM is installed, and the machine
+ * already reports whether the 1541 ROM loaded (rom1541= in the two drive
+ * lines below). When those two disagree -- the Paths screen says "Installed"
+ * and the drive still answers ?DEVICE NOT PRESENT -- nothing said which of
+ * the three possible reasons it was: the core was handed a different
+ * directory than Dart checked, the file is there under a name VICE will not
+ * look for, or it is there and unreadable. All three look identical from
+ * either end, and on iOS there is no shell to go and look with.
+ *
+ * So list it from inside the process that actually does the loading, at the
+ * exact path VICE is about to search (findpath appends <subpath>/<name> to
+ * each element of the Directory resource -- see src/findpath.c). ENOENT here
+ * is the answer on its own: the core is looking somewhere Dart never wrote.
+ */
+static void log_rom_subdir(const char *subdir) {
+    char path[1152];
+    snprintf(path, sizeof(path), "%s/%s", g_data_dir, subdir);
+
+    DIR *d = opendir(path);
+    if (d == NULL) {
+        LOGE("rom dir %s: cannot open (errno=%d)", path, errno);
+        return;
+    }
+
+    /* One line, not one per file: a DRIVES folder holds a dozen ROMs and the
+     * log is read by eye on a phone. */
+    char names[768];
+    size_t used = 0;
+    int count = 0;
+    bool truncated = false;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.') continue;
+        count++;
+        if (truncated) continue; /* keep counting, stop naming */
+        const int n = snprintf(names + used, sizeof(names) - used, "%s%s",
+                               used > 0 ? " " : "", e->d_name);
+        if (n < 0 || (size_t)n >= sizeof(names) - used) {
+            /* Say so rather than ending mid-filename: a silently clipped list
+             * reads as "that ROM is not there" when it is simply off the end.
+             * C64/ overflows this routinely; DRIVES/ does not. */
+            names[used] = '\0';
+            truncated = true;
+            continue;
+        }
+        used += (size_t)n;
+    }
+    closedir(d);
+    names[used] = '\0';
+    LOGI("rom dir %s: %d file(s): %s%s", path, count,
+         count > 0 ? names : "(empty)", truncated ? " ...(list truncated)" : "");
+}
+
 void vice_core_init(const char *rom_dir) {
     pthread_mutex_lock(&g_mutex);
     if (rom_dir != NULL) {
@@ -862,6 +918,10 @@ void vice_core_init(const char *rom_dir) {
         g_data_dir[0] = '\0';
     }
     LOGI("Initialized bridge with rom/data dir: %s", g_data_dir);
+    if (g_data_dir[0] != '\0') {
+        log_rom_subdir("C64");
+        log_rom_subdir("DRIVES");
+    }
     pthread_mutex_unlock(&g_mutex);
 }
 
