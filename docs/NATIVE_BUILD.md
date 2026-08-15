@@ -39,12 +39,15 @@ Consequences, reflected in `.github/workflows/build.yml`:
   `audio_backend.h` alongside ALSA and AAudio).
 
   Like Android, these **are committed**, under `flutter_app/ios/Frameworks/`,
-  and for the same reason: a Mac has no way to rebuild them (the cross-compile
-  needs the VICE object tree, which is not in this repo), so without the
-  checked-in copies a `git clone` on macOS produces an app that installs and
-  then dies at "Failed to load libvicecore". Both toolchains read that one
-  directory — the Xcode "Embed Frameworks" phase on macOS, and
-  `tools/build-ios-linux.sh` on Linux — so the two IPAs ship the same bytes.
+  and for the same reason: a Mac has no way to rebuild the *device* dylibs
+  (the cross-compile needs the VICE object tree, which is not in this repo),
+  so without the checked-in copies a `git clone` on macOS produces an app that
+  installs and then dies at "Failed to load libvicecore". Both toolchains read
+  that one directory — the Xcode "Embed Frameworks" phase on macOS, and
+  `tools/build-ios-linux.sh` on Linux — but not the same *file*: Linux
+  refreshes `<core>.framework/<core>` from `<core>.dylib` at package time,
+  while Xcode ships the committed framework binary as-is. Update both, or a
+  TestFlight build quietly carries different code from a dev build.
   Rebuild and re-commit them whenever `native/vice_core/bridge/*.c` changes:
 
   ```bash
@@ -54,9 +57,27 @@ Consequences, reflected in `.github/workflows/build.yml`:
   ```
 
   There is deliberately no `.xcframework`: these are arm64 **device** dylibs
-  only, matching the arm64-only Android build. The iOS Simulator is x86_64/
-  arm64-simulator and would need a second slice nobody here builds, so the app
-  runs on real hardware only.
+  only, matching the arm64-only Android build.
+
+- **iOS Simulator** — a separate slice, built **on a Mac** by
+  `native/vice_core/ios/build-core-simulator.sh`, committed under
+  `flutter_app/ios/vicecore/iphonesimulator/`, and swapped into the built
+  `.app` by `tools/run-simulator.sh`. A device dylib cannot be loaded there at
+  all (*"incompatible platform (have 'iOS', need 'iOS-simulator')"*).
+
+  It is a Mac-only script because the simulator needs `iPhoneSimulator.sdk`,
+  and the `iosbox-sdk` volume that serves the device cross-build carries
+  `iPhoneOS.platform` only. Two substitutions follow from having no container:
+  the `--wrap` symbol renaming uses `ld -r -alias` + `-unexported_symbol`
+  instead of `llvm-objcopy --redefine-sym` (Xcode ships no objcopy), and
+  `pkg-config` is stubbed to answer "not found", which is true — nothing on a
+  Mac is linkable into a simulator binary.
+
+  **Rebuild it whenever the bridge changes**, alongside the device cores.
+  These were once prebuilt blobs nothing could regenerate; they went stale by
+  a fix they never received, and every `.d64` failed in the simulator for
+  weeks after the bug was fixed on device. That reads as a live regression and
+  is not one.
 
   Read `docs/IOS_BUILD.md` before changing any of it — the ELF-only `--wrap`
   trick used here does not exist on Mach-O, and nothing in the launch path may
@@ -72,10 +93,20 @@ cd native/vice_core/linux/build && cmake .. && cmake --build . -j4
 # Android arm64 -> flutter_app/android/app/src/main/jniLibs/arm64-v8a/
 native/vice_core/android/build.sh
 
-# iOS arm64 -> copy into flutter_app/ios/Frameworks/ and commit
-native/vice_core/ios/build.sh
-cp native/vice_core/ios/build/libvicecore{,_vsid}.dylib flutter_app/ios/Frameworks/
+# iOS arm64 device -> copy into flutter_app/ios/Frameworks/ and commit
+native/vice_core/ios/build.sh                  # SKIP_VICE=1 to relink only
+for c in libvicecore libvicecore_vsid; do
+  cp "native/vice_core/ios/build/$c.dylib" "flutter_app/ios/Frameworks/$c.dylib"
+  cp "native/vice_core/ios/build/$c.dylib" "flutter_app/ios/Frameworks/$c.framework/$c"
+done
+
+# iOS arm64 simulator -> ON A MAC; writes into ios/vicecore/iphonesimulator/
+native/vice_core/ios/build-core-simulator.sh
 ```
+
+All three iOS artifacts come from the same `bridge/*.c`. Changing the bridge
+and rebuilding only one of them is how they drift apart, and the drift shows
+up as an emulator bug on whichever target was left behind.
 
 ## Tests
 
