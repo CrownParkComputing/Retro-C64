@@ -60,3 +60,6 @@ native/vice_core/linux/test/testdata/games/
 # Kept out of the public repo: shipping or committing them is redistribution
 # that is not ours to do (see the script's own header).
 docs/*.zip
+
+# Xcode leaves these beside the repo after a Distribute App export.
+Runner */
