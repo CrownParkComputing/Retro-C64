@@ -4,6 +4,11 @@ A complete runbook, written across two apps -- C64-Retro and Amiga-Retro --
 and roughly a dozen rejections, nearly all avoidable. Deliberately generic:
 nothing here is specific to either project, so it should serve the next app.
 
+A designed version of this document is published at
+https://claude.ai/code/artifact/979bd83e-b02d-4e7c-ba5d-ed75b8584f16 -- same
+content, easier to scan when something is on fire. This file is the source of
+truth; regenerate the page from it rather than editing the page.
+
 `docs/IOS_BUILD.md` is the project-specific companion -- every trap this
 codebase in particular has hit, with the symptom each presents as.
 
