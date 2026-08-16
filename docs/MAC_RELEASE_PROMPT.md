@@ -2,15 +2,19 @@
 
 Paste everything below the line into Claude Code on the macOS machine.
 
-> **Superseded for signing, as of 2026-08-12.** Everything here about building
-> is still accurate, but the local-signing route below is a dead end on the
-> shared VM: the Apple Distribution key lives in `vice-build.keychain-db`,
-> whose password nobody has, and codesign fails `errSecInternalComponent`
-> against a keychain it cannot unlock. `main` now builds for TestFlight on
-> Xcode Cloud, which signs on Apple's infrastructure and needs no local
-> signing material at all. See *Shipping via Xcode Cloud* in
-> `docs/IOS_BUILD.md`. Read this file for the build itself and the
-> do-not-"fix" list, which still hold.
+> **Read `docs/APP_STORE_RELEASE.md` first.** It is the complete, generic
+> runbook -- one-time account setup, the build loop, screenshots and
+> submission -- and it supersedes the release mechanics described here. This
+> file remains useful for why the Mac is needed at all, and for the
+> do-not-"fix" list.
+>
+> *On local signing:* an earlier note here called it a dead end, because the
+> Apple Distribution key sat in `vice-build.keychain-db` with a lost password
+> and codesign failed `errSecInternalComponent`. That was resolved on
+> 2026-08-16 -- the key was recovered into `c64retro-signing.keychain-db` and
+> both apps have since been signed and shipped locally. The trap worth keeping
+> is that a *second* keychain holding the same certificate, earlier in the
+> search list, reproduces the identical error against a perfectly good key.
 
 Why a Mac at all: the Linux toolchain (`iosbox`) can only produce a debug/JIT
 build. iOS kills a Flutter JIT process within a second unless a debugger is
