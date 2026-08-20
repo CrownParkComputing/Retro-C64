@@ -10,11 +10,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/screens/emulator_screen.dart';
-import 'package:vice_multiplatform/screens/workbench_screen.dart';
-import 'package:vice_multiplatform/services/platform_info.dart';
+import 'package:retro_c64/screens/emulator_screen.dart';
+import 'package:retro_c64/screens/workbench_screen.dart';
+import 'package:retro_c64/widgets/sidebar.dart';
+import 'package:retro_c64/services/platform_info.dart';
 
-import 'package:vice_multiplatform/services/vsid_service.dart';
+import 'package:retro_c64/services/vsid_service.dart';
 
 import '../fakes/fake_vice_core.dart';
 
@@ -82,8 +83,10 @@ void main() {
   testWidgets('the sidebar offers every workbench destination',
       (tester) async {
     await pumpWorkbench(tester, FakeViceCore());
+    // No 'Audio': its one control (workbench music) lives on the Music page
+    // now, which is where the tunes it governs are.
     for (final label in ['Resume', 'Games', 'Music', 'Paths', 'Video',
-      'Audio', 'Input', 'About']) {
+      'Input', 'About']) {
       expect(find.text(label), findsWidgets, reason: '$label sidebar entry');
     }
   });
@@ -115,9 +118,57 @@ void main() {
 
     expect(core.startCount, 1);
     expect(find.byType(EmulatorScreen), findsOneWidget);
-    // The title is named on the emulator screen, so it is obvious what is
-    // loaded.
+    // The session renders INSIDE the shell now, not over it: the rail and
+    // the status bar survive the launch, and the status bar is the ONE place
+    // the loaded title is named.
     expect(find.text('Boulder Dash.d64'), findsOneWidget);
+    expect(find.byType(Sidebar), findsOneWidget);
+  });
+
+  testWidgets('the in-game strip offers Pause and no Close', (tester) async {
+    // There is exactly one way out of a session, and it keeps your place.
+    // A close button that dropped the session without a snapshot answered a
+    // question the rolling save states already answer.
+    await pumpWorkbench(tester, FakeViceCore(isRunning: false));
+    await tester.tap(find.text('Boulder Dash'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(find.byTooltip('Pause and return to the workbench'), findsOneWidget);
+    expect(find.byTooltip('Close the game'), findsNothing);
+    expect(find.byIcon(Icons.close), findsNothing);
+  });
+
+  testWidgets('picking a different title ends the running one', (tester) async {
+    final core = FakeViceCore(isRunning: false);
+    await pumpWorkbench(tester, core);
+
+    await tester.tap(find.text('Boulder Dash'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(core.startCount, 1);
+
+    // Back to the shelf and straight into a second game. The core is handed
+    // the new media, which detaches the old one and resets -- the first game
+    // is not left running underneath.
+    await tester.tap(find.text('Games'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(find.text('Uridium'), findsOneWidget, reason: 'back on the shelf');
+    await tester.tap(find.text('Uridium'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(find.textContaining('Disk images need'), findsNothing);
+    expect(find.textContaining('Cannot read'), findsNothing);
+
+    expect(core.startCount, 2);
+    expect(core.startedPaths.last, endsWith('Uridium.d64'));
+    expect(find.text('Uridium.d64'), findsOneWidget);
+    expect(find.text('Boulder Dash.d64'), findsNothing);
   });
 
   testWidgets('launching a game silences the workbench music', (tester) async {

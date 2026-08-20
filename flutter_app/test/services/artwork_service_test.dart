@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/services/artwork_service.dart';
+import 'package:retro_c64/services/artwork_service.dart';
 
 void main() {
   group('slugFor', () {

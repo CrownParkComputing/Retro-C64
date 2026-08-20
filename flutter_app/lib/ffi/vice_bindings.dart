@@ -67,6 +67,27 @@ typedef _MatrixKeyEventNative = Void Function(
 typedef _MatrixKeyEventDart = void Function(
     int row, int column, int pressed);
 
+typedef _GetResourceIntNative = Int32 Function(
+    Pointer<Utf8> name, Pointer<Int32> outValue);
+typedef _GetResourceIntDart = int Function(
+    Pointer<Utf8> name, Pointer<Int32> outValue);
+
+typedef _SetResourceIntNative = Int32 Function(Pointer<Utf8> name, Int32 value);
+typedef _SetResourceIntDart = int Function(Pointer<Utf8> name, int value);
+
+typedef _GetResourceStringNative = Int32 Function(
+    Pointer<Utf8> name, Pointer<Utf8> outBuf, Int32 outLen);
+typedef _GetResourceStringDart = int Function(
+    Pointer<Utf8> name, Pointer<Utf8> outBuf, int outLen);
+
+typedef _SetResourceStringNative = Int32 Function(
+    Pointer<Utf8> name, Pointer<Utf8> value);
+typedef _SetResourceStringDart = int Function(
+    Pointer<Utf8> name, Pointer<Utf8> value);
+
+typedef _DumpResourcesNative = Int32 Function(Pointer<Utf8> path);
+typedef _DumpResourcesDart = int Function(Pointer<Utf8> path);
+
 typedef _JoystickNative = Void Function(Int32 port, Int32 mask);
 typedef _JoystickDart = void Function(int port, int mask);
 
@@ -121,6 +142,24 @@ class ViceCoreBindings implements ViceCore {
   late final _Int32VoidDart _getTapeMotor;
   late final _Int32VoidDart _getDriveHalfTrack;
   late final _Int32VoidDart _getDriveLed;
+  /// The resource API is looked up SOFTLY: a core built before it existed
+  /// still loads, and the Core screen degrades to "this build has no resource
+  /// access" instead of the whole app failing at DynamicLibrary.lookup.
+  ///
+  /// This is not hypothetical. Three iOS artifacts (device dylib, the binary
+  /// inside the .framework, and the simulator core) come off the same
+  /// bridge/*.c and are built by different toolchains -- the simulator one
+  /// needs a Mac -- so they drift. A hard lookup turns "that build is a bit
+  /// behind" into "the app cannot start".
+  _GetResourceIntDart? _getResourceInt;
+  _SetResourceIntDart? _setResourceInt;
+  _GetResourceStringDart? _getResourceString;
+  _SetResourceStringDart? _setResourceString;
+  _DumpResourcesDart? _dumpResources;
+
+  /// Whether this core exposes the resource API at all.
+  @override
+  bool get hasResourceApi => _getResourceInt != null;
 
   ViceCoreBindings._(this._lib) {
     _init = _lib
@@ -148,6 +187,30 @@ class ViceCoreBindings implements ViceCore {
     _joystick = _lib
         .lookup<NativeFunction<_JoystickNative>>('vice_core_joystick')
         .asFunction();
+    try {
+      _getResourceInt = _lib
+          .lookup<NativeFunction<_GetResourceIntNative>>(
+              'vice_core_get_resource_int')
+          .asFunction();
+      _setResourceInt = _lib
+          .lookup<NativeFunction<_SetResourceIntNative>>(
+              'vice_core_set_resource_int')
+          .asFunction();
+      _getResourceString = _lib
+          .lookup<NativeFunction<_GetResourceStringNative>>(
+              'vice_core_get_resource_string')
+          .asFunction();
+      _setResourceString = _lib
+          .lookup<NativeFunction<_SetResourceStringNative>>(
+              'vice_core_set_resource_string')
+          .asFunction();
+      _dumpResources = _lib
+          .lookup<NativeFunction<_DumpResourcesNative>>(
+              'vice_core_dump_resources')
+          .asFunction();
+    } on ArgumentError {
+      // Older core: leave them null. hasResourceApi answers for the UI.
+    }
     _attachDisk = _lib
         .lookup<NativeFunction<_AttachNative>>('vice_core_attach_disk')
         .asFunction();
@@ -236,6 +299,77 @@ class ViceCoreBindings implements ViceCore {
     } finally {
       if (pMedia != nullptr) malloc.free(pMedia);
       if (pCmd != nullptr) malloc.free(pCmd);
+    }
+  }
+
+  @override
+  int? getResourceInt(String name) {
+    final fn = _getResourceInt;
+    if (fn == null) return null;
+    final pName = name.toNativeUtf8();
+    final out = malloc<Int32>();
+    try {
+      if (fn(pName, out) != 0) return null;
+      return out.value;
+    } finally {
+      malloc.free(pName);
+      malloc.free(out);
+    }
+  }
+
+  @override
+  bool setResourceInt(String name, int value) {
+    final fn = _setResourceInt;
+    if (fn == null) return false;
+    final pName = name.toNativeUtf8();
+    try {
+      return fn(pName, value) == 0;
+    } finally {
+      malloc.free(pName);
+    }
+  }
+
+  @override
+  String? getResourceString(String name) {
+    final fn = _getResourceString;
+    if (fn == null) return null;
+    final pName = name.toNativeUtf8();
+    // 512 matches the bridge's own PENDING_RESOURCE_VALUE; VICE's string
+    // resources are file paths and device names, not documents.
+    const cap = 512;
+    final buf = malloc<Uint8>(cap).cast<Utf8>();
+    try {
+      if (fn(pName, buf, cap) != 0) return null;
+      return buf.toDartString();
+    } finally {
+      malloc.free(pName);
+      malloc.free(buf);
+    }
+  }
+
+  @override
+  bool setResourceString(String name, String value) {
+    final fn = _setResourceString;
+    if (fn == null) return false;
+    final pName = name.toNativeUtf8();
+    final pValue = value.toNativeUtf8();
+    try {
+      return fn(pName, pValue) == 0;
+    } finally {
+      malloc.free(pName);
+      malloc.free(pValue);
+    }
+  }
+
+  @override
+  bool dumpResources(String path) {
+    final fn = _dumpResources;
+    if (fn == null) return false;
+    final pPath = path.toNativeUtf8();
+    try {
+      return fn(pPath) == 0;
+    } finally {
+      malloc.free(pPath);
     }
   }
 

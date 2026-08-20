@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:vice_multiplatform/data/category.dart';
-import 'package:vice_multiplatform/services/library_scanner.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/services/library_scanner.dart';
 
 void main() {
   late Directory root;

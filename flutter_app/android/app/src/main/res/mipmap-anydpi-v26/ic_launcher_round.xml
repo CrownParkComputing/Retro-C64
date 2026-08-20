@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Adaptive icon (API 26+). Shipping BOTH layers matters: with only a legacy
-  square drawable, the launcher shrinks it onto a white plate, which looks
-  wrong against the Retro Recompilation logo's dark background.
--->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@mipmap/ic_launcher_background" />
+    <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>

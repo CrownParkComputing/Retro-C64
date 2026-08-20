@@ -5,8 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/services/video_settings.dart';
-import 'package:vice_multiplatform/widgets/framebuffer_view.dart';
+import 'package:retro_c64/services/video_settings.dart';
+import 'package:retro_c64/widgets/framebuffer_view.dart';
 
 import '../fakes/fake_vice_core.dart';
 

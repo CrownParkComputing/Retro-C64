@@ -54,6 +54,11 @@ class _MusicScreenState extends State<MusicScreen> {
   /// dir]; the bundled copy is always present so the Top-10 works out of
   /// the box on Android (where there is no user Music/ folder at all).
   List<String> _musicDirs = const [];
+  /// The workbench-music switch, moved here from the Audio page. That page
+  /// held exactly one control and it was about the tunes on THIS page, so it
+  /// was a destination whose entire content belonged somewhere else.
+  bool? _workbenchMusic;
+
   String? _nowPlayingTitle;
   String? _statusMessage;
   Timer? _pollTimer;
@@ -62,6 +67,9 @@ class _MusicScreenState extends State<MusicScreen> {
   void initState() {
     super.initState();
     _resolveMusicDir();
+    AppPrefs.getWorkbenchMusic().then((v) {
+      if (mounted) setState(() => _workbenchMusic = v);
+    });
     // Polls the real vsid state twice a second so the "PLAYING"/"PAUSED"
     // text and audio-level readout reflect what the native core is
     // actually doing, not just what button was last tapped.
@@ -244,6 +252,57 @@ class _MusicScreenState extends State<MusicScreen> {
     );
   }
 
+  /// Applies the change immediately as well as saving it. A music toggle
+  /// that only takes effect next launch is a broken toggle: the whole point
+  /// is that you flip it because you want silence *now*.
+  Future<void> _setWorkbenchMusic(bool on) async {
+    setState(() => _workbenchMusic = on);
+    await AppPrefs.setWorkbenchMusic(on);
+    if (!on) {
+      _vsid.pause();
+      return;
+    }
+    if (_vsid.currentPath != null) {
+      if (_vsid.isPaused) _vsid.togglePause();
+      return;
+    }
+    final pick = MusicLibrary.firstAvailable(_musicDirs);
+    if (pick == null) return;
+    if (await _vsid.ensureLoaded()) _vsid.play(pick.$2);
+  }
+
+  Widget _workbenchMusicRow() {
+    final on = _workbenchMusic;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: ViceColors.cardFill,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: ViceColors.cardStroke),
+        ),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Play a tune while you browse the workbench. Music always '
+                'stops when a game launches, whatever this is set to.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
+            Switch(
+              value: on ?? true,
+              activeThumbColor: ViceColors.accentTeal,
+              onChanged: on == null ? null : _setWorkbenchMusic,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -257,6 +316,7 @@ class _MusicScreenState extends State<MusicScreen> {
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
+        _workbenchMusicRow(),
         if (_loading)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),

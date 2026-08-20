@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/services/platform_info.dart';
+import 'package:retro_c64/services/platform_info.dart';
 
 void main() {
   test('names the OS this copy is actually running on', () {

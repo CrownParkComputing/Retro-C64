@@ -5,7 +5,7 @@
 // core silently ignores, so the button does nothing at all), and two keys
 // sharing one pair (so one of them presses the other's key).
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/data/c64_keys.dart';
+import 'package:retro_c64/data/c64_keys.dart';
 
 void main() {
   test('every key is inside the 8x8 matrix', () {

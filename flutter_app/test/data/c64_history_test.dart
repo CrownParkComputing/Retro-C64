@@ -4,7 +4,7 @@
 // timeline in order, and both of those are the kind of thing that quietly
 // stops being true when someone edits the list.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/data/c64_history.dart';
+import 'package:retro_c64/data/c64_history.dart';
 
 void main() {
   test('the top twenty has twenty entries, ranked 1..20 with no gaps', () {

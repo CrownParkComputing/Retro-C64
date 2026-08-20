@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/services/storage_access.dart';
+import 'package:retro_c64/services/storage_access.dart';
 
 void main() {
   test('Downloads is a search path on the desktop/Android platforms', () {

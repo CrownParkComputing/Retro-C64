@@ -157,6 +157,27 @@ extern int __wrap_sound_init_dummy_device(void) {
 /* ---------------------------------------------------------------------- */
 
 extern int __real_archdep_init(int *argc, char **argv);
+/* The SID player runs the same VICE archdep code in the same host process as
+ * vice_bridge.c, so it carries the identical hazard: archdep_vice_exit()
+ * calls libc exit(), which runs __cxa_finalize across every loaded library
+ * including libflutter.so and aborts the app. Contain it the same way --
+ * unwind the player thread, never the process. See the long note in
+ * vice_bridge.c's __wrap_archdep_vice_exit. */
+static pthread_t g_core_tid;
+static atomic_bool g_core_tid_valid = false;
+
+extern void __real_archdep_vice_exit(int exit_code);
+extern void __wrap_archdep_vice_exit(int exit_code) {
+    LOGE("archdep_vice_exit(%d) intercepted in the SID player -- unwinding "
+         "the player thread instead of killing the process", exit_code);
+    atomic_store_explicit(&g_core_running, false, memory_order_release);
+    if (atomic_load_explicit(&g_core_tid_valid, memory_order_acquire) &&
+        pthread_equal(pthread_self(), g_core_tid)) {
+        pthread_exit(NULL);
+    }
+    LOGE("archdep_vice_exit called off the player thread; returning instead");
+}
+
 extern int __wrap_archdep_init(int *argc, char **argv) {
     LOGI("stage archdep_init begin argc=%d", argc ? *argc : -1);
     int result = __real_archdep_init(argc, argv);
@@ -262,6 +283,8 @@ typedef struct {
 
 static void *core_thread_main(void *arg) {
     core_thread_args_t *targs = (core_thread_args_t *)arg;
+    g_core_tid = pthread_self();
+    atomic_store_explicit(&g_core_tid_valid, true, memory_order_release);
     prepare_vice_environment();
     atomic_store_explicit(&g_core_running, true, memory_order_release);
     LOGI("Starting VICE (vsid) main_program argc=%d", targs->argc);

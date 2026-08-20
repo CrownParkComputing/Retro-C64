@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:vice_multiplatform/services/rom_install_service.dart';
-import 'package:vice_multiplatform/services/zip_import.dart';
+import 'package:retro_c64/services/rom_install_service.dart';
+import 'package:retro_c64/services/zip_import.dart';
 
 /// Zips are how ROM sets and games actually arrive, and until they were
 /// understood the scans walked past them and reported "nothing found" with the

@@ -126,6 +126,7 @@ target_include_directories(vicecore PRIVATE
 
 target_link_options(vicecore PRIVATE
         -Wl,--wrap=archdep_init
+        -Wl,--wrap=archdep_vice_exit
         -Wl,--wrap=log_init
         -Wl,--wrap=video_init
         -Wl,--wrap=init_main
@@ -240,6 +241,7 @@ if(EXISTS "${VICE_BUILD_DIR}/src/c64/libvsid.a")
 
     target_link_options(vicecore_vsid PRIVATE
             -Wl,--wrap=archdep_init
+        -Wl,--wrap=archdep_vice_exit
             -Wl,--wrap=log_init
             -Wl,--wrap=video_init
             -Wl,--wrap=init_main

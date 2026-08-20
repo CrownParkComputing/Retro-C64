@@ -10,16 +10,18 @@
 // constraints, twice.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/data/c64_keys.dart';
-import 'package:vice_multiplatform/data/custom_button.dart';
-import 'package:vice_multiplatform/ffi/vice_bindings.dart';
-import 'package:vice_multiplatform/screens/emulator_screen.dart';
-import 'package:vice_multiplatform/services/app_prefs.dart';
-import 'package:vice_multiplatform/services/gamepad_service.dart';
-import 'package:vice_multiplatform/widgets/assignable_action_button.dart';
-import 'package:vice_multiplatform/widgets/custom_key_button.dart';
-import 'package:vice_multiplatform/widgets/framebuffer_view.dart';
-import 'package:vice_multiplatform/widgets/wobble_joystick.dart';
+import 'package:retro_c64/data/c64_keys.dart';
+import 'package:retro_c64/data/custom_button.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
+import 'package:retro_c64/screens/emulator_screen.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/gamepad_service.dart';
+import 'package:retro_c64/widgets/assignable_action_button.dart';
+import 'package:retro_c64/widgets/custom_key_button.dart';
+import 'package:retro_c64/data/emulator_ui_state.dart';
+import 'package:retro_c64/widgets/emulator_control_strip.dart';
+import 'package:retro_c64/widgets/framebuffer_view.dart';
+import 'package:retro_c64/widgets/wobble_joystick.dart';
 
 import '../fakes/fake_vice_core.dart';
 
@@ -49,17 +51,38 @@ void main() {
     tester.view.physicalSize = screenSize;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
+    // Mirrors the workbench: the machine's picture, and the control strip as
+    // a SIBLING below it rather than a child of it. Sharing one
+    // EmulatorUiState is the whole reason that split works.
+    final ui = EmulatorUiState();
+    addTearDown(ui.dispose);
     await tester.pumpWidget(MaterialApp(
-      home: EmulatorScreen(
-        core: core,
-        mediaLabel: 'Boulder Dash.d64',
-        onBackToLibrary: onBackToLibrary ?? () {},
-        onJoystickPortChanged: onJoystickPortChanged,
-        padMode: padMode,
-        gamepad: gamepad,
-        customButtons: customButtons,
-        joystickPort: joystickPort,
-        leftHanded: leftHanded,
+      home: Material(
+        child: Column(
+          children: [
+            Expanded(
+              child: EmulatorScreen(
+                core: core,
+                mediaLabel: 'Boulder Dash.d64',
+                onBackToLibrary: onBackToLibrary ?? () {},
+                onJoystickPortChanged: onJoystickPortChanged,
+                padMode: padMode,
+                gamepad: gamepad,
+                customButtons: customButtons,
+                joystickPort: joystickPort,
+                leftHanded: leftHanded,
+                ui: ui,
+              ),
+            ),
+            EmulatorControlStrip(
+              ui: ui,
+              onPause: onBackToLibrary ?? () {},
+              padMode: padMode,
+              joystickPort: joystickPort,
+              onJoystickPortChanged: onJoystickPortChanged,
+            ),
+          ],
+        ),
       ),
     ));
     // FramebufferView polls the core on a periodic timer; take the tree down
@@ -86,10 +109,15 @@ void main() {
         expect(find.byType(WobbleJoystick),
             controllerConnected ? findsNothing : findsOneWidget);
 
+        // The emulator view takes the full width and everything the strip
+        // below it does not need -- not the whole window any more, but never
+        // the 0x0 this file exists for.
         final body = tester.getSize(find.byType(Scaffold));
-        expect(body, screenSize,
+        expect(body.width, screenSize.width,
             reason: 'the emulator screen must fill the window in every '
                 'joypad-visibility branch');
+        expect(body.height, greaterThan(screenSize.height * 0.8));
+        expect(body.height, lessThan(screenSize.height));
 
         // The framebuffer is laid out with real area -- a 0x0 framebuffer is
         // a black screen even when the Scaffold itself is fine.
@@ -97,9 +125,15 @@ void main() {
         expect(picture.width, greaterThan(0));
         expect(picture.height, greaterThan(0));
 
-        // ...and so is the chrome that sits over it.
-        expect(find.text('Boulder Dash.d64'), findsOneWidget);
+        // ...and so is the chrome, which sits UNDER the picture rather than
+        // over it. The loaded title is deliberately NOT named here: the
+        // workbench's status strip already does that, and the emulator
+        // screen printing it again put the same string on screen twice.
+        expect(find.text('Boulder Dash.d64'), findsNothing);
         expect(find.byIcon(Icons.pause), findsOneWidget);
+        expect(tester.getTopLeft(find.byIcon(Icons.pause)).dy,
+            greaterThan(tester.getBottomLeft(find.byType(FramebufferView)).dy),
+            reason: 'the control strip belongs below the picture');
       });
     }
 
@@ -167,7 +201,7 @@ void main() {
           core: FakeViceCore(),
           padMode: OnScreenPadMode.always,
           leftHanded: true);
-      expect(tester.getSize(find.byType(Scaffold)), screenSize);
+      expect(tester.getSize(find.byType(Scaffold)).width, screenSize.width);
 
       final joystick = tester.getCenter(find.byType(WobbleJoystick));
       final fire = tester.getCenter(find.byType(ActionButton).first);
@@ -225,13 +259,13 @@ void main() {
     testWidgets('the virtual keyboard opens over the picture', (tester) async {
       await pumpEmulator(tester, core: FakeViceCore());
 
-      // Straight from the corner button -- one tap from play, which is why
-      // the duplicate panel row was dropped.
+      // Straight from the strip below the picture -- one tap from play,
+      // which is why the duplicate panel row was dropped.
       await tester.tap(find.byIcon(Icons.keyboard));
       await tester.pumpAndSettle();
 
       expect(find.text('RUN/STOP'), findsOneWidget);
-      expect(tester.getSize(find.byType(Scaffold)), screenSize);
+      expect(tester.getSize(find.byType(Scaffold)).width, screenSize.width);
     });
   });
 
@@ -240,12 +274,29 @@ void main() {
     final core = FakeViceCore();
     await pumpEmulator(tester, core: core, joystickPort: 2);
 
+    // Same tree shape as pumpEmulator's, with only the port changed -- a
+    // DIFFERENT shape would tear the State down and rebuild it, and
+    // didUpdateWidget (the thing under test) would never run.
     await tester.pumpWidget(MaterialApp(
-      home: EmulatorScreen(
-        core: core,
-        mediaLabel: 'Boulder Dash.d64',
-        onBackToLibrary: () {},
-        joystickPort: 1,
+      home: Material(
+        child: Column(
+          children: [
+            Expanded(
+              child: EmulatorScreen(
+                core: core,
+                mediaLabel: 'Boulder Dash.d64',
+                onBackToLibrary: () {},
+                joystickPort: 1,
+              ),
+            ),
+            EmulatorControlStrip(
+              ui: EmulatorUiState(),
+              onPause: () {},
+              padMode: OnScreenPadMode.auto,
+              joystickPort: 1,
+            ),
+          ],
+        ),
       ),
     ));
     await tester.pump();

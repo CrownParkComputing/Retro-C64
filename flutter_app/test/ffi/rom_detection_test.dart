@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:vice_multiplatform/ffi/vice_native_paths.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
 
 /// Covers the check that decides whether the emulator can boot at all.
 ///

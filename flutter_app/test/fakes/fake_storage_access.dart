@@ -4,7 +4,7 @@
 // The setup wizard is the reason this exists: it is the first thing a new
 // user sees and it was completely untested, because every path through it
 // runs a native file picker or sweeps a real container.
-import 'package:vice_multiplatform/services/storage_access.dart';
+import 'package:retro_c64/services/storage_access.dart';
 
 class FakeStorageAccess extends StorageAccess {
   FakeStorageAccess({

@@ -12,8 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/screens/music_screen.dart';
-import 'package:vice_multiplatform/services/vsid_service.dart';
+import 'package:retro_c64/screens/music_screen.dart';
+import 'package:retro_c64/services/vsid_service.dart';
 
 /// Records what the screen asked the core to do. The native core can't be
 /// loaded in a test process, so every method the screen touches is faked.

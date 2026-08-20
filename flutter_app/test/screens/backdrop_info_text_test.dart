@@ -3,8 +3,8 @@
 // Linux desktop, and it reports live state (what's loaded, how many titles,
 // FPS) that must not be able to lie.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/screens/workbench_screen.dart';
-import 'package:vice_multiplatform/services/platform_info.dart';
+import 'package:retro_c64/screens/workbench_screen.dart';
+import 'package:retro_c64/services/platform_info.dart';
 
 void main() {
   test('names the running platform rather than a baked-in one', () {

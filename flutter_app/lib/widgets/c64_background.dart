@@ -137,7 +137,7 @@ class _C64BackgroundState extends State<C64Background>
     // Padded either side so the message leaves the screen entirely before
     // it comes round again, which is what makes it read as a loop.
     _scrollerText =
-        '          *** C64-RETRO EMULATOR - COMMODORE 64 WORKSTATION ***          '
+        '          *** RETRO-C64 EMULATOR - COMMODORE 64 WORKSTATION ***          '
         '${widget.infoText.isEmpty ? '' : '${widget.infoText}          '}'
         'PRESS ANYWHERE TO WAKE          ';
   }

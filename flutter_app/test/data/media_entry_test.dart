@@ -3,9 +3,9 @@
 // by looping over the same table the code uses (a loop over the same source
 // of truth proves nothing).
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/data/category.dart';
-import 'package:vice_multiplatform/data/media_entry.dart';
-import 'package:vice_multiplatform/services/storage_access.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/data/media_entry.dart';
+import 'package:retro_c64/services/storage_access.dart';
 
 void main() {
   group('MediaEntry.filterForExtension', () {

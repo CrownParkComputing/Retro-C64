@@ -5,7 +5,7 @@
 // while the setters kept dutifully writing values nobody read back.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/services/video_settings.dart';
+import 'package:retro_c64/services/video_settings.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

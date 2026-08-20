@@ -3,7 +3,7 @@
 //
 // TODO(bundling): this is a hardcoded relative-path lookup that only works
 // when the app is launched via `flutter run -d linux` from inside a full
-// ViceMultiplatform checkout (the repo's native/ tree sits next to
+// Retro-C64 checkout (the repo's native/ tree sits next to
 // flutter_app/). Real packaging should instead:
 //   - Linux: ship libvicecore.so next to the produced executable (CMake
 //     install step / bundle 'lib' dir), loaded via a path derived from
@@ -275,7 +275,7 @@ class ViceNativePaths {
 
   /// Walks up from the current working directory (and from the script's own
   /// directory, for `flutter run`'s working-directory quirks) looking for a
-  /// ViceMultiplatform checkout root (a directory containing `native/`).
+  /// Retro-C64 checkout root (a directory containing `native/`).
   static Directory? _findRepoRoot() {
     final candidates = <Directory>[
       Directory.current,
@@ -306,20 +306,32 @@ class ViceNativePaths {
   static String? get gameCoreLibraryPath {
     if (Platform.isAndroid) return null;
     if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore');
-    final root = _findRepoRoot();
-    if (root == null) return null;
-    final path = p.join(root.path, 'native', 'vice_core', 'linux', 'build',
-        'libvicecore.so');
-    return File(path).existsSync() ? path : null;
+    return _desktopCoreLibrary('libvicecore.so');
   }
 
   static String? get vsidCoreLibraryPath {
     if (Platform.isAndroid) return null;
     if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore_vsid');
+    return _desktopCoreLibrary('libvicecore_vsid.so');
+  }
+
+  /// The INSTALLED core first, the dev checkout second.
+  ///
+  /// linux/CMakeLists.txt installs the cores into `lib/` beside
+  /// libflutter_linux_gtk.so, so a packaged build carries its emulator the
+  /// same way the Android APK and the iOS IPA do. Falling back to the repo
+  /// tree keeps `flutter run` working from a checkout -- but that fallback
+  /// used to be the ONLY lookup, which is why a Linux build outside the
+  /// source tree came up with no core at all.
+  static String? _desktopCoreLibrary(String filename) {
+    final bundled = p.join(
+        p.dirname(Platform.resolvedExecutable), 'lib', filename);
+    if (File(bundled).existsSync()) return bundled;
+
     final root = _findRepoRoot();
     if (root == null) return null;
-    final path = p.join(root.path, 'native', 'vice_core', 'linux', 'build',
-        'libvicecore_vsid.so');
+    final path =
+        p.join(root.path, 'native', 'vice_core', 'linux', 'build', filename);
     return File(path).existsSync() ? path : null;
   }
 

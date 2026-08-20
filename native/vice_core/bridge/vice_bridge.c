@@ -127,6 +127,34 @@ static int g_pending_media_type = -1;
 static int g_cold_start_tde = 1;
 static atomic_bool g_media_pending = false;
 
+/* Queued resource writes, applied on the core thread (see
+ * apply_pending_resources_if_any). A ring would be overkill: the queue only
+ * has to survive the gap between a UI tap and the next frame boundary, and a
+ * user cannot out-type 32 settings in 20ms. If it ever did fill, dropping the
+ * write and saying so beats blocking the UI thread on the emulation. */
+#define PENDING_RESOURCE_MAX 32
+#define PENDING_RESOURCE_NAME 64
+#define PENDING_RESOURCE_VALUE 512
+
+typedef struct {
+    char name[PENDING_RESOURCE_NAME];
+    bool is_string;
+    int value;
+    char text[PENDING_RESOURCE_VALUE];
+} pending_resource_t;
+
+static pending_resource_t g_pending_resources[PENDING_RESOURCE_MAX];
+static int g_pending_resource_count = 0;
+static atomic_bool g_resources_pending = false;
+
+/* VICE builds its resource table inside init_main. resources_get_int() before
+ * that dereferences a NULL hash table and takes the process with it -- a
+ * SIGSEGV in resources_get_int+144 with a fault address in the low hundreds,
+ * which is what a settings screen asking an un-started machine what it is set
+ * to looked like. is_running() is true from the moment the core THREAD
+ * starts, several stages earlier, so it is not the flag to gate on. */
+static atomic_bool g_resources_ready = false;
+
 /* Snapshot save/load. Unlike the media swap these are synchronous from the
  * caller's point of view (it needs to know whether the file was actually
  * written before it indexes it), so the caller blocks on g_snapshot_cv
@@ -156,6 +184,9 @@ static int g_joystick_mask = 0;
 
 static atomic_bool g_core_started = false;
 static atomic_bool g_core_running = false;
+/* Set when the core aborted its own startup (see __wrap_archdep_vice_exit),
+ * so the host can tell "never started" from "started and stopped". */
+static atomic_bool g_core_start_failed = false;
 static atomic_bool g_emulation_paused = false;
 static atomic_bool g_pause_gate_active = false;
 static atomic_int g_current_fps = 0;
@@ -218,6 +249,13 @@ static void ensure_dir(const char *path) {
 
 static void prepare_vice_environment(void) {
     if (g_data_dir[0] == '\0') {
+        /* Nothing to point HOME at. Silently returning here is what made the
+         * missing-ROM case fatal: VICE then tried to create its XDG dirs
+         * under an unset $HOME, failed, and called archdep_vice_exit ->
+         * exit(). Say so loudly; vice_core_start refuses to start in this
+         * state, so this should be unreachable. */
+        LOGE("prepare_vice_environment: no data dir set -- vice_core_init() "
+             "was never called with a ROM directory");
         return;
     }
     char cache[1152], config[1152], data[1152], state[1152];
@@ -407,6 +445,45 @@ extern void __wrap_video_canvas_refresh(struct video_canvas_s *canvas,
 /* ---------------------------------------------------------------------- */
 
 extern int __real_archdep_init(int *argc, char **argv);
+/* The core thread, so __wrap_archdep_vice_exit can tell whether it is being
+ * called on the thread it is allowed to unwind. */
+static pthread_t g_core_tid;
+static atomic_bool g_core_tid_valid = false;
+
+/* VICE's archdep_vice_exit() calls libc exit(). In the standalone emulator
+ * that is correct; inside this shared library it is fatal, because exit()
+ * runs __cxa_finalize over EVERY loaded library -- including libflutter.so,
+ * whose static destructors then double-free and abort the whole app with
+ * "scudo ERROR: invalid chunk state when deallocating".
+ *
+ * That is not hypothetical: with no ROMs installed, archdep_init ->
+ * archdep_create_user_cache_dir -> archdep_vice_exit(1) -> exit() killed the
+ * entire Flutter process on launching a game. Any VICE init failure did.
+ *
+ * So the exit is contained here: mark the core stopped and unwind just the
+ * core thread. main_program never returns, which is what VICE expects of
+ * this function, and the host survives to report the failure.
+ */
+extern void __real_archdep_vice_exit(int exit_code);
+extern void __wrap_archdep_vice_exit(int exit_code) {
+    LOGE("archdep_vice_exit(%d) intercepted -- VICE wanted to exit(); "
+         "unwinding the core thread instead of killing the process",
+         exit_code);
+    atomic_store_explicit(&g_core_running, false, memory_order_release);
+    atomic_store_explicit(&g_resources_ready, false, memory_order_release);
+    atomic_store_explicit(&g_core_start_failed, true, memory_order_release);
+
+    if (atomic_load_explicit(&g_core_tid_valid, memory_order_acquire) &&
+        pthread_equal(pthread_self(), g_core_tid)) {
+        pthread_exit(NULL);
+    }
+
+    /* Called from somewhere other than the core thread. Unwinding an
+     * arbitrary caller would be worse than returning, so return and let the
+     * caller carry on -- still better than taking the process down. */
+    LOGE("archdep_vice_exit called off the core thread; returning instead");
+}
+
 extern int __wrap_archdep_init(int *argc, char **argv) {
     LOGI("stage archdep_init begin argc=%d", argc ? *argc : -1);
     int result = __real_archdep_init(argc, argv);
@@ -434,6 +511,9 @@ extern int __real_init_main(void);
 extern int __wrap_init_main(void) {
     LOGI("stage init_main begin");
     int result = __real_init_main();
+    if (result == 0) {
+        atomic_store_explicit(&g_resources_ready, true, memory_order_release);
+    }
     LOGI("stage init_main end result=%d", result);
     return result;
 }
@@ -711,11 +791,128 @@ static void apply_pending_snapshot_if_any(void) {
 /* Both mailboxes, in the order that matters: a media swap that arrived
  * alongside a snapshot request should not have its fresh machine state
  * overwritten by a snapshot load queued for the previous title. */
+static void apply_pending_resources_if_any(void) {
+    if (!atomic_load_explicit(&g_resources_pending, memory_order_acquire)) {
+        return;
+    }
+
+    pending_resource_t batch[PENDING_RESOURCE_MAX];
+    int count;
+    pthread_mutex_lock(&g_pending_mutex);
+    count = g_pending_resource_count;
+    memcpy(batch, g_pending_resources, sizeof(pending_resource_t) * (size_t)count);
+    g_pending_resource_count = 0;
+    pthread_mutex_unlock(&g_pending_mutex);
+    atomic_store_explicit(&g_resources_pending, false, memory_order_release);
+
+    for (int i = 0; i < count; i++) {
+        int rc;
+        if (batch[i].is_string) {
+            rc = resources_set_string(batch[i].name, batch[i].text);
+            LOGI("resource %s = \"%s\" (rc=%d)", batch[i].name, batch[i].text, rc);
+        } else {
+            rc = resources_set_int(batch[i].name, batch[i].value);
+            LOGI("resource %s = %d (rc=%d)", batch[i].name, batch[i].value, rc);
+        }
+        /* Not fatal, and deliberately not silent: a resource VICE rejects
+         * (wrong type, out of range, not valid for this machine) is a bug in
+         * the front end's table, and the log is where that gets found. */
+        if (rc < 0) {
+            LOGE("resource %s refused by the core", batch[i].name);
+        }
+    }
+}
+
+static int32_t queue_resource(const char *name, bool is_string, int value,
+                              const char *text) {
+    if (name == NULL || name[0] == '\0') {
+        return -1;
+    }
+    if (!atomic_load_explicit(&g_resources_ready, memory_order_acquire)) {
+        return -1;
+    }
+    int32_t result = 0;
+    pthread_mutex_lock(&g_pending_mutex);
+    if (g_pending_resource_count >= PENDING_RESOURCE_MAX) {
+        result = -1;
+    } else {
+        pending_resource_t *slot = &g_pending_resources[g_pending_resource_count++];
+        snprintf(slot->name, sizeof(slot->name), "%s", name);
+        slot->is_string = is_string;
+        slot->value = value;
+        snprintf(slot->text, sizeof(slot->text), "%s", text ? text : "");
+    }
+    pthread_mutex_unlock(&g_pending_mutex);
+    if (result == 0) {
+        atomic_store_explicit(&g_resources_pending, true, memory_order_release);
+    } else {
+        LOGE("resource queue full; dropped %s", name);
+    }
+    return result;
+}
+
+int32_t vice_core_get_resource_int(const char *name, int32_t *out_value) {
+    int value = 0;
+    if (name == NULL || out_value == NULL) {
+        return -1;
+    }
+    if (!atomic_load_explicit(&g_resources_ready, memory_order_acquire)) {
+        return -1;
+    }
+    if (resources_get_int(name, &value) < 0) {
+        return -1;
+    }
+    *out_value = (int32_t)value;
+    return 0;
+}
+
+int32_t vice_core_set_resource_int(const char *name, int32_t value) {
+    return queue_resource(name, false, (int)value, NULL);
+}
+
+int32_t vice_core_get_resource_string(const char *name, char *out_buf,
+                                      int32_t out_len) {
+    const char *value = NULL;
+    if (name == NULL || out_buf == NULL || out_len <= 0) {
+        return -1;
+    }
+    if (!atomic_load_explicit(&g_resources_ready, memory_order_acquire)) {
+        out_buf[0] = '\0';
+        return -1;
+    }
+    if (resources_get_string(name, &value) < 0 || value == NULL) {
+        out_buf[0] = '\0';
+        return -1;
+    }
+    snprintf(out_buf, (size_t)out_len, "%s", value);
+    return 0;
+}
+
+int32_t vice_core_set_resource_string(const char *name, const char *value) {
+    return queue_resource(name, true, 0, value);
+}
+
+int32_t vice_core_dump_resources(const char *path) {
+    if (path == NULL || path[0] == '\0') {
+        return -1;
+    }
+    if (!atomic_load_explicit(&g_resources_ready, memory_order_acquire)) {
+        /* Before init_main there IS no resource table -- dumping it would
+         * walk a NULL hash table, not produce an empty file. */
+        LOGE("resource dump requested with no running core");
+        return -1;
+    }
+    const int rc = resources_dump(path);
+    LOGI("resource dump -> %s (rc=%d)", path, rc);
+    return rc < 0 ? -1 : 0;
+}
+
 static void pump_core_requests(void) {
     /* Latch the machine's own drive configuration before any swap can alter
      * it. Runs on the core thread, after init_main, which is the first point
      * the resource is meaningful. */
     remember_cold_start_tde();
+    apply_pending_resources_if_any();
     apply_pending_media_if_any();
     apply_pending_snapshot_if_any();
 }
@@ -723,6 +920,7 @@ static void pump_core_requests(void) {
 /* Is there core work outstanding that needs the CPU to actually run? */
 static bool core_request_pending(void) {
     return atomic_load_explicit(&g_media_pending, memory_order_acquire) ||
+           atomic_load_explicit(&g_resources_pending, memory_order_acquire) ||
            atomic_load_explicit(&g_snapshot_op, memory_order_acquire) != SNAPSHOT_OP_NONE ||
            atomic_load_explicit(&g_snapshot_trap_armed, memory_order_acquire);
 }
@@ -791,6 +989,8 @@ typedef struct {
 
 static void *core_thread_main(void *arg) {
     core_thread_args_t *targs = (core_thread_args_t *)arg;
+    g_core_tid = pthread_self();
+    atomic_store_explicit(&g_core_tid_valid, true, memory_order_release);
     prepare_vice_environment();
     atomic_store_explicit(&g_core_running, true, memory_order_release);
     LOGI("Starting VICE main_program argc=%d", targs->argc);
@@ -824,6 +1024,7 @@ static void *core_thread_main(void *arg) {
     free(argv_scratch);
 
     atomic_store_explicit(&g_core_running, false, memory_order_release);
+    atomic_store_explicit(&g_resources_ready, false, memory_order_release);
     LOGE("VICE main_program returned %d", result);
 
     for (int i = 0; i < targs->argc; i++) {
@@ -935,6 +1136,19 @@ static void nudge_core_thread(void) {
 }
 
 int32_t vice_core_start(int32_t media_type, const char *media_path, const char *command_line) {
+    /* Refuse to start without a data directory. VICE would get as far as
+     * archdep_init, fail to create its XDG dirs under an unset $HOME, and
+     * call archdep_vice_exit -- which used to take the whole host process
+     * with it. __wrap_archdep_vice_exit now contains that, but a core that
+     * cannot possibly boot should never be started in the first place, and
+     * the host gets a -1 it can turn into "ROMs missing" instead of a
+     * window that dies. */
+    if (g_data_dir[0] == '\0') {
+        LOGE("vice_core_start: refusing to start -- no ROM/data directory. "
+             "vice_core_init() must be called with a readable ROM dir first "
+             "(the C64 and DRIVES ROMs are missing).");
+        return -1;
+    }
     if (atomic_exchange_explicit(&g_core_started, true, memory_order_acq_rel)) {
         /* Already started: this is the user picking a DIFFERENT title from
          * the library. VICE has no supported way to tear down and re-run

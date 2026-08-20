@@ -59,6 +59,20 @@ Consequences, reflected in `.github/workflows/build.yml`:
   There is deliberately no `.xcframework`: these are arm64 **device** dylibs
   only, matching the arm64-only Android build.
 
+### The resource API needs every slice rebuilt
+
+`vice_core_{get,set}_resource_*` and `vice_core_dump_resources` (added
+2026-08-19, they are what the Core screen edits) live in the shared
+`bridge/vice_bridge.c`, so **all four artifacts** — Android `.so`, iOS device
+dylib, the binary inside each `.framework`, and the Mac-built simulator slice —
+have to be rebuilt or one platform silently lacks the API.
+
+The Dart side looks those five symbols up **softly**: an older core still
+loads and `ViceCore.hasResourceApi` answers false, so the Core screen says
+"this build of the core has no resource access" instead of the app dying at
+`DynamicLibrary.lookup`. That is a safety net for drift between slices, not a
+licence to leave one behind.
+
 - **iOS Simulator** — a separate slice, built **on a Mac** by
   `native/vice_core/ios/build-core-simulator.sh`, committed under
   `flutter_app/ios/vicecore/iphonesimulator/`, and swapped into the built

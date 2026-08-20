@@ -4,7 +4,7 @@
 // corner and slide behaviour rather than just "a tap sends left".
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/widgets/dpad_view.dart';
+import 'package:retro_c64/widgets/dpad_view.dart';
 
 void main() {
   const size = 140.0;

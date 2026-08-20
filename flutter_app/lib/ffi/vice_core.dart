@@ -62,6 +62,32 @@ abstract class ViceCore {
 
   /// The current frame, or null before the core has drawn one.
   FrameSnapshot? getFramebuffer();
+
+  /// VICE's own resource table -- every setting the emulator has is one of
+  /// these ("Drive8TrueEmulation", "WarpMode", "SidModel", ...). Null / false
+  /// means the core does not know that name, which for a settings screen is
+  /// "this machine does not have that option" rather than an error.
+  ///
+  /// Reads are immediate; writes are queued for the core thread and land at a
+  /// frame boundary, so a value read straight back may still be the old one.
+  /// Whether this build of the core exposes the resource API at all. False
+  /// for a core built before it existed -- the artifacts for the three iOS
+  /// targets are produced by different toolchains and can lag each other, so
+  /// the UI has to be able to say "this build cannot" rather than show an
+  /// empty machine.
+  bool get hasResourceApi;
+
+  int? getResourceInt(String name);
+  bool setResourceInt(String name, int value);
+  String? getResourceString(String name);
+  bool setResourceString(String name, String value);
+
+  /// Writes every resource the running machine has to [path] as
+  /// `Name=value` lines. VICE offers no way to enumerate its resource table
+  /// in memory, so this dump IS the enumeration -- it is what lets the Core
+  /// screen list the machine's real options instead of a hardcoded subset.
+  /// False when the core is not running or the file could not be written.
+  bool dumpResources(String path);
 }
 
 /// A snapshot of what the datasette and disk drive are doing.

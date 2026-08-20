@@ -4,10 +4,10 @@ project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "c64-retro-emulator")
+set(BINARY_NAME "retro_c64")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.vicemultiplatform.app")
+set(APPLICATION_ID "com.crownpark.retroc64")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -105,6 +105,24 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+# The VICE cores travel WITH the app, the same way they do on Android and
+# iOS. Without this the Linux build only ran from a dev checkout, because
+# ViceNativePaths fell back to hunting for native/vice_core/linux/build --
+# a path that does not exist on a user's machine, so the app started with no
+# emulator at all. They are installed into lib/ next to libflutter_linux_gtk.so
+# and found there first at runtime.
+#
+# Not fatal when missing: a checkout that has never built the core should
+# still produce a runnable (if core-less) app rather than failing to install,
+# so this is a glob, not a hard dependency. See docs/NATIVE_BUILD.md.
+file(GLOB VICE_CORE_LIBS
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../native/vice_core/linux/build/libvicecore*.so")
+foreach(vice_core_lib ${VICE_CORE_LIBS})
+  install(FILES "${vice_core_lib}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endforeach(vice_core_lib)
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")

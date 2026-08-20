@@ -9,8 +9,8 @@
 // what it drew.
 import 'dart:typed_data';
 
-import 'package:vice_multiplatform/ffi/vice_bindings.dart';
-import 'package:vice_multiplatform/ffi/vice_core.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
 
 class FakeViceCore implements ViceCore {
   /// Every joystick(port, mask) call, in order.
@@ -22,6 +22,11 @@ class FakeViceCore implements ViceCore {
   final List<({int key, bool pressed})> keyEvents = [];
 
   int startCount = 0;
+
+  /// The mediaPath of every start(), in order -- swapping a second title into
+  /// a running core is a start(), not a stop()/start() pair, so the count
+  /// alone cannot say WHICH game is loaded.
+  final List<String?> startedPaths = [];
   int stopCount = 0;
 
   @override
@@ -57,8 +62,53 @@ class FakeViceCore implements ViceCore {
   @override
   int start({required int mediaType, String? mediaPath, String? commandLine}) {
     startCount++;
+    startedPaths.add(mediaPath);
     isRunning = true;
     return 0;
+  }
+
+  /// VICE's resource table, faked as a plain map. Tests that drive the Core
+  /// settings screen seed it; everything else gets "no such resource", which
+  /// is exactly what a screen must cope with on a machine that lacks an
+  /// option.
+  final Map<String, int> resourceInts = {};
+  final Map<String, String> resourceStrings = {};
+
+  /// Set false to stand in for a core built before the resource API existed.
+  bool resourceApiAvailable = true;
+
+  @override
+  bool get hasResourceApi => resourceApiAvailable;
+
+  @override
+  int? getResourceInt(String name) =>
+      resourceApiAvailable ? resourceInts[name] : null;
+
+  @override
+  bool setResourceInt(String name, int value) {
+    if (!resourceInts.containsKey(name)) return false;
+    resourceInts[name] = value;
+    return true;
+  }
+
+  @override
+  String? getResourceString(String name) => resourceStrings[name];
+
+  @override
+  bool setResourceString(String name, String value) {
+    if (!resourceStrings.containsKey(name)) return false;
+    resourceStrings[name] = value;
+    return true;
+  }
+
+  /// Where a dump would have been written, so a test can assert the screen
+  /// asked for one. Writing the file itself is the real core's job.
+  String? dumpedTo;
+
+  @override
+  bool dumpResources(String path) {
+    dumpedTo = path;
+    return isRunning;
   }
 
   @override

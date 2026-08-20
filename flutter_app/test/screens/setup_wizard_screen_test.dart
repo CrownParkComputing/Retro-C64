@@ -7,9 +7,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/screens/setup_wizard_screen.dart';
-import 'package:vice_multiplatform/services/app_prefs.dart';
-import 'package:vice_multiplatform/services/storage_access.dart';
+import 'package:retro_c64/screens/setup_wizard_screen.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/storage_access.dart';
 
 import '../fakes/fake_storage_access.dart';
 

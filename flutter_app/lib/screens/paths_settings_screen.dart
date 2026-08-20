@@ -357,7 +357,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
               padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
               child: Text(
                 'Adding more games and music\n'
-                '1.  In the Files app, open On My iPad > C64-Retro.\n'
+                '1.  In the Files app, open On My iPad > Retro-C64.\n'
                 '2.  Drop in a zip - add games to your games zip, tunes to '
                 'your music zip, or bring a whole new zip; the name does '
                 'not matter.\n'

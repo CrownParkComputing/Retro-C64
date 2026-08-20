@@ -24,7 +24,7 @@ class PermissionsService {
   PermissionsService._();
 
   static const MethodChannel _channel =
-      MethodChannel('vice_multiplatform/storage_permissions');
+      MethodChannel('com.crownpark.retroc64/storage_permissions');
 
   /// Whether this platform needs (and can be granted) shared-storage access
   /// at all. Linux has ordinary filesystem access; iOS imports files into

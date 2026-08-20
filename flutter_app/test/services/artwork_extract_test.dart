@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:vice_multiplatform/services/artwork_service.dart';
+import 'package:retro_c64/services/artwork_service.dart';
 
 /// Runs against a REAL pack built by tools/build-art-packs.sh, so the test
 /// fails if the builder and the extractor ever disagree about pack layout --

@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../services/platform_info.dart';
+import 'logs_screen.dart';
 import 'music_screen.dart';
 
 /// About / credits tab. Three things the user explicitly asked to be
 /// credited here: the VICE emulator project itself (this whole app is a
 /// multiplatform shell around VICE's C64 core), the SID composers whose
 /// tunes ship in the Music tab, and a personal dedication.
+///
+/// Also embeds the [LogsView] below the credits, so logs live under About
+/// rather than as a separate sidebar entry. The logs answer "what
+/// actually happened" -- the most useful artifact a user can hand back
+/// to a developer -- and a single canonical place keeps them in the
+/// user's eye rather than in a tab that nobody visits.
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -22,7 +29,7 @@ class AboutScreen extends StatelessWidget {
             style:
                 TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        const Text('C64-Retro', style: TextStyle(color: Colors.white70)),
+        const Text('Retro-C64', style: TextStyle(color: Colors.white70)),
         const SizedBox(height: 20),
         _Card(
           title: 'What this is',
@@ -66,6 +73,10 @@ class AboutScreen extends StatelessWidget {
           body: 'Thanks to my wife Jules, who is my inspiration.',
           accent: true,
         ),
+        const SizedBox(height: 24),
+        const Divider(color: Colors.white24, height: 1),
+        const SizedBox(height: 12),
+        const LogsView(),
       ],
     );
   }

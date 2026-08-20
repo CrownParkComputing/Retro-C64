@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../theme/vice_theme.dart';
 import '../widgets/game_media_sheet.dart';
@@ -11,9 +10,12 @@ import '../widgets/media_card.dart';
 /// whose column count comes from measured width / (card + margins), same
 /// `cell = 126dp` constant the Android app uses, floor of 2 columns.
 ///
-/// The media-format filters (All/Disks/Tapes/Carts/PRG) are tabs across the
-/// top of this view rather than sidebar destinations -- they are one
-/// library seen through different filters, not different places to be.
+/// The library is browsed by TITLE, not by file format: an A-Z row across
+/// the top jumps to a section of a large collection, matching Retro-Dosbox.
+/// The old All/Disks/Tapes/Carts/PRG tabs are gone -- which format a title
+/// happens to be stored in is a property of the file, not a way anybody
+/// looks for a game. The card still shows the format, and the media type is
+/// still what decides how the core is started.
 class LibraryGrid extends StatefulWidget {
   final List<MediaEntry> allEntries;
   final void Function(MediaEntry entry) onLaunch;
@@ -30,42 +32,78 @@ class LibraryGrid extends StatefulWidget {
 
 class _LibraryGridState extends State<LibraryGrid> {
   String _search = '';
-  MediaTab _tab = MediaTab.all;
+
+  /// null means "all letters". Otherwise the first character every shown
+  /// title must start with, case-insensitive.
+  String? _letterFilter;
 
   List<MediaEntry> get _filtered {
-    final filter = _tab.filter;
-    return widget.allEntries.where((e) {
-      final matchesFormat =
-          filter == MediaFormatFilter.none || e.mediaType == filter;
-      final matchesSearch = _search.isEmpty ||
+    final letter = _letterFilter;
+    final entries = widget.allEntries.where((e) {
+      if (letter != null && !_startsWith(e.displayName, letter)) return false;
+      return _search.isEmpty ||
           e.displayName.toLowerCase().contains(_search.toLowerCase());
-      return matchesFormat && matchesSearch;
     }).toList();
+    // Browsing by letter only means anything if the grid is in title order.
+    entries.sort((a, b) =>
+        a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    return entries;
   }
 
-  /// How many entries a given tab would show, ignoring the search box --
-  /// shown as a count pill so an empty tab is obviously empty rather than
-  /// looking broken.
-  int _countFor(MediaTab tab) => tab.filter == MediaFormatFilter.none
-      ? widget.allEntries.length
-      : widget.allEntries.where((e) => e.mediaType == tab.filter).length;
+  /// '#' is the catch-all bucket: digits and any other non-alphabetic first
+  /// character. A tile per digit would dominate the row in a collection full
+  /// of "1942", "720" and "007" without buying any useful filtering.
+  static bool _isAlpha(String c) =>
+      c.length == 1 && c.codeUnitAt(0) >= 0x61 && c.codeUnitAt(0) <= 0x7A;
 
-  Widget _tabBar() {
+  static bool _startsWith(String title, String letter) {
+    final first = title.isEmpty ? '' : title[0].toLowerCase();
+    return letter == '#' ? !_isAlpha(first) : first == letter;
+  }
+
+  /// Only the letters some title actually starts with, so no tile ever leads
+  /// to an empty grid.
+  List<String> get _presentLetters {
+    final alpha = <String>{};
+    var other = false;
+    for (final e in widget.allEntries) {
+      if (e.displayName.isEmpty) continue;
+      final c = e.displayName[0].toLowerCase();
+      if (_isAlpha(c)) {
+        alpha.add(c);
+      } else {
+        other = true;
+      }
+    }
+    return [
+      if (other) '#',
+      for (final l in 'abcdefghijklmnopqrstuvwxyz'.split(''))
+        if (alpha.contains(l)) l,
+    ];
+  }
+
+  Widget _letterRow() {
     return SizedBox(
-      height: 38,
+      height: 26,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
-          for (final tab in MediaTab.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _MediaTabButton(
-                label: tab.label,
-                count: _countFor(tab),
-                selected: tab == _tab,
-                onTap: () => setState(() => _tab = tab),
-              ),
+          for (final l in _presentLetters) ...[
+            _LetterChip(
+              label: l == '#' ? '#' : l.toUpperCase(),
+              selected: _letterFilter == l,
+              onTap: () => setState(
+                  () => _letterFilter = _letterFilter == l ? null : l),
+            ),
+            const SizedBox(width: 4),
+          ],
+          if (_letterFilter != null)
+            _LetterChip(
+              label: '\u00d7',
+              selected: false,
+              onTap: () => setState(() => _letterFilter = null),
+              tooltip: 'Clear letter filter',
             ),
         ],
       ),
@@ -91,12 +129,12 @@ class _LibraryGridState extends State<LibraryGrid> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Text(
-            _tab.title,
+            'Game Library',
             style: const TextStyle(
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
-        _tabBar(),
+        if (_presentLetters.length > 1) _letterRow(),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
           child: Row(
@@ -140,47 +178,6 @@ class _LibraryGridState extends State<LibraryGrid> {
                     mainAxisExtent: ViceMetrics.mediaCardHeight + 6,
                   );
 
-                  // The "All" view is grouped by media type with section
-                  // headers rather than one undifferentiated jumble -- the
-                  // formats are still visibly separate even when you're
-                  // looking at everything at once.
-                  if (_tab == MediaTab.all) {
-                    final slivers = <Widget>[];
-                    for (final section in MediaTab.values) {
-                      if (section == MediaTab.all) continue;
-                      final rows = entries
-                          .where((e) => e.mediaType == section.filter)
-                          .toList();
-                      if (rows.isEmpty) continue;
-                      slivers.add(SliverToBoxAdapter(
-                        child: _SectionHeader(
-                            label: section.title, count: rows.length),
-                      ));
-                      slivers.add(SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        sliver: SliverGrid(
-                          gridDelegate: grid,
-                          delegate: SliverChildBuilderDelegate(
-                            (context, i) => Center(
-                              child: MediaCard(
-                                entry: rows[i],
-                                onTap: () => widget.onLaunch(rows[i]),
-                                onShowMedia: () => _showMedia(rows[i]),
-                              ),
-                            ),
-                            childCount: rows.length,
-                          ),
-                        ),
-                      ));
-                    }
-                    return CustomScrollView(
-                      slivers: [
-                        ...slivers,
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                      ],
-                    );
-                  }
-
                   return GridView.builder(
                     padding: const EdgeInsets.all(8),
                     gridDelegate: grid,
@@ -203,98 +200,53 @@ class _LibraryGridState extends State<LibraryGrid> {
   }
 }
 
-/// Section divider used by the grouped "All" view.
-class _SectionHeader extends StatelessWidget {
+/// One letter tile in the A-Z row. Styled off the card chrome so the row
+/// reads as part of the same shelf, with the teal accent marking the
+/// active letter -- the same role the format tabs used to play.
+class _LetterChip extends StatelessWidget {
   final String label;
-  final int count;
-
-  const _SectionHeader({required this.label, required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-      child: Row(
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: ViceColors.accentTeal,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text('$count',
-              style: const TextStyle(
-                  color: ViceColors.textMuted, fontSize: 12)),
-          const SizedBox(width: 10),
-          const Expanded(child: Divider(color: ViceColors.cardStroke, height: 1)),
-        ],
-      ),
-    );
-  }
-}
-
-/// One media-format tab. Styled off the sidebar's selected-button chrome
-/// (same fills/strokes from vice_theme) so the tabs read as the same app,
-/// with the teal accent marking the active one.
-class _MediaTabButton extends StatelessWidget {
-  final String label;
-  final int count;
   final bool selected;
   final VoidCallback onTap;
+  final String? tooltip;
 
-  const _MediaTabButton({
+  const _LetterChip({
     required this.label,
-    required this.count,
     required this.selected,
     required this.onTap,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final chip = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          width: 26,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected ? ViceColors.selectedFill : ViceColors.cardFill,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: selected ? ViceColors.accentTeal : ViceColors.cardStroke,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                  color: selected
-                      ? ViceColors.sidebarLabelSelected
-                      : ViceColors.sidebarLabelIdle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: selected ? ViceColors.accentTeal : ViceColors.textMuted,
-                ),
-              ),
-            ],
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              color: selected
+                  ? ViceColors.sidebarLabelSelected
+                  : ViceColors.textMuted,
+            ),
           ),
         ),
       ),
     );
+    if (tooltip == null) return chip;
+    return Tooltip(message: tooltip!, child: chip);
   }
 }

@@ -28,7 +28,7 @@ void main() {
   unawaited(AppLog.init());
   _logFrameworkErrors();
   unawaited(VideoSettings.instance.load());
-  runApp(const ViceMultiplatformApp());
+  runApp(const RetroC64App());
 }
 
 /// Writes framework and unhandled async errors into the app's own log.
@@ -70,14 +70,14 @@ void _logFrameworkErrors() {
   };
 }
 
-class ViceMultiplatformApp extends StatefulWidget {
-  const ViceMultiplatformApp({super.key});
+class RetroC64App extends StatefulWidget {
+  const RetroC64App({super.key});
 
   @override
-  State<ViceMultiplatformApp> createState() => _ViceMultiplatformAppState();
+  State<RetroC64App> createState() => _RetroC64AppState();
 }
 
-class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
+class _RetroC64AppState extends State<RetroC64App>
     with WidgetsBindingObserver {
   ViceCoreBindings? _core;
   String? _loadError;
@@ -171,6 +171,15 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
       if (romDir != null) {
         core.init(romDir);
         AppLog.log('core.init done');
+      } else {
+        // Without a ROM dir the core has no data directory, so VICE cannot
+        // create its XDG dirs and aborts during archdep_init. That abort used
+        // to call exit() and take the whole app down on the first launch of
+        // any title; the bridge now contains it and vice_core_start refuses
+        // outright, but the user still deserves to be told why rather than
+        // watching a game fail to start.
+        AppLog.log('core.init SKIPPED: no ROM directory resolved -- the C64 '
+            'and DRIVES ROMs are missing, so no title can be launched');
       }
       if (!mounted) return;
       setState(() => _core = core);
@@ -189,7 +198,7 @@ class _ViceMultiplatformAppState extends State<ViceMultiplatformApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'C64-Retro',
+      title: 'Retro-C64',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
       home: _loadError != null

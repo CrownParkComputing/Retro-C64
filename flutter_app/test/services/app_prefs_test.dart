@@ -3,9 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/data/c64_keys.dart';
-import 'package:vice_multiplatform/data/custom_button.dart';
-import 'package:vice_multiplatform/services/app_prefs.dart';
+import 'package:retro_c64/data/c64_keys.dart';
+import 'package:retro_c64/data/custom_button.dart';
+import 'package:retro_c64/services/app_prefs.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

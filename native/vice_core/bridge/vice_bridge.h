@@ -135,6 +135,48 @@ int32_t vice_core_get_tape_control(void);
 int32_t vice_core_get_drive_half_track(void);
 int32_t vice_core_get_drive_led(void);
 
+/* ------------------------------------------------------------------ resources
+ *
+ * Direct access to VICE's own resource table, which is what every setting in
+ * VICE actually is -- "Drive8TrueEmulation", "WarpMode", "SidModel",
+ * "MachineVideoStandard" and several hundred more. This is what lets a Flutter
+ * front end offer the machine's real options instead of a hardcoded subset:
+ * the names and legal values are VICE's, not ours.
+ *
+ * Reads are direct and synchronous: resources_get_int() is a table lookup and
+ * a UI that shows a stale value for one frame is not a bug worth a round trip.
+ *
+ * WRITES ARE QUEUED for the core thread. Setting a resource from the caller's
+ * thread while the CPU is mid-frame is how VICE ports get intermittent, unfixable
+ * corruption -- several resource setters reconfigure the drive, the SID or the
+ * video chain underneath the running emulation. They land at the same point in
+ * the loop as a media swap (see pump_core_requests), which is a safe boundary.
+ *
+ * Both return 0 on success and -1 if the resource does not exist (or, for
+ * writes, if the queue is full -- it holds 32 pending changes, which is far
+ * more than a user can generate between two frames).
+ *
+ * vice_core_get_resource_int   reads into *out_value
+ * vice_core_set_resource_int   queues a write
+ * vice_core_get_resource_string  copies into out_buf (always NUL-terminated)
+ * vice_core_set_resource_string  queues a write; the string is copied
+ */
+int32_t vice_core_get_resource_int(const char *name, int32_t *out_value);
+int32_t vice_core_set_resource_int(const char *name, int32_t value);
+int32_t vice_core_get_resource_string(const char *name, char *out_buf,
+                                      int32_t out_len);
+int32_t vice_core_set_resource_string(const char *name, const char *value);
+
+/* Writes EVERY resource the running machine has to `path`, one
+ * `Name=value` per line, using VICE's own resources_dump(). This is the only
+ * enumeration VICE offers -- there is no "list resources" call -- and it is
+ * what lets a front end show the machine's whole option set rather than a
+ * hardcoded subset that silently rots when the core is updated.
+ *
+ * Returns 0 on success, -1 if the core is not running or the file could not
+ * be written. */
+int32_t vice_core_dump_resources(const char *path);
+
 #ifdef __cplusplus
 }
 #endif

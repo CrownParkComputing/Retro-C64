@@ -267,6 +267,30 @@ def main():
                 os.path.join(ios, name)
             )
 
+    # The store listing's copy, regenerated here rather than left to drift from
+    # the launcher.
+    icon.convert("RGB").resize((512, 512), Image.LANCZOS).save(
+        os.path.join(HERE, "android", "app", "src", "ic_launcher-playstore.png")
+    )
+
+    # The adaptive icon composes a colour resource, not the gradient layer
+    # written above, so derive that colour from the same BG_TOP the icon is
+    # built on. Left to drift, the masked foreground floats on a plate that
+    # does not match the icon beside it.
+    plate = "#%02X%02X%02X" % BG_TOP
+    for bucket in ("values", "values-night"):
+        path = os.path.join(res, bucket, "ic_launcher_background.xml")
+        if os.path.isfile(path):
+            with open(path, "w") as handle:
+                handle.write(
+                    '<?xml version="1.0" encoding="utf-8"?>\n'
+                    "<resources>\n"
+                    '    <color name="ic_launcher_background">'
+                    + plate
+                    + "</color>\n"
+                    "</resources>\n"
+                )
+
     print("icons written")
 
 

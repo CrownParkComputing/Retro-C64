@@ -84,7 +84,7 @@ class SetupWizardScreen extends StatefulWidget {
 /// Downloads. That folder belongs to the Files app and the sandbox forbids
 /// reaching into it, so no amount of scanning will find it. What this screen
 /// scans is everywhere the app genuinely can read -- its own container,
-/// including anything dropped into "C64-Retro" in the Files app,
+/// including anything dropped into "Retro-C64" in the Files app,
 /// opened into the app from elsewhere (Documents/Inbox), or pushed over USB.
 /// Downloads is reachable only through the picker, which is what
 /// "Import from Files..." opens.
@@ -210,7 +210,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln()
       ..writeln('64K RAM SYSTEM  38911 BASIC BYTES FREE')
       ..writeln()
-      ..writeln('10 PRINT "WELCOME TO C64-RETRO EMULATOR"')
+      ..writeln('10 PRINT "WELCOME TO RETRO-C64 EMULATOR"')
       ..writeln('20 PRINT "RUNNING ON ${_platformLabel()}"')
       ..writeln('30 LOAD "\$",8');
 
@@ -228,7 +228,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ..write(_isFolderScan
             ? '? NO GAMES FOLDER SET - CHOOSE ONE'
             : '? NOTHING FOUND - PUT ZIPS IN THIS APP\'S FOLDER\n'
-                '  (FILES > ON MY IPAD > C64-RETRO), THEN SCAN');
+                '  (FILES > ON MY IPAD > RETRO-C64), THEN SCAN');
       return buffer.toString();
     }
 

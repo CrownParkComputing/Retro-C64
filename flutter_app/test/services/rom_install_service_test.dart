@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/services/rom_install_service.dart';
+import 'package:retro_c64/services/rom_install_service.dart';
 
 /// The scan routes files into three directories VICE treats very
 /// differently. Getting a drive ROM into C64/ instead of DRIVES/ does not

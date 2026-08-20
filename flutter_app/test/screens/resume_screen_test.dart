@@ -15,9 +15,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:vice_multiplatform/data/category.dart';
-import 'package:vice_multiplatform/screens/resume_screen.dart';
-import 'package:vice_multiplatform/services/save_state_service.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/screens/resume_screen.dart';
+import 'package:retro_c64/services/save_state_service.dart';
 
 void main() {
   late Directory temp;

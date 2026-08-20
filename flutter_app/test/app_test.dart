@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vice_multiplatform/main.dart';
+import 'package:retro_c64/main.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +18,7 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(const ViceMultiplatformApp());
+    await tester.pumpWidget(const RetroC64App());
     expect(tester.takeException(), isNull);
     expect(find.byType(MaterialApp), findsOneWidget);
 

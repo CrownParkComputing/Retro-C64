@@ -6,7 +6,7 @@
 // instead, via the "native capture: on/off" line the log writes about itself.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vice_multiplatform/services/app_log.dart';
+import 'package:retro_c64/services/app_log.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

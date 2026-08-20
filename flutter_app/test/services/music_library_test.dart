@@ -7,7 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:vice_multiplatform/services/music_library.dart';
+import 'package:retro_c64/services/music_library.dart';
 
 void main() {
   late Directory dir;

@@ -1,4 +1,4 @@
-package com.vicemultiplatform.app
+package com.crownpark.retroc64
 
 import android.content.Context
 import android.content.Intent
@@ -19,7 +19,7 @@ import org.flame_engine.gamepads_android.GamepadsCompatibleActivity
  * The gamepads_android plugin casts the host Activity to
  * GamepadsCompatibleActivity in onAttachedToActivityShared(). A plain
  * FlutterActivity doesn't implement it, so registration blew up with
- * "java.lang.ClassCastException: com.vicemultiplatform.app.MainActivity
+ * "java.lang.ClassCastException: com.crownpark.retroc64.MainActivity
  * cannot be cast to org.flame_engine.gamepads_android.GamepadsCompatibleActivity"
  * on every launch -- the plugin was skipped entirely and no physical
  * controller could ever be seen on Android (external gamepad support works
@@ -121,6 +121,6 @@ class MainActivity : FlutterActivity(), GamepadsCompatibleActivity {
     }
 
     companion object {
-        private const val STORAGE_CHANNEL = "vice_multiplatform/storage_permissions"
+        private const val STORAGE_CHANNEL = "com.crownpark.retroc64/storage_permissions"
     }
 }

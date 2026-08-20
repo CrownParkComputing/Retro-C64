@@ -6,8 +6,8 @@
 // failing test rather than a device session.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gamepads/gamepads.dart';
-import 'package:vice_multiplatform/ffi/vice_bindings.dart';
-import 'package:vice_multiplatform/services/gamepad_service.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
+import 'package:retro_c64/services/gamepad_service.dart';
 
 NormalizedGamepadEvent buttonEvent(GamepadButton button, double value) =>
     NormalizedGamepadEvent(

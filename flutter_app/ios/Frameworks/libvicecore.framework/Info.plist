@@ -4,7 +4,7 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
 	<key>CFBundleExecutable</key><string>libvicecore</string>
-	<key>CFBundleIdentifier</key><string>com.vicemultiplatform.libvicecore</string>
+	<key>CFBundleIdentifier</key><string>com.crownpark.retroc64.libvicecore</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 	<key>CFBundleName</key><string>libvicecore</string>
 	<key>CFBundlePackageType</key><string>FMWK</string>
