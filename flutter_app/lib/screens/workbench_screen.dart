@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'about_screen.dart';
-import 'audio_settings_screen.dart';
+import 'core_settings_screen.dart';
+import '../widgets/emulator_control_strip.dart';
+import '../data/emulator_ui_state.dart';
 import '../data/category.dart';
 import '../data/custom_button.dart';
 import '../data/media_entry.dart';
@@ -14,11 +16,11 @@ import '../ffi/vice_native_paths.dart';
 import '../theme/vice_theme.dart';
 import '../widgets/c64_background.dart';
 import '../widgets/sidebar.dart';
+import '../widgets/sidebar_style.dart';
 import 'emulator_screen.dart';
 import 'input_settings_screen.dart';
 import 'library_grid.dart';
 import 'history_screen.dart';
-import 'logs_screen.dart';
 import 'music_screen.dart';
 import 'paths_settings_screen.dart';
 import 'resume_screen.dart';
@@ -60,6 +62,28 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   /// it rather than silently hidden.
   int _unreadableCount = 0;
   bool _inEmulator = false;
+
+  /// While a game runs, the rail and the strip step aside after a few
+  /// seconds so the picture gets the whole screen. Any touch that is not on
+  /// an on-screen control brings them back -- the controls themselves do
+  /// not, because reaching for fire should never shuffle the layout
+  /// mid-jump. Same behaviour as Retro-Amiga's workbench.
+  bool _chromeVisible = true;
+  Timer? _chromeTimer;
+
+  void _wakeChrome() {
+    _chromeTimer?.cancel();
+    _chromeTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _inEmulator) setState(() => _chromeVisible = false);
+    });
+    if (!_chromeVisible && mounted) setState(() => _chromeVisible = true);
+  }
+
+  /// Whether the machine has the whole screen right now.
+  bool get _hideChrome =>
+      _inEmulator &&
+      _category == WorkbenchCategory.resume &&
+      !_chromeVisible;
   String _emulatorLabel = '';
   String _lastMediaName = '';
 
@@ -94,6 +118,18 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   static const _backdropIdleDelay = Duration(milliseconds: 30000);
   Timer? _idleTimer;
   bool _screensaverActive = false;
+
+  /// Keyboard-up / editing-layout, shared between the emulator view and the
+  /// control strip below it -- the strip sits outside the content panel, so
+  /// the two are in different subtrees and cannot keep the answer privately.
+  final EmulatorUiState _emulatorUi = EmulatorUiState();
+
+  /// Whether the side rail is collapsed when the emulator is running.
+  /// The rail stays visible by default ("big window" mode -- the emulator
+  /// renders in the right pane alongside the categories); toggling this
+  /// gives the emulator the full width. Mirrors Retro-Dosbox's
+  /// [_sidebarHidden] and the equivalent in Retro-Saturn.
+  bool _sidebarHidden = false;
 
   /// Whether the 1541 drive ROM is present, so [_launch] can refuse a disk
   /// image with an explanation instead of booting into ?DEVICE NOT PRESENT.
@@ -138,6 +174,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   @override
   void dispose() {
     _idleTimer?.cancel();
+    _chromeTimer?.cancel();
     _gamepad.dispose();
     super.dispose();
   }
@@ -157,9 +194,24 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
     }
   }
 
-  /// What the scroller says, read fresh each time the screensaver comes up
-  /// -- a scroller that claims a game is loaded when none is would be
-  /// worse than no scroller. Mirrors MainActivity.backdropInfoText().
+  /// Toggle the side rail visibility while a session is running. The
+  /// hamburger in the bottom status bar (visible only when [_inEmulator])
+  /// calls this; otherwise the rail behaves the same as the library view.
+  void _toggleSidebar() {
+    setState(() => _sidebarHidden = !_sidebarHidden);
+  }
+
+  /// Rail taps. Picking anything other than Resume while a session is live
+  /// takes the user out of the machine, so the session has to be parked first
+  /// -- otherwise the core keeps running unseen behind the settings the user
+  /// walked off to change.
+  void _selectCategory(WorkbenchCategory next) {
+    if (_inEmulator && next != WorkbenchCategory.resume) {
+      unawaited(_backToLibrary());
+    }
+    setState(() => _category = next);
+  }
+
   String _backdropInfoText() => backdropInfoText(
         platform: platformName(),
         loadedMediaName: _lastMediaName,
@@ -308,6 +360,19 @@ _silenceWorkbenchMusic();
     // resume. The native side does service its mailboxes from inside the
     // gate as a safety net, but the game also has to actually run once
     // loaded, so resuming here is the correct order either way.
+    // Picking a different title kills the one that is running -- there is no
+    // close button any more, so this IS how a session ends. Its state goes
+    // into the rolling store on the way out, so the game you just walked away
+    // from is still in Resume; the core then detaches its media, attaches the
+    // new one and resets, which is a kill in every sense that matters.
+    // The outgoing session is NOT snapshotted here, deliberately. Every route
+    // from a running game back to the shelf goes through [_backToLibrary],
+    // which parks the core and captures on the way, so by the time a second
+    // title can be picked its state is already in the rolling store. Doing it
+    // again here would make the new game wait on a save it already has -- and
+    // a save that wedges (capture() resolving its directory has done exactly
+    // that on iOS) would take the launch down with it.
+
     widget.core.setPaused(false);
 
     // vice_core_start() now covers BOTH cases: first start, and swapping a
@@ -332,6 +397,11 @@ _silenceWorkbenchMusic();
     }
     setState(() {
       _inEmulator = true;
+      _chromeVisible = true;
+      _chromeVisible = true;
+      // The rail stays put: the session opens in the right-hand window, and
+      // the Resume destination is what shows it.
+      _category = WorkbenchCategory.resume;
       _emulatorLabel = entry.displayName;
       _lastMediaName = entry.displayName;
       _currentEntry = entry;
@@ -349,7 +419,11 @@ _silenceWorkbenchMusic();
     if (_currentEntry == null) return;
     _silenceWorkbenchMusic();
     widget.core.setPaused(false);
-    setState(() => _inEmulator = true);
+    setState(() {
+      _inEmulator = true;
+      _chromeVisible = true;
+      _category = WorkbenchCategory.resume;
+    });
     _idleTimer?.cancel();
   }
 
@@ -418,6 +492,8 @@ _silenceWorkbenchMusic();
 
     setState(() {
       _inEmulator = true;
+      _chromeVisible = true;
+      _sidebarHidden = true;
       _emulatorLabel = entry.title;
       _lastMediaName = entry.title;
       _currentEntry = mediaEntry;
@@ -490,18 +566,44 @@ _silenceWorkbenchMusic();
   ///     background: burning CPU and battery, playing audio over the
   ///     workbench, and letting the game advance (die, time out, lose a
   ///     life) while the user was just browsing.
-  /// Close, as distinct from pause: the session is dropped on the floor.
-  /// No snapshot is taken and the entry is forgotten, so the game will not
-  /// offer to resume - which is the entire difference from _backToLibrary.
-  /// The machine itself is left parked in the pause gate; starting the next
-  /// game goes through the same media-swap path a resume would.
-  Future<void> _closeGame() async {
-    _currentEntry = null;
-    await _backToLibrary();
+  /// Snapshots [entry] into the rolling save-state store, if there is a
+  /// live session to snapshot. Both ways out of a game go through here:
+  /// Pause, and starting a different title.
+  ///
+  /// Non-fatal: a title that refuses to snapshot still pauses correctly, it
+  /// just won't appear in the resume list. Better that than blocking the
+  /// user's way back to the workbench on it.
+  ///
+  /// It is NOT silent, though. This used to swallow the error whole, and when
+  /// save states broke outright on iOS (capture() threw resolving its
+  /// directory) the symptom was simply that nothing was ever saved, with
+  /// nothing anywhere to say why. A failure the user can see is a bug someone
+  /// can report.
+  Future<void> _captureSaveState(MediaEntry? entry) async {
+    if (entry == null || !widget.core.isRunning) return;
+    try {
+      await SaveStateService.capture(
+        core: widget.core,
+        title: entry.displayName,
+        mediaPath: entry.path,
+        mediaType: entry.mediaType,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save your session: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _backToLibrary() async {
-    setState(() => _inEmulator = false);
+    _emulatorUi.reset();
+    _chromeTimer?.cancel();
+    setState(() {
+      _inEmulator = false;
+      _chromeVisible = true;
+    });
     // Re-arms the countdown now that the workbench is showing again,
     // matching scheduleBackdropVisualiser() being called from onResume.
     _scheduleIdle();
@@ -513,32 +615,7 @@ _silenceWorkbenchMusic();
     // dashboard" looked like.
     unawaited(_startWorkbenchMusic());
 
-    final entry = _currentEntry;
-    if (entry != null && widget.core.isRunning) {
-      // Non-fatal: a title that refuses to snapshot still pauses correctly,
-      // it just won't appear in the resume list. Better that than blocking
-      // the user's way back to the workbench on it.
-      //
-      // It is NOT silent, though. This used to swallow the error whole, and
-      // when save states broke outright on iOS (capture() threw resolving its
-      // directory) the symptom was simply that nothing was ever saved, with
-      // nothing anywhere to say why. A failure the user can see is a bug
-      // someone can report.
-      try {
-        await SaveStateService.capture(
-          core: widget.core,
-          title: entry.displayName,
-          mediaPath: entry.path,
-          mediaType: entry.mediaType,
-        );
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save your session: $e')),
-          );
-        }
-      }
-    }
+    await _captureSaveState(_currentEntry);
 
     widget.core.setPaused(true);
   }
@@ -568,87 +645,178 @@ _silenceWorkbenchMusic();
 
   @override
   Widget build(BuildContext context) {
-    if (_inEmulator) {
-      return EmulatorScreen(
-        core: widget.core,
-        mediaLabel: _emulatorLabel,
-        onBackToLibrary: _backToLibrary,
-        onCloseGame: _closeGame,
-        leftHanded: _leftHanded,
-        gamepad: _gamepad,
-        padMode: _padMode,
-        onPadModeChanged: _setPadMode,
-        customButtons: _customButtons,
-        onCustomButtonsChanged: _setCustomButtons,
-        joystickPort: _joystickPort,
-        onJoystickPortChanged: _setJoystickPort,
-      );
-    }
+    // No fullscreen branch. A running session renders through the Resume
+    // destination inside the same content panel every other destination
+    // uses, exactly the way Retro-Dosbox renders its Running tab: the rail
+    // keeps its width on the left and the machine draws in the right-hand
+    // window. The rail is still collapsible from the status bar for the
+    // times the picture wants the whole width -- but that is the user's
+    // choice now, not something launching a game does to them.
 
+    // The launcher shell, adopted from Retro-Dosbox so every front end in the
+    // family composes the same way: root padding, the rail in a width-capped
+    // box, one content panel, and a status strip along the bottom that owns
+    // the rail's show/hide. Radii, paddings and the panel decoration are
+    // Dosbox's numbers, not this app's former ones (which used a 12px radius,
+    // no panel padding, and no status bar at all).
+    //
+    // The animated backdrop this screen used to sit on is deliberately gone:
+    // it was the single biggest reason the C64 launcher did not read as the
+    // same product as the DOS one. C64Background is still in the tree and
+    // still drives the screensaver, which is a separate behaviour.
+    final screenWidth = MediaQuery.sizeOf(context).width;
     return Scaffold(
       backgroundColor: ViceColors.rootBackground,
-      body: Listener(
+      body: Stack(children: [
+        Positioned.fill(child: _shell(screenWidth)),
+        // The screensaver, on top of the shell rather than behind it. It used
+        // to be the launcher's permanent backdrop showing through a
+        // translucent panel, which is what stopped this reading like the DOS
+        // front end; as an overlay it still does its job and only when idle.
+        if (_screensaverActive)
+          Positioned.fill(
+            child: C64Background(
+              active: true,
+              infoText: _backdropInfoText(),
+              audioLevel: () =>
+                  widget.core.isRunning ? widget.core.audioLevel : 0,
+              onWake: _scheduleIdle,
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _shell(double screenWidth) {
+    // Entering the emulator arms the countdown; it cannot be armed from the
+    // setState that flips _inEmulator without repeating it at every route
+    // in, and this is idempotent per frame.
+    if (_inEmulator &&
+        _category == WorkbenchCategory.resume &&
+        _chromeVisible &&
+        !(_chromeTimer?.isActive ?? false)) {
+      _chromeTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && _inEmulator) setState(() => _chromeVisible = false);
+      });
+    }
+    return Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => _scheduleIdle(),
         onPointerSignal: (_) => _scheduleIdle(),
         onPointerHover: (_) => _scheduleIdle(),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: C64Background(
-                active: _screensaverActive,
-                infoText: _backdropInfoText(),
-                // Whichever core is actually making a sound. In the
-                // workbench that is the SID player, not the game core --
-                // feeding the game core here is why the equaliser sat flat
-                // while music was audibly playing.
-                audioLevel: () {
-                  final vsid = VsidService.instance;
-                  if (vsid.isRunning && !vsid.isPaused) return vsid.audioLevel;
-                  return widget.core.isRunning ? widget.core.audioLevel : 0;
-                },
-                onWake: _scheduleIdle,
-              ),
-            ),
-            AnimatedOpacity(
-              opacity: _screensaverActive ? 0 : 1,
-              duration: Duration(milliseconds: _screensaverActive ? 400 : 150),
-              child: IgnorePointer(
-                ignoring: _screensaverActive,
-                // SafeArea so the top sidebar entry isn't tucked under the
-                // device status bar (the backdrop behind deliberately stays
-                // edge-to-edge).
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(ViceMetrics.rootPadding),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Sidebar(
-                          selected: _category,
-                          onSelect: (c) => setState(() => _category = c),
-                        ),
-                        const SizedBox(width: ViceMetrics.contentLeftMargin),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: ViceColors.panelFill,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: ViceColors.panelStroke),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: _content(),
+        child: SafeArea(
+          child: Padding(
+            padding:
+                EdgeInsets.all(_hideChrome ? 0 : ViceMetrics.rootPadding),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!_sidebarHidden && !_hideChrome) ...[
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: ViceMetrics.sidebarMaxWidth(screenWidth),
+                          ),
+                          child: Sidebar(
+                            destinations: [
+                              for (final c in WorkbenchCategory.values)
+                                SidebarDestination(c.title,
+                                    icon: c.icon, group: c.group),
+                            ],
+                            selectedIndex: _category.index,
+                            onSelected: (i) =>
+                                _selectCategory(WorkbenchCategory.values[i]),
+                            style: viceSidebarStyle,
+                            pinLastGroupToBottom: true,
                           ),
                         ),
+                        const SizedBox(width: ViceMetrics.contentLeftMargin),
                       ],
-                    ),
+                      Expanded(child: _contentPanel()),
+                    ],
                   ),
                 ),
+                if (!_hideChrome) _statusBar(),
+              ],
+            ),
+          ),
+        ),
+      );
+  }
+
+  /// The single content panel, matching Retro-Dosbox: 10px padding, an 8px
+  /// radius and the panel fill/stroke. Everything the selected destination
+  /// shows is rendered inside it.
+  Widget _contentPanel() {
+    return Container(
+      padding: EdgeInsets.all(_hideChrome ? 0 : 10),
+      decoration: _hideChrome
+          ? const BoxDecoration(color: ViceColors.panelFill)
+          : BoxDecoration(
+              color: ViceColors.panelFill,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: ViceColors.panelStroke),
+            ),
+      clipBehavior: Clip.antiAlias,
+      child: _content(),
+    );
+  }
+
+  /// The bottom strip, outside both the rail and the content panel: the
+  /// show/hide toggle plus what is loaded. It always renders, even with the
+  /// rail hidden -- the toggle is the only way back once the rail is gone, so
+  /// it cannot live inside the rail it controls.
+  /// The bottom strip, outside both the rail and the content panel: the
+  /// rail's show/hide toggle and what is loaded on the left, and -- while a
+  /// game is running -- the in-game controls on the right. They share this
+  /// row rather than taking a band each: the row is already there, and every
+  /// pixel a second band costs comes out of the picture.
+  Widget _statusBar() {
+    return Listener(
+      // Fiddling with the strip is using the chrome; it must not vanish
+      // under the finger three seconds after the last PICTURE touch.
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        if (_inEmulator) _wakeChrome();
+      },
+      child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 28),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _toggleSidebar,
+            icon: Icon(_sidebarHidden ? Icons.menu : Icons.menu_open, size: 18),
+            color: ViceColors.sidebarLabelIdle,
+            tooltip: _sidebarHidden ? 'Show sidebar' : 'Hide sidebar',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              _lastMediaName.isEmpty ? 'No media loaded' : _lastMediaName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: ViceColors.sidebarLabelIdle,
+                fontSize: 11,
               ),
             ),
-          ],
-        ),
+          ),
+          if (_inEmulator)
+            EmulatorControlStrip(
+              ui: _emulatorUi,
+              onPause: _backToLibrary,
+              padMode: _padMode,
+              onPadModeChanged: _setPadMode,
+              joystickPort: _joystickPort,
+              onJoystickPortChanged: _setJoystickPort,
+            ),
+        ],
       ),
+    ),
     );
   }
 
@@ -669,6 +837,25 @@ _silenceWorkbenchMusic();
     }
     switch (_category) {
       case WorkbenchCategory.resume:
+        // A live session IS this destination's content -- the emulator draws
+        // in the content panel rather than over the whole display.
+        if (_inEmulator) {
+          return EmulatorScreen(
+            core: widget.core,
+            mediaLabel: _emulatorLabel,
+            onScreenTouched: _wakeChrome,
+            onBackToLibrary: _backToLibrary,
+            leftHanded: _leftHanded,
+            gamepad: _gamepad,
+            padMode: _padMode,
+            onPadModeChanged: _setPadMode,
+            customButtons: _customButtons,
+            onCustomButtonsChanged: _setCustomButtons,
+            joystickPort: _joystickPort,
+            onJoystickPortChanged: _setJoystickPort,
+            ui: _emulatorUi,
+          );
+        }
         return ResumeScreen(
           currentTitle: _currentEntry?.displayName,
           onResumeCurrent: _resumeCurrent,
@@ -683,12 +870,8 @@ _silenceWorkbenchMusic();
         );
       case WorkbenchCategory.history:
         return const HistoryScreen();
-      case WorkbenchCategory.logs:
-        return const LogsScreen();
       case WorkbenchCategory.video:
         return const VideoSettingsScreen();
-      case WorkbenchCategory.audio:
-        return const AudioSettingsScreen();
       case WorkbenchCategory.input:
         return InputSettingsScreen(
           leftHanded: _leftHanded,
@@ -704,6 +887,8 @@ _silenceWorkbenchMusic();
           onJoystickPortChanged: _setJoystickPort,
           gamepadConnected: _gamepad.connected,
         );
+      case WorkbenchCategory.core:
+        return CoreSettingsScreen(core: widget.core);
       case WorkbenchCategory.about:
         return const AboutScreen();
       default:
