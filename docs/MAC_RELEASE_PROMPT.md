@@ -32,8 +32,8 @@ macOS-only half: a signed release IPA, and getting it to TestFlight.
 ## Get it building
 
 ```bash
-git clone https://github.com/CrownParkComputing/ViceMultiplatform.git
-cd ViceMultiplatform/flutter_app
+git clone https://github.com/CrownParkComputing/Retro-C64.git
+cd Retro-C64/flutter_app
 flutter --version          # must be 3.41.9 -- CI pins it, mismatches churn pubspec.lock
 flutter pub get
 flutter build ipa --release --export-method app-store
@@ -46,8 +46,9 @@ Podfile and runs `pod install` for `file_picker`, `shared_preferences` and
 
 ## Three decisions to make before the first upload
 
-1. **The bundle ID is `com.vicemultiplatform.app` and the app is now called
-   C64-Retro Emulator.** A bundle ID can NEVER be changed once an App Store
+1. **The bundle ID is `com.crownpark.retro_c64` (after the Android rename
+   that landed with the shared-sidebar refactor) and the app is now
+   called Retro-C64.** A bundle ID can NEVER be changed once an App Store
    Connect record exists. Ask the owner whether to rename it (e.g.
    `com.crownparkcomputing.c64retro`) BEFORE creating the record. If renaming,
    change it in `ios/Runner.xcodeproj/project.pbxproj` and

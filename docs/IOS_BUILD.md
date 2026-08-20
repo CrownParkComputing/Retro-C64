@@ -363,9 +363,10 @@ Before the first upload, four things have to be true:
 
 1. **The bundle ID is registered** in the Apple Developer portal and an app
    record exists in App Store Connect. It is currently
-   `com.vicemultiplatform.app`, which no longer matches the app's name --
-   change it *before* creating the record, because a bundle ID can never be
-   changed afterwards.
+   `com.vicemultiplatform.app`. The Android `applicationId` was renamed
+   to `com.crownpark.retro_c64` with the shared-sidebar refactor. Mirror
+   that here *before* creating the record, because a bundle ID can never
+   be changed afterwards.
 2. **An Apple Distribution certificate and an App Store provisioning profile**
    for that bundle ID are installed in the Mac's keychain. For CI instead, set
    the repo secrets the workflow already reads: `APPSTORE_CERT_BASE64`,
