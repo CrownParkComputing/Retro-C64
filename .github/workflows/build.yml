@@ -147,15 +147,22 @@ jobs:
       # the cross-compiled VICE object tree, which is not in this repo. The
       # Runner target's "Embed Frameworks" phase copies them into
       # Runner.app/Frameworks and signs them with the app's identity.
+      #
+      # The FRAMEWORK bundles are what is checked, because they are what the
+      # project embeds and what Dart opens. The loose .dylib beside each one
+      # is the same bytes -- the build script's raw output, which the wrapper
+      # is built around -- and checking it instead is why this step passed
+      # while the app shipped without a core: nothing here looked at the file
+      # the Runner actually carries.
       - name: Verify native libraries are present
         run: |
-          for lib in libvicecore.dylib libvicecore_vsid.dylib; do
-            path="flutter_app/ios/Frameworks/$lib"
-            if [ ! -f "$path" ]; then
-              echo "::error::Missing native library $path (see docs/NATIVE_BUILD.md)"
+          for name in libvicecore libvicecore_vsid; do
+            fw="flutter_app/ios/Frameworks/$name.framework"
+            if [ ! -f "$fw/$name" ] || [ ! -f "$fw/Info.plist" ]; then
+              echo "::error::Missing or incomplete $fw (see docs/NATIVE_BUILD.md)"
               exit 1
             fi
-            echo "found $path ($(du -h "$path" | cut -f1))"
+            echo "found $fw ($(du -h "$fw/$name" | cut -f1))"
           done
 
       # Unsigned build always runs, so iOS compilation breakage is caught even
@@ -170,13 +177,26 @@ jobs:
       - name: Verify the core is embedded in the app
         run: |
           app=flutter_app/build/ios/iphoneos/Runner.app
-          for lib in libvicecore.dylib libvicecore_vsid.dylib; do
-            if [ ! -f "$app/Frameworks/$lib" ]; then
-              echo "::error::$lib is missing from $app/Frameworks -- the Runner"
-              echo "::error::target's Embed Frameworks phase did not copy it."
+          # Exactly the path VicePaths._iosFrameworkLibrary() opens at
+          # runtime: Frameworks/<name>.framework/<name>. The cores ship as
+          # framework bundles rather than loose dylibs because a bare dylib in
+          # Frameworks/ is what the old Swift runtime looked like, and Apple's
+          # validator then demands a SwiftSupport folder Xcode will not
+          # generate (rejection 90426).
+          for name in libvicecore libvicecore_vsid; do
+            binary="$app/Frameworks/$name.framework/$name"
+            if [ ! -f "$binary" ]; then
+              echo "::error::$name.framework is missing from $app/Frameworks --"
+              echo "::error::the Runner target's Embed Frameworks phase did not copy it."
               exit 1
             fi
-            file "$app/Frameworks/$lib"
+            file "$binary"
+            # An x86_64 slice here means a simulator core was embedded, which
+            # installs on a device and then fails to load.
+            case "$(file -b "$binary")" in
+              *arm64*) ;;
+              *) echo "::error::$name is not arm64 -- a simulator build was embedded"; exit 1 ;;
+            esac
           done
 
       # Signed App Store build. Skipped unless the Apple secrets are set, so

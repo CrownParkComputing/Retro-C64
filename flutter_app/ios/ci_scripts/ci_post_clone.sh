@@ -33,11 +33,13 @@ cd "$APP_DIR"
 # object tree, which lives outside this repository (see docs/NATIVE_BUILD.md).
 # They are committed for exactly this reason, so fail clearly if they are absent
 # rather than producing an app that installs and then dies at "Failed to load
-# libvicecore". These are the dylibs the Runner target embeds and the Dart side
-# dlopens by absolute path -- not static archives; nothing links them.
-for lib in libvicecore.dylib libvicecore_vsid.dylib; do
-  if [ ! -f "ios/Frameworks/$lib" ]; then
-    echo "error: missing ios/Frameworks/$lib -- see docs/NATIVE_BUILD.md" >&2
+# libvicecore". These are the framework bundles the Runner target embeds and
+# the Dart side dlopens by absolute path -- not static archives; nothing links
+# them. The loose .dylib beside each one is the same bytes, the build script's
+# raw output; checking that instead would pass while the app shipped no core.
+for name in libvicecore libvicecore_vsid; do
+  if [ ! -f "ios/Frameworks/$name.framework/$name" ]; then
+    echo "error: missing ios/Frameworks/$name.framework -- see docs/NATIVE_BUILD.md" >&2
     exit 1
   fi
 done
