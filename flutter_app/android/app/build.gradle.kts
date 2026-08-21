@@ -24,7 +24,8 @@ android {
     // on the build machine happens to default to, which is how Play
     // compliance ends up depending on which laptop or runner did the build.
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    // The NDK the prebuilt cores were compiled with.
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -42,7 +43,14 @@ android {
         applicationId = "com.retroc64"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // 26, matching the API the native core is actually built against
+        // (native/vice_core/android/build.sh, ANDROID_API=26).
+        //
+        // This was flutter.minSdkVersion, which is 24. The app therefore
+        // declared support for API 24 and 25 devices that could never run it:
+        // the core is compiled for 26, so it installs and then fails to load.
+        // minSdk is not a free choice here, it is whatever the core needs.
+        minSdk = 26
         // Pinned, not inherited from the Flutter SDK.
         //
         // Play requires the target to stay within a year of the latest
