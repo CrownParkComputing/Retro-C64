@@ -31,7 +31,11 @@ class FramebufferView extends StatefulWidget {
   const FramebufferView({
     super.key,
     required this.core,
-    this.pollInterval = const Duration(milliseconds: 33), // ~30fps
+    // ~60fps. At 33ms this timer could tick only 30 times a second, so the
+    // panel showed half the frames the core produced however fast the
+    // emulation ran -- and the counter fed from it read 30 by construction.
+    // Same interval as Retro-Dosbox and Retro-Saturn.
+    this.pollInterval = const Duration(milliseconds: 16),
   });
 
   @override

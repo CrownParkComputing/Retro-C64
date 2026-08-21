@@ -19,7 +19,11 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.crownpark.retroc64"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned, not flutter.compileSdkVersion. The whole Retro-* family states
+    // its SDK levels outright: a floating value takes whatever the Flutter
+    // on the build machine happens to default to, which is how Play
+    // compliance ends up depending on which laptop or runner did the build.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
