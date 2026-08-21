@@ -39,7 +39,16 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Pinned, not inherited from the Flutter SDK.
+        //
+        // Play requires the target to stay within a year of the latest
+        // Android release - 36 or higher from 31 August 2026 - and refuses
+        // updates outright below that. flutter.targetSdkVersion floats with
+        // whichever Flutter version happens to run the build, so an older SDK
+        // on a CI runner or another machine could drop it under the bar
+        // without a line of this project changing. Compliance is a decision,
+        // so it is written down.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
