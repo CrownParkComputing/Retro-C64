@@ -30,6 +30,7 @@ import 'setup_wizard_screen.dart' show kGamesImportSubdir;
 import '../services/storage_access.dart';
 import '../services/gamepad_service.dart';
 import '../services/library_scanner.dart';
+import '../services/media_folder.dart';
 import '../services/music_library.dart';
 import '../services/permissions_service.dart';
 import '../services/platform_info.dart';
@@ -293,9 +294,30 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
             ? importedDir
             : (firstExistingMediaSearchPath() ?? ViceNativePaths.devRomDir);
 
-    final result = scanDir == null
-        ? LibraryScanResult.empty
-        : LibraryScanner.scan(scanDir);
+    // On Android the library is listed out of the folder the user granted,
+    // not walked with dart:io: scoped storage will not open a shared folder by
+    // path, and the app no longer asks for the permission that would. The
+    // files stay where they are; only a launched title is materialised.
+    LibraryScanResult result;
+    if (Platform.isAndroid && await MediaFolder.hasFolder()) {
+      final imported = await StorageAccess.instance.scanFolder(scanDir ?? '');
+      result = LibraryScanResult(
+        entries: [
+          for (final f in imported)
+            MediaEntry(
+              displayName: f.displayName,
+              path: f.path,
+              mediaType: MediaEntry.filterForExtension(
+                  f.displayName.split('.').last),
+            ),
+        ],
+        unreadableCount: 0,
+      );
+    } else {
+      result = scanDir == null
+          ? LibraryScanResult.empty
+          : LibraryScanner.scan(scanDir);
+    }
     if (!mounted) return;
     setState(() {
       _library = result.entries;
@@ -310,7 +332,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
     await _scanLibrary();
   }
 
-  void _launch(MediaEntry entry) {
+  Future<void> _launch(MediaEntry entry) async {
     // Mirrors the original Android app's documented behavior: "Stop SID
     // music when launching a game" (ViceVsid.setPaused(true) in loadMedia()
     // before C64Native.launch()). Unconditional pause (not toggle) so this
@@ -320,6 +342,30 @@ _silenceWorkbenchMusic();
     // Fail loudly rather than dropping the user on a blank emulator screen:
     // if the bytes can't be read (scoped storage, removed media, bad
     // permissions) there is nothing for the core to boot.
+    // A granted-tree entry is not a file yet. Materialise it into the cache -
+    // one title, a couple of hundred KB - because VICE opens a path and
+    // cannot be handed a content:// URI. The user's folder is untouched.
+    if (SafPath.isSaf(entry.path)) {
+      final real = await MediaCache.materialise(FolderEntry(
+        documentId: SafPath.documentIdOf(entry.path),
+        name: entry.displayName,
+        directory: '',
+        size: 0,
+      ));
+      if (real == null) {
+        _showLaunchError('Cannot read ${entry.displayName}.',
+            detail: 'The file could not be read out of the folder you chose. '
+                'It may have been moved, or the folder permission withdrawn - '
+                'choose the folder again from Paths.');
+        return;
+      }
+      entry = MediaEntry(
+        displayName: entry.displayName,
+        path: real,
+        mediaType: entry.mediaType,
+      );
+    }
+
     final file = File(entry.path);
     if (entry.mediaType != MediaFormatFilter.none && !LibraryScanner.isReadable(file)) {
       _showLaunchError(

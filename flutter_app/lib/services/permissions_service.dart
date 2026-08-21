@@ -1,62 +1,38 @@
-// Shared-storage permission handling (Android only).
+// Shared-storage permission handling.
 //
-// Why this exists: on Android 11+ the app could LIST the user's
-// /storage/emulated/0/Vice/Games tree without any permission, so the
-// library grid filled up with titles -- but reading a file's bytes returned
-// nothing, so the native core got a path it could not open and the emulator
-// screen came up blank with no explanation. .d64/.t64/.tap/.prg are not
-// images/video/audio, so READ_MEDIA_* does not apply; "All files access"
-// (MANAGE_EXTERNAL_STORAGE) is what actually grants the read.
+// There is none any more, and this file exists to say so in one place rather
+// than leave every caller to work it out.
 //
-// Implemented as a two-method platform channel into MainActivity.kt rather
-// than via the permission_handler package: that package's current Android
-// artifact does not compile against this project's Gradle/Kotlin setup, and
-// all we need is isExternalStorageManager() plus the Settings intent.
+// The app used to ask for MANAGE_EXTERNAL_STORAGE ("All files access"), which
+// is what let it read .d64/.t64/.tap/.prg out of a folder like
+// /storage/emulated/0/Vice/Games - those are not images, video or audio, so
+// READ_MEDIA_* never applied. Play treats that permission as sensitive:
+// undeclared it blocks the release outright, and declared it means a review
+// aimed at file managers, backup and antivirus apps, which an emulator is
+// unlikely to pass and which every future update would then wait on.
 //
-// The permission cannot be granted by an in-app dialog -- request() sends
-// the user out to a system Settings toggle -- so callers must re-check when
-// the app comes back rather than trusting the immediate return value.
-import 'dart:io';
-
-import 'package:flutter/services.dart';
+// The folder is granted through the system picker instead - see
+// _AndroidSafStorage - and nothing needs granting, so isRelevant is false and
+// the screens that offered a trip to Settings stop offering it. Sending anyone
+// to that toggle now would send them to a switch that grants a permission this
+// app does not declare, which does nothing at all.
 
 class PermissionsService {
   PermissionsService._();
 
-  static const MethodChannel _channel =
-      MethodChannel('com.crownpark.retroc64/storage_permissions');
-
-  /// Whether this platform needs (and can be granted) shared-storage access
-  /// at all. Linux has ordinary filesystem access; iOS imports files into
-  /// the sandbox instead.
-  static bool get isRelevant => Platform.isAndroid;
+  /// Whether anything here still needs granting. Nothing does. Kept as a
+  /// getter so the screens that hid their permission rows behind it keep
+  /// compiling and simply stop showing them.
+  static bool get isRelevant => false;
 
   /// True if the app can currently read arbitrary files out of shared
   /// storage. Always true where the concept doesn't apply.
-  static Future<bool> hasStorageAccess() async {
-    if (!isRelevant) return true;
-    try {
-      return await _channel.invokeMethod<bool>('hasAllFilesAccess') ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
+  static Future<bool> hasStorageAccess() async => true;
 
   /// Asks for shared-storage access. On Android 11+ this opens the system
   /// "All files access" settings page for this app; the returned value is
   /// the state as of when the call returns, so callers should re-check
   /// after the user comes back.
-  static Future<bool> requestStorageAccess() async {
-    if (!isRelevant) return true;
-    try {
-      return await _channel.invokeMethod<bool>('requestAllFilesAccess') ??
-          false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
+  /// Nothing to request: the host no longer implements this.
+  static Future<bool> requestStorageAccess() async => true;
 }

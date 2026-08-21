@@ -18,7 +18,8 @@
 //     DynamicLibrary.process().
 import 'dart:io';
 
-import 'package:flutter/services.dart' show AssetManifest, rootBundle;
+import 'package:flutter/services.dart'
+    show AssetManifest, MethodChannel, MissingPluginException, PlatformException, rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -53,6 +54,40 @@ class ViceNativePaths {
       return _iosContainerSubdir(p.join('Library', 'Application Support'));
     }
     return (await getApplicationSupportDirectory()).path;
+  }
+
+  static String? _mediaDir;
+
+  /// Where the user's disks live.
+  ///
+  /// On Android this is getExternalFilesDir - `Android/data/<pkg>/files` - and
+  /// deliberately not the app support directory. Support is internal storage,
+  /// which no PC can see over USB and no file manager will show, so a media
+  /// folder there is one nobody can put media into. The external app folder
+  /// needs no permission at all, which is why the app no longer asks for one.
+  ///
+  /// Everywhere else the support directory is fine and is what is used.
+  static Future<String> mediaDirPath() async {
+    final cached = _mediaDir;
+    if (cached != null) return cached;
+
+    String? path;
+    if (Platform.isAndroid) {
+      try {
+        path = await const MethodChannel(
+                'com.crownpark.retroc64/storage_permissions')
+            .invokeMethod<String>('mediaDirectory');
+      } on PlatformException {
+        path = null;
+      } on MissingPluginException {
+        path = null;
+      }
+    }
+    path ??= await supportDirPath();
+    final dir = Directory(path);
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    _mediaDir = dir.path;
+    return dir.path;
   }
 
   /// The app's Documents directory on iOS, without going through

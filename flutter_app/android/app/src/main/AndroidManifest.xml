@@ -1,22 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!--
-      Reading the user's existing C64 collection off shared storage.
+      MANAGE_EXTERNAL_STORAGE ("All files access") is deliberately NOT
+      requested. Play treats it as a sensitive permission: an undeclared one
+      blocks the release outright, and declaring it means passing a review
+      aimed at file managers, backup and antivirus apps. A games folder is
+      not worth gating every future update on that review.
 
-      The game files are .d64/.t64/.tap/.prg. None of them are images,
-      video or audio, so the scoped-storage READ_MEDIA_* permissions do not
-      cover them at all. On Android 11+ an app can LIST such a directory
-      without permission (which is why the library grid filled up) but
-      reading a file's bytes fails silently, so the native core received a
-      path it could not fopen() and the emulator screen came up blank.
+      Scoped storage will not let this app read a shared folder without it -
+      it can LIST such a directory, which is why the library grid used to
+      fill up while every file failed to open. So the user grants one folder
+      through the system picker instead and its contents are copied into the
+      app's own storage, which needs no permission at all. See
+      MediaFolderAccess.kt and _AndroidSafStorage.
 
-      MANAGE_EXTERNAL_STORAGE ("All files access") is the permission that
-      actually grants this. It is not grantable by a normal runtime dialog:
-      the user has to flip it in Settings, which PermissionsService drives.
       READ_EXTERNAL_STORAGE stays as the legacy path for API <= 32.
     -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <application

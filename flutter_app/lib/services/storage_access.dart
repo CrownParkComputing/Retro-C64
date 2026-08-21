@@ -28,6 +28,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
+import 'media_folder.dart';
 import 'zip_import.dart';
 
 /// Whether a given platform's storage strategy is "pick a folder and scan
@@ -152,8 +153,10 @@ abstract class StorageAccess {
 
   static StorageAccess _createInstance() {
     if (Platform.isIOS) return _IOSFileImportStorage();
-    // Linux and Android (and anything else, e.g. dev runs on macOS/Windows)
-    // fall back to the folder-scan strategy.
+    // Android can pick a folder but not open it by path. See
+    // _AndroidSafStorage.
+    if (Platform.isAndroid) return _AndroidSafStorage();
+    // Linux (and dev runs on macOS/Windows) have an ordinary filesystem.
     return _FolderScanStorage();
   }
 
@@ -506,5 +509,68 @@ class _IOSFileImportStorage extends StorageAccess {
       }
     }
     return imported;
+  }
+}
+
+
+/// Marks a library entry that lives in the granted SAF tree rather than on
+/// the filesystem, and carries the document id needed to read it.
+///
+/// Public because the workbench has to know: such a path cannot be opened
+/// with dart:io, and must be materialised before it reaches VICE.
+class SafPath {
+  const SafPath._();
+
+  static const String scheme = 'saf:';
+
+  static bool isSaf(String path) => path.startsWith(scheme);
+
+  static String documentIdOf(String path) => path.substring(scheme.length);
+
+  static String forDocument(String documentId) => '$scheme$documentId';
+}
+
+/// Android's storage strategy: pick a folder, read it where it lies.
+///
+/// MANAGE_EXTERNAL_STORAGE is gone - Play treats it as a sensitive permission,
+/// undeclared it blocks the release, declared it means a review aimed at file
+/// managers - and without it scoped storage will not let this app open a
+/// shared folder by path. It CAN list one, which is the trap the old manifest
+/// comment recorded: the library grid filled with titles while every file
+/// failed to open.
+///
+/// SAF still grants a folder, as a document tree. The library is built from
+/// that tree, so the user's files stay exactly where they put them and nothing
+/// is copied in bulk. VICE cannot open a content:// URI, so at launch - and
+/// only at launch - the single title being played is materialised into the
+/// cache. See MediaCache.
+class _AndroidSafStorage extends _FolderScanStorage {
+  /// Marks a path as living in the granted tree rather than the filesystem.
+  /// The document id follows, which is what [MediaFolder.copyTo] needs.
+  static const String scheme = SafPath.scheme;
+
+  @override
+  Future<FolderPickResult?> pickFolder({required String dialogTitle}) async {
+    // Always ask, even when a folder is already granted: correcting a wrong
+    // choice is the main reason anyone opens the picker a second time.
+    final granted = await MediaFolder.pick();
+    if (granted == null) return null;
+    return FolderPickResult(await MediaFolder.displayPath() ?? granted);
+  }
+
+  @override
+  Future<List<ImportedFile>> scanFolder(String folderPath,
+      {List<String> extensions = kGameFileExtensions}) async {
+    final wanted = extensions.map((e) => e.toLowerCase()).toSet();
+    final entries = await MediaFolder.list();
+    return [
+      for (final entry in entries)
+        if (wanted.contains(
+            p.extension(entry.name).replaceFirst('.', '').toLowerCase()))
+          ImportedFile(
+            displayName: entry.name,
+            path: '$scheme${entry.documentId}',
+          ),
+    ];
   }
 }
