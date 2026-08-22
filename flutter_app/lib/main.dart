@@ -159,7 +159,11 @@ class _RetroC64AppState extends State<RetroC64App>
       // whole job: no browse, no button, the next launch finds it. Runs
       // before resolveRomDir so a first launch with a zip waiting boots the
       // machine rather than reporting no ROMs.
-      final imported = await getIt<StartupImport>().run();
+      //
+      // ROMs only. A games or music zip sitting in that folder is content
+      // the user is still arranging, and importing it on every launch
+      // filled the shelf without being asked; Scan is where that is agreed.
+      final imported = await getIt<StartupImport>().run(includeMedia: false);
       if (imported.tunes > 0 || imported.games > 0 || imported.roms > 0) {
         AppLog.log('startup import: ${imported.roms} ROM(s), '
             '${imported.tunes} tune(s), ${imported.games} game(s)');
