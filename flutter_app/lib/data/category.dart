@@ -17,7 +17,8 @@
 ///
 ///   0  where you go        Games, Resume
 ///   1  how it is set up    Paths, Video, Input, Core
-///   2  everything else     Music, History, About  (pinned to the bottom)
+///   2  everything else     Music, History, Compliance, About  (pinned to
+///                          the bottom)
 ///
 /// Nine flat entries read as a list to be searched; three bands read as a
 /// place to look. The bottom band is pinned so About stays where About
@@ -31,6 +32,11 @@ enum WorkbenchCategory {
   core('⚙️', 'Core', 1),
   music('🎵', 'Music', 2),
   history('📜', 'History', 2),
+  // Its own destination, and named so a store reviewer recognises it on
+  // sight. It was a row inside Paths, which is where you say where your
+  // files live -- nothing to do with what the app ships or under which
+  // licences, and not a place anyone would think to look for it.
+  compliance('✅', 'Compliance', 2),
   about('ℹ️', 'About', 2);
 
   final String icon;

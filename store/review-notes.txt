@@ -10,7 +10,7 @@ runs it.
 
 THE COMPLIANCE PAGE
 
-Paths > App Store / Play Store compliance > Open. One page, on the device,
+Open the app and tap "Compliance" in the sidebar. One page, on the device,
 needing no network connection, that answers everything this submission
 turns on:
 
@@ -28,8 +28,11 @@ turns on:
   6. The free-software licences and where the source is.
   7. The privacy position.
 
-Setup can also be re-run at any time from the same screen ("Run setup
-again"), which offers the demo as it does on a first launch.
+There is also a link to it from About.
+
+Setup can be re-run at any time from Paths ("Run setup again"), and its
+"Open ROM demo" button switches to the free ROMs and starts the demo
+immediately.
 
 Nothing else is needed: no files, no accounts, no network, no ROMs of your
 own. That path exists specifically so the app can be evaluated by someone

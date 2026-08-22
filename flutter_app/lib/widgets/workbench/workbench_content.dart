@@ -6,6 +6,7 @@ import '../../screens/core_settings_screen.dart';
 import '../../screens/emulator_screen.dart';
 import '../../screens/history_screen.dart';
 import '../../screens/input_settings_screen.dart';
+import '../../screens/compliance_screen.dart';
 import '../../screens/library_grid.dart';
 import '../../screens/music_screen.dart';
 import '../../screens/paths_settings_screen.dart';
@@ -91,6 +92,7 @@ class WorkbenchContent extends StatelessWidget {
           onRerunSetup: onRerunSetup,
         ),
       WorkbenchCategory.history => const HistoryScreen(),
+      WorkbenchCategory.compliance => const ComplianceScreen(),
       WorkbenchCategory.video => const VideoSettingsScreen(),
       WorkbenchCategory.input => InputSettingsScreen(
           leftHanded: vm.leftHanded,
@@ -104,7 +106,10 @@ class WorkbenchContent extends StatelessWidget {
           gamepadConnected: vm.gamepad.connected,
         ),
       WorkbenchCategory.core => CoreSettingsScreen(core: vm.core),
-      WorkbenchCategory.about => const AboutScreen(),
+      WorkbenchCategory.about => AboutScreen(
+          onOpenCompliance: () =>
+              vm.setCategory(WorkbenchCategory.compliance),
+        ),
     };
   }
 }

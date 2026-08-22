@@ -4,7 +4,6 @@
 // able to re-run the whole wizard), and -- on Android -- exposes the
 // shared-storage permission that everything else depends on.
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../services/app_prefs.dart';
 import '../services/artwork_service.dart';
@@ -14,8 +13,6 @@ import '../services/permissions_service.dart';
 import '../services/storage_access.dart';
 import '../services/startup_import.dart';
 import '../theme/vice_theme.dart';
-import '../view_models/workbench_view_model.dart';
-import 'compliance_screen.dart';
 import 'setup_wizard_screen.dart';
 
 class PathsSettingsScreen extends StatefulWidget {
@@ -241,38 +238,6 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
             onAction: _importRoms,
           ),
-          const _SectionHeader('App Store / Play Store compliance'),
-          _Row(
-            label: 'Compliance and the free-ROM demo',
-            value: 'What the app ships and does not ship, the licences, how '
-                'to obtain real Commodore ROMs, and a demo that runs on free '
-                'ROMs in its own separate world -- with the files listed so '
-                'they can be opened and read.',
-            valueColor: ViceColors.accentTeal,
-            actionLabel: 'Open',
-            // The view model is handed over explicitly. A pushed route is
-            // built from the Navigator's context, which sits ABOVE the
-            // provider that wraps the workbench -- so a plain push would give
-            // the page no view model and it would fail the moment anyone
-            // pressed Run.
-            onAction: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ChangeNotifierProvider<WorkbenchViewModel>.value(
-                  value: context.read<WorkbenchViewModel>(),
-                  child: Scaffold(
-                    backgroundColor: ViceColors.panelFill,
-                    appBar: AppBar(
-                      backgroundColor: ViceColors.panelFill,
-                      foregroundColor: Colors.white,
-                      title: const Text('Compliance'),
-                    ),
-                    body: const ComplianceScreen(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const _SectionHeader('Paths'),
           // Reported separately from the machine ROMs, because it is missed
           // separately: the emulator boots and looks completely healthy
           // without it, right up until a disk image refuses to load.
@@ -496,30 +461,3 @@ class _Row extends StatelessWidget {
   }
 }
 
-/// A heading inside the Paths list.
-///
-/// Added for the compliance block: those rows answer a different question
-/// from the rest of the screen -- "can this be submitted, and can that be
-/// demonstrated" rather than "where do my files live" -- and running them
-/// together as one undifferentiated list buried them.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 18, bottom: 6),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.1,
-        ),
-      ),
-    );
-  }
-}

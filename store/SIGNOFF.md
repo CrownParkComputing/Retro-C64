@@ -34,10 +34,11 @@ Re-run 2 and 3 with:
       → **Retro-C64 Demo** → C64 boots and runs it. **This is the exact path
       the review notes give Apple, so it has to be walked once on a real
       device before submitting.**
-- [ ] The same from an app that is already set up: **Paths → App Store /
-      Play Store compliance → Use free ROMs**, then the demo in Games — and
-      **Restore my ROMs** puts a real set back. Worth walking with real ROMs
-      installed, because that is the case where a bug would destroy them.
+- [ ] The same from an app that is already set up: **Compliance** in the
+      sidebar → **Turn free-ROM mode on** → close and reopen the app →
+      **Run the demo program**. Then turn it off, restart, and confirm your
+      own ROMs still work — the mode picks the ROM directory at startup, so
+      the restart is the whole mechanism and is worth seeing work.
 - [ ] The same on a device with a real ROM set imported: demo still runs, and
       a normal `.d64` still loads (this is what the autostart-mode switch
       changes, and the two paths are mutually exclusive).
