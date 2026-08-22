@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// The side nav shared by every Retro-* front end.
@@ -139,62 +141,112 @@ class Sidebar extends StatelessWidget {
     final scrollingCount =
         pinnedFrom >= 0 ? pinnedFrom : destinations.length;
 
-    return Container(
-      width: railWidth,
-      padding: EdgeInsets.all(style.navPadding),
-      decoration: BoxDecoration(
-        color: style.panelFill,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: style.panelStroke),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // The rail must never overflow, however short the window is (the
-          // Retroid Flip2 is only 456dp tall in landscape, which a fixed
-          // 12-entry Column overran by 32px). Expanded + a scroll view gives
-          // the buttons all the room there is and scrolls any remainder;
-          // Expanded (not Flexible) also keeps the footer pinned to the
-          // bottom of the rail rather than letting it float up under the
-          // last button.
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: _buttons(
-                  from: 0,
-                  to: scrollingCount,
-                  rowHeight: rowHeight,
-                  textStyle: textStyle,
-                  hasIcons: hasIcons,
+    // Everything on one page: the rail is NEVER scrolled.
+    //
+    // It used to be, because a fixed 12-entry column overran the Retroid
+    // Flip2's 456dp landscape height by 32px. Scrolling solved the overflow
+    // and created a worse problem: an entry you cannot see is an entry that
+    // does not exist, which is how the Compliance page went missing on the
+    // one device it most needed to be visible on. So the rows shrink to fit
+    // the height available instead, down to a floor that is still a usable
+    // touch target, and only a rail that cannot fit even then falls back to
+    // scrolling.
+    const double rowFloor = 30.0;
+    final ruleHeight = pinnedFrom >= 0 ? 13.0 : 0.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rowCount = destinations.length;
+        var fittedRow = rowHeight;
+        if (rowCount > 0 && constraints.maxHeight.isFinite) {
+          final available = constraints.maxHeight -
+              style.navPadding * 2 -
+              ruleHeight -
+              (footer != null ? 26.0 : 0.0);
+          if (available > 0) {
+            fittedRow =
+                math.min(rowHeight, available / rowCount).clamp(rowFloor, rowHeight);
+          }
+        }
+
+        // Shrink the label with the row, or tall text in a short button
+        // clips. Only ever downwards, and never past legibility.
+        final shrink = (fittedRow / rowHeight).clamp(0.0, 1.0);
+        final fittedText = shrink < 1.0
+            ? textStyle.copyWith(
+                fontSize: math.max(titleSize * shrink, titleSize * 0.72))
+            : textStyle;
+
+        final everythingFits =
+            !constraints.maxHeight.isFinite ||
+                rowCount * rowFloor + ruleHeight + style.navPadding * 2 <=
+                    constraints.maxHeight;
+
+        final topRows = _buttons(
+          from: 0,
+          to: scrollingCount,
+          rowHeight: fittedRow,
+          textStyle: fittedText,
+          hasIcons: hasIcons,
+        );
+        final pinnedRows = (pinnedFrom >= 0 && pinnedFrom < destinations.length)
+            ? _buttons(
+                from: pinnedFrom,
+                to: destinations.length,
+                rowHeight: fittedRow,
+                textStyle: fittedText,
+                hasIcons: hasIcons,
+              )
+            : const <Widget>[];
+
+        final body = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (everythingFits) ...[
+              ...topRows,
+              // Keeps the last band against the bottom when there is room to
+              // spare, and collapses to nothing when there is not.
+              const Spacer(),
+            ] else
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: topRows,
+                  ),
                 ),
               ),
-            ),
-          ),
-          if (pinnedFrom >= 0 && pinnedFrom < destinations.length) ...[
-            _GroupRule(color: style.panelStroke),
-            ..._buttons(
-              from: pinnedFrom,
-              to: destinations.length,
-              rowHeight: rowHeight,
-              textStyle: textStyle,
-              hasIcons: hasIcons,
-            ),
-          ],
-          if (footer != null)
-            Padding(
-              padding: EdgeInsets.only(
-                left: style.buttonSidePadding,
-                top: 6,
-                bottom: 2,
+            if (pinnedRows.isNotEmpty) ...[
+              _GroupRule(color: style.panelStroke),
+              ...pinnedRows,
+            ],
+            if (footer != null)
+              Padding(
+                padding: EdgeInsets.only(
+                  left: style.buttonSidePadding,
+                  top: 6,
+                  bottom: 2,
+                ),
+                child: footer,
               ),
-              child: footer,
-            ),
-        ],
-      ),
+          ],
+        );
+
+        return Container(
+          width: railWidth,
+          padding: EdgeInsets.all(style.navPadding),
+          decoration: BoxDecoration(
+            color: style.panelFill,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: style.panelStroke),
+          ),
+          child: body,
+        );
+      },
     );
   }
+
 }
 
 /// One entry in the side nav. [icon] is an optional emoji shown in a fixed

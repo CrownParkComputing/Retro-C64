@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import 'ffi/vice_bindings.dart';
@@ -91,6 +92,7 @@ class _RetroC64AppState extends State<RetroC64App>
   ViceCoreBindings? _core;
   String? _loadError;
   bool? _setupCompleted;
+  String? _appVersion;
 
   /// Whether the emulator core was already paused before we backgrounded, so
   /// coming back doesn't un-pause something the user had deliberately paused
@@ -240,9 +242,31 @@ class _RetroC64AppState extends State<RetroC64App>
   }
 
   Future<void> _checkSetup() async {
-    final completed = await AppPrefs.isSetupCompleted();
+    // Keyed on the running version, so every new build shows the wizard once.
+    // What setup says -- what the app ships, what it needs, the Open ROM
+    // demo -- changes from build to build, and a tester or a store reviewer
+    // installing a fresh one would otherwise never see any of it, because a
+    // flag set weeks ago said setup was done.
+    String? version;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      version = '${info.version}+${info.buildNumber}';
+    } catch (e) {
+      // No version available -- a test binding, or a platform where the
+      // plugin is missing. Fall back to the plain flag rather than showing
+      // the wizard on every single launch, which is what an unknown version
+      // compared against a stored one would do.
+      AppLog.log('app version unavailable ($e); setup flag is not '
+          'version-keyed this run');
+    }
+    final completed = version == null
+        ? await AppPrefs.isSetupCompleted()
+        : await AppPrefs.setupCompletedFor(version);
     if (!mounted) return;
-    setState(() => _setupCompleted = completed);
+    setState(() {
+      _appVersion = version;
+      _setupCompleted = completed;
+    });
   }
 
   @override
@@ -263,7 +287,11 @@ class _RetroC64AppState extends State<RetroC64App>
       create: (_) => WorkbenchViewModel(core: _core!),
       child: _setupCompleted == false
           ? SetupWizardScreen(
-              onComplete: () => setState(() => _setupCompleted = true),
+              onComplete: () {
+                final v = _appVersion;
+                if (v != null) unawaited(AppPrefs.setSetupCompletedFor(v));
+                setState(() => _setupCompleted = true);
+              },
             )
           : WorkbenchScreen(
               onRerunSetup: () => setState(() => _setupCompleted = false),

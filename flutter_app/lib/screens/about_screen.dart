@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../services/platform_info.dart';
 import 'logs_screen.dart';
@@ -34,6 +35,24 @@ class AboutScreen extends StatelessWidget {
                 TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         const Text('Retro-C64', style: TextStyle(color: Colors.white70)),
+        const SizedBox(height: 4),
+        // The running version, shown because a build you cannot identify is
+        // a build you cannot report a bug against -- and because the setup
+        // wizard now re-runs whenever this changes, so it is the thing to
+        // check when asking "is the device actually on the new one?".
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snap) {
+            final info = snap.data;
+            return Text(
+              info == null
+                  ? 'Version unavailable'
+                  : 'Version ${info.version}  (build ${info.buildNumber})',
+              style: const TextStyle(
+                  color: Colors.white38, fontSize: 12, fontFamily: 'monospace'),
+            );
+          },
+        ),
         const SizedBox(height: 20),
         _Card(
           title: 'What this is',

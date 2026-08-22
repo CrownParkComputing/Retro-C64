@@ -62,6 +62,9 @@ class AppPrefs {
   /// emulator can be told which ROMs to load -- see [getDemoRomMode].
   static const _keyDemoRomMode = 'demo_rom_mode';
 
+  /// The app version that last completed setup. See [setupCompletedFor].
+  static const _keySetupVersion = 'setup_completed_version';
+
   static const _keyAppFolderPath = 'app_folder_path';
   static const _keyGamesFolderPath = 'games_folder_path';
   static const _keyLeftHandedInput = 'left_handed_input';
@@ -108,6 +111,38 @@ class AppPrefs {
   static Future<void> setDemoRomMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyDemoRomMode, value);
+  }
+
+  /// Whether setup has been completed BY THIS VERSION of the app.
+  ///
+  /// Setup is not only a first-run chore: it is where the app explains what
+  /// it ships, what it needs from the user, and offers the Open ROM demo. A
+  /// new build routinely changes those answers, and the person installing it
+  /// -- a tester, or a store reviewer taking a fresh build -- would never see
+  /// the change, because a flag set months ago said setup was done.
+  ///
+  /// So the flag records WHICH version finished setup, and a different
+  /// version shows the wizard once. Answering it again is cheap; not knowing
+  /// what a build says on first run is not.
+  static Future<bool> setupCompletedFor(String version) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_keySetupCompleted) ?? false)) return false;
+    final seen = prefs.getString(_keySetupVersion);
+    // An install that completed setup before this was introduced has no
+    // version recorded. Treat it as done rather than dragging every existing
+    // user back through the wizard for an upgrade that changed nothing for
+    // them; the next version after this one starts the new behaviour.
+    if (seen == null) {
+      await prefs.setString(_keySetupVersion, version);
+      return true;
+    }
+    return seen == version;
+  }
+
+  static Future<void> setSetupCompletedFor(String version) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keySetupCompleted, true);
+    await prefs.setString(_keySetupVersion, version);
   }
 
   static Future<void> setSetupCompleted(bool value) async {
