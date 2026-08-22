@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ffi/vice_core.dart';
+import '../services/c64_typist.dart';
 
 /// One key on the overlay: either a direct C64 keyboard-matrix key
 /// (row/column non-null, matching vice_bridge.h's vice_core_matrix_key_event
@@ -31,30 +32,9 @@ class C64KeyboardOverlay extends StatelessWidget {
 
   const C64KeyboardOverlay({super.key, required this.core, required this.onClose});
 
-  // Row/column for each character this overlay can "type" via TYPE RUN /
-  // LIST, taken from the same matrix coordinates as the on-screen keys
-  // below (digits, letters, and RETURN).
-  static const Map<String, (int, int)> _charMatrix = {
-    '0': (4, 3), '1': (7, 0), '2': (7, 3), '3': (1, 0), '4': (1, 3),
-    '5': (2, 0), '6': (2, 3), '7': (3, 0), '8': (3, 3), '9': (4, 0),
-    'A': (1, 2), 'B': (3, 4), 'C': (2, 4), 'D': (2, 2), 'E': (1, 6),
-    'F': (2, 5), 'G': (3, 2), 'H': (3, 5), 'I': (4, 1), 'J': (4, 2),
-    'K': (4, 5), 'L': (5, 2), 'M': (4, 4), 'N': (4, 7), 'O': (4, 6),
-    'P': (5, 1), 'Q': (7, 6), 'R': (2, 1), 'S': (1, 5), 'T': (2, 6),
-    'U': (3, 6), 'V': (3, 7), 'W': (1, 1), 'X': (2, 7), 'Y': (3, 1),
-    'Z': (1, 4), '\r': (0, 1), ' ': (7, 4),
-  };
-
-  Future<void> _typeString(String text) async {
-    for (final ch in text.split('')) {
-      final pos = _charMatrix[ch.toUpperCase()];
-      if (pos == null) continue;
-      core.matrixKeyEvent(pos.$1, pos.$2, true);
-      await Future.delayed(const Duration(milliseconds: 45));
-      core.matrixKeyEvent(pos.$1, pos.$2, false);
-      await Future.delayed(const Duration(milliseconds: 35));
-    }
-  }
+  /// TYPE RUN / LIST press the real keys, via the shared typist -- the same
+  /// path the wizard's demo uses, so there is one matrix map and not two.
+  Future<void> _typeString(String text) => C64Typist.type(core, text);
 
   List<List<_KeySpec>> get _rows => [
         [

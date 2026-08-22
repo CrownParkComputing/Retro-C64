@@ -31,6 +31,8 @@ import 'package:flutter/material.dart';
 import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../services/app_prefs.dart';
+import '../ffi/vice_native_paths.dart';
+import '../services/demo_roms_service.dart';
 import '../services/startup_import.dart';
 import '../services/storage_access.dart';
 
@@ -93,6 +95,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   bool _busy = false;
   bool _scanned = false;
+  bool _demoReady = false;
   String? _gamesFolderPath;
   List<ImportedFile> _found = const [];
 
@@ -214,6 +217,33 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln('20 PRINT "RUNNING ON ${_platformLabel()}"')
       ..writeln('30 LOAD "\$",8');
 
+    // The demo explains ITSELF, on the screen it runs on. A reviewer or a
+    // first-time user should not have to find a help page to learn what they
+    // are looking at, or be left thinking the emulator needs nothing when it
+    // needs Commodore's ROMs for real software.
+    if (_demoReady) {
+      buffer
+        ..writeln()
+        ..writeln('DEMO MODE')
+        ..writeln()
+        ..writeln('THIS IS A REAL C64, RUNNING ON')
+        ..writeln('OPEN ROMS - A FREE, OPEN-SOURCE')
+        ..writeln('BASIC AND KERNAL (GPL), NOT')
+        ..writeln('COMMODORE\'S.')
+        ..writeln()
+        ..writeln('SO NOTHING WAS NEEDED FROM YOU')
+        ..writeln('TO SHOW YOU THIS.')
+        ..writeln()
+        ..writeln('FOR COMMERCIAL GAMES YOU NEED THE')
+        ..writeln('REAL COMMODORE ROMS - DUMP THEM')
+        ..writeln('FROM A C64 YOU OWN, OR USE A')
+        ..writeln('LICENSED SET SUCH AS C64 FOREVER,')
+        ..writeln('THEN "SCAN" OR SETTINGS > PATHS.')
+        ..writeln()
+        ..write('READY.');
+      return buffer.toString();
+    }
+
     if (!_scanned) {
       buffer.write('\nSEARCHING...');
       return buffer.toString();
@@ -225,10 +255,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ..writeln('SEARCHING FOR PROGRAMS')
         ..writeln('READY.')
         ..writeln()
-        ..write(_isFolderScan
+        ..writeln(_isFolderScan
             ? '? NO GAMES FOLDER SET - CHOOSE ONE'
             : '? NOTHING FOUND - PUT ZIPS IN THIS APP\'S FOLDER\n'
-                '  (FILES > ON MY IPAD > RETRO-C64), THEN SCAN');
+                '  (FILES > ON MY IPAD > RETRO-C64), THEN SCAN')
+        ..writeln()
+        ..write('OR PRESS "SEE IT WORKING" - NEEDS\n'
+                'NOTHING FROM YOU');
       return buffer.toString();
     }
 
@@ -290,6 +323,37 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
+  /// Put the machine into demo mode: install the Open ROMs and hand the
+  /// workbench a BASIC listing to type in.
+  ///
+  /// The point is that the user sees a C64 WORKING before being asked for
+  /// anything. Until now a first run ended at a request for three Commodore
+  /// ROM files, which is a poor way to meet a program -- and gives an App
+  /// Review reviewer, who has no ROMs and no C64 to dump them from, nothing
+  /// at all to look at.
+  Future<void> _showDemo() async {
+    setState(() => _busy = true);
+    try {
+      await DemoRomsService.install(Directory(await ViceNativePaths.romDir()));
+      await AppPrefs.setDemoProgram(DemoRomsService.demoProgram.join('\n'));
+      if (!mounted) return;
+      // Does NOT hand off yet. The explanation above is the whole point of
+      // this step, and a screen that vanishes the moment it appears has not
+      // explained anything -- so the console types it out and the button
+      // becomes "Start demo" for a second, deliberate tap.
+      setState(() {
+        _demoReady = true;
+        _busy = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not start the demo: $e')),
+      );
+    }
+  }
+
   Widget _button(String label, VoidCallback? onPressed) {
     return ElevatedButton(
       onPressed: onPressed,
@@ -317,6 +381,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          // FIRST, and deliberately: the only button that needs nothing from
+          // the user. Everything else on this screen asks for something.
+          _button(_demoReady ? 'Start demo' : 'See it working',
+              _busy ? null : (_demoReady ? widget.onComplete : _showDemo)),
+          const SizedBox(width: 8),
           _button(_isFolderScan ? 'Choose folder' : 'Scan',
               _busy ? null : _importMore),
           const SizedBox(width: 8),

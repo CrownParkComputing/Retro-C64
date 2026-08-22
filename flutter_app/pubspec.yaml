@@ -73,6 +73,23 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/retro_recomp_logo.png
+    # BUNDLED ON PURPOSE: the OPEN ROMs, which are not Commodore's.
+    #
+    # assets/vice/OPENROMS holds the MEGA65 team's Open ROMs -- a clean-room
+    # BASIC, KERNAL and character set under the GPL, not Commodore's code. They
+    # ship so the app can show a WORKING C64 the moment it is installed, with
+    # nothing for the user to supply and nobody's copyright infringed.
+    #
+    # They do not replace the real ROMs: Open ROMs is an ongoing project and
+    # does not implement every KERNAL routine, so software written against the
+    # originals may not run on them. That is what the ROM import is for, and
+    # why the wizard says so in as many words rather than letting someone
+    # discover it when a game fails.
+    - assets/vice/OPENROMS/kernal
+    - assets/vice/OPENROMS/basic
+    - assets/vice/OPENROMS/chargen
+    - assets/vice/OPENROMS/README.txt
+    - assets/vice/OPENROMS/COPYING
     # DELIBERATELY NOT BUNDLED: the C64 ROMs.
     #
     # assets/vice/C64 and assets/vice/DRIVES hold Commodore's kernal, BASIC,
