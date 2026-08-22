@@ -57,7 +57,12 @@ what is actually applied; the prose file is documentation.
 
 ## Read before submitting
 
-`docs/LICENCE_COMPLIANCE.md`. The app is a GPL combined work, the repo declares
-no licence, and the newly bundled Open ROMs are GPL v3. None of that will be
-caught by App Review, and one of them is a takedown risk. There is a
-recommendation there; it needs a decision, not a reading.
+`docs/LICENCE_COMPLIANCE.md`. The app is a GPL combined work with VICE
+(GPL v2 or later) and the repo declares no licence at all. Neither will be
+caught by App Review, and the first is a complaint-driven takedown risk that
+predates this work and needs a decision on the record.
+
+The bundled Open ROMs are **LGPL v3**, not GPL — checked against upstream
+rather than assumed, after an earlier draft here got it wrong. As a ROM image
+the user can replace at run time, which is the app's central feature, the
+LGPL's condition is met by the design. They are not the problem; VICE is.

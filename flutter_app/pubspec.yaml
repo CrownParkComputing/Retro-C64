@@ -47,6 +47,8 @@ dependencies:
   gamepads: ^0.1.10+5
   http: ^1.6.0
   archive: ^4.0.9
+  provider: ^6.1.1
+  get_it: ^8.0.2
 
 dev_dependencies:
   flutter_test:
@@ -76,7 +78,10 @@ flutter:
     # BUNDLED ON PURPOSE: the OPEN ROMs, which are not Commodore's.
     #
     # assets/vice/OPENROMS holds the MEGA65 team's Open ROMs -- a clean-room
-    # BASIC, KERNAL and character set under the GPL, not Commodore's code. They
+    # BASIC, KERNAL and character set under the LESSER GPL v3, not
+    # Commodore's code. Both licence texts ship: the LGPL is written as an
+    # additional permission on top of the GPL v3, so COPYING alone states
+    # the licence wrongly. They
     # ship so the app can show a WORKING C64 the moment it is installed, with
     # nothing for the user to supply and nobody's copyright infringed.
     #
@@ -94,6 +99,8 @@ flutter:
     - assets/vice/OPENROMS/chargen
     - assets/vice/OPENROMS/README.txt
     - assets/vice/OPENROMS/COPYING
+    - assets/vice/OPENROMS/COPYING.LESSER
+    - assets/vice/OPENROMS/LICENSE.txt
     # DELIBERATELY NOT BUNDLED: the C64 ROMs.
     #
     # assets/vice/C64 and assets/vice/DRIVES hold Commodore's kernal, BASIC,
