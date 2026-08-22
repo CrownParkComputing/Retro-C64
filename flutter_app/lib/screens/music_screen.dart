@@ -283,21 +283,43 @@ class _MusicScreenState extends State<MusicScreen> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: ViceColors.cardStroke),
         ),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Play a tune while you browse the workbench. Music always '
-                'stops when a game launches, whatever this is set to.',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ),
-            Switch(
+        // Stacked on a narrow screen, side by side otherwise.
+        //
+        // This blurb sits in the fixed part of the page, above the playlist's
+        // Expanded. Beside the switch on a phone in portrait it was left
+        // about 60pt to wrap 118 characters into -- a dozen-odd lines that
+        // pushed the grid's share of the height below zero and overflowed the
+        // page by 624px at 320pt. Full width it needs a third of that, and
+        // the maxLines below is the hard stop either way.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const blurb = Text(
+              'Play a tune while you browse the workbench. Music always '
+              'stops when a game launches, whatever this is set to.',
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            );
+            final toggle = Switch(
               value: on ?? true,
               activeThumbColor: ViceColors.accentTeal,
               onChanged: on == null ? null : _setWorkbenchMusic,
-            ),
-          ],
+            );
+
+            if (constraints.maxWidth < 360) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  blurb,
+                  Align(alignment: Alignment.centerRight, child: toggle),
+                ],
+              );
+            }
+            return Row(
+              children: [const Expanded(child: blurb), toggle],
+            );
+          },
         ),
       ),
     );
@@ -306,28 +328,44 @@ class _MusicScreenState extends State<MusicScreen> {
   @override
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-          child: Text(
-            'SID Workstation - ${MusicScreen.playlist.length} tunes',
-            style: const TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+    // Slivers rather than Column+Expanded: the header is not a fixed height.
+    // The blurb and the status line both wrap, and on a short narrow screen
+    // they can want more than the whole viewport -- which left Expanded a
+    // negative share and overflowed the page. SliverFillRemaining still hands
+    // the playlist the rest of the viewport when there is a rest to hand it,
+    // and the page simply scrolls when there is not.
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Text(
+                  'SID Workstation - ${MusicScreen.playlist.length} tunes',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+              _workbenchMusicRow(),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child:
+                      Text('Loading...', style: TextStyle(color: Colors.white38)),
+                )
+              else
+                _statusBar(),
+            ],
           ),
         ),
-        _workbenchMusicRow(),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Loading...', style: TextStyle(color: Colors.white38)),
-          )
-        else
-          _statusBar(),
         // Playlist fills the rest of the page (weight 1.0, no side panel,
         // no EQ header eating vertical space).
-        Expanded(
+        SliverFillRemaining(
+          hasScrollBody: true,
           // Narrow cards, more columns: with 20 tunes the whole playlist has
           // to fit on one landscape screen without scrolling, so the cards
           // are sized from a ~150dp minimum width and a compact row height
