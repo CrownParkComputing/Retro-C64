@@ -8,8 +8,9 @@
 // be READ is counted, not listed -- Android 11+ scoped storage happily
 // enumerates directories the app has no permission to open, and every one
 // of those entries launched into a blank screen.
+import 'dart:async';
 import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/category.dart';
@@ -33,7 +34,12 @@ class LibraryScanner {
 
   /// Every supported media file under [directoryPath], at any depth.
   /// A missing directory scans to nothing rather than throwing.
-  static LibraryScanResult scan(String directoryPath) {
+  /// Runs in a background isolate to avoid blocking the UI thread.
+  static Future<LibraryScanResult> scan(String directoryPath) async {
+    return compute(_scanIsolate, directoryPath);
+  }
+
+  static LibraryScanResult _scanIsolate(String directoryPath) {
     final dir = Directory(directoryPath);
     if (!dir.existsSync()) return LibraryScanResult.empty;
 

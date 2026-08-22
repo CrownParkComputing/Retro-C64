@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'ffi/vice_bindings.dart';
 import 'ffi/vice_native_paths.dart';
@@ -13,8 +14,11 @@ import 'services/artwork_service.dart';
 import 'services/startup_import.dart';
 import 'services/app_log.dart';
 import 'services/demo_roms_service.dart';
+import 'services/service_locator.dart';
 import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
+
+import 'view_models/workbench_view_model.dart';
 
 void main() {
   // Persisted video preferences have to be read before the first frame is
@@ -22,6 +26,9 @@ void main() {
   // user's settings a moment later. Nothing called this before, which meant
   // the Video settings never survived a restart at all.
   WidgetsFlutterBinding.ensureInitialized();
+
+  setupServiceLocator();
+
   // Before anything else that could fail: starting the log redirects the
   // process's stdout, and the emulator core writes there. Started later, the
   // core's own startup -- which is where ROM loading happens, and where the
@@ -192,6 +199,7 @@ class _RetroC64AppState extends State<RetroC64App>
         final demoRoms = await DemoRomsService.installed(Directory(romDir));
         core.setPrgInject(demoRoms);
         AppLog.log('prg autostart: ${demoRoms ? "RAM injection (Open ROMs)" : "virtual filesystem"}');
+      registerCore(core);
       } else {
         // Without a ROM dir the core has no data directory, so VICE cannot
         // create its XDG dirs and aborts during archdep_init. That abort used
@@ -222,19 +230,23 @@ class _RetroC64AppState extends State<RetroC64App>
       title: 'Retro-C64',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
-      home: _loadError != null
-          ? _ErrorScreen(message: _loadError!)
-          : (_core == null || _setupCompleted == null)
-              ? const _LoadingScreen()
-              : (_setupCompleted == false
-                  ? SetupWizardScreen(
-                      onComplete: () => setState(() => _setupCompleted = true),
-                    )
-                  : WorkbenchScreen(
-                      core: _core!,
-                      onRerunSetup: () =>
-                          setState(() => _setupCompleted = false),
-                    )),
+      home: _buildHome(),
+    );
+  }
+
+  Widget _buildHome() {
+    if (_loadError != null) return _ErrorScreen(message: _loadError!);
+    if (_core == null || _setupCompleted == null) return const _LoadingScreen();
+
+    return ChangeNotifierProvider(
+      create: (_) => WorkbenchViewModel(core: _core!),
+      child: _setupCompleted == false
+          ? SetupWizardScreen(
+              onComplete: () => setState(() => _setupCompleted = true),
+            )
+          : WorkbenchScreen(
+              onRerunSetup: () => setState(() => _setupCompleted = false),
+            ),
     );
   }
 }
