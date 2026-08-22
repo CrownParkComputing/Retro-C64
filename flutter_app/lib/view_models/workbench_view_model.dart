@@ -198,7 +198,24 @@ class WorkbenchViewModel extends ChangeNotifier {
     notifyListeners();
 
     await _refreshDriveRomState();
-    final scanDir = await libraryScanRoot();
+    // In compliance mode the library IS the demo folder. Listing the user's
+    // own games there would offer titles that cannot run -- they were
+    // written against Commodore's ROMs, and this machine is not booted on
+    // them -- and would blur the one thing the mode exists to show: that
+    // everything on screen came with the app.
+    String? scanDir;
+    try {
+      scanDir = _demoMode
+          ? (await DemoRomsService.demoRomDir()).path
+          : await libraryScanRoot();
+    } catch (e) {
+      // Resolving a directory can fail -- a platform channel that is not
+      // there, a container not created yet. An unhandled throw here left
+      // _isLibraryLoading true for ever and the grid spinning, which reads
+      // as a hang rather than as an empty library.
+      AppLog.log('library scan root unavailable: $e');
+      scanDir = null;
+    }
 
     LibraryScanResult result;
     if (Platform.isAndroid && await MediaFolder.hasFolder()) {

@@ -24,14 +24,11 @@
 // automatically right as the "INPUT A$" line finishes typing, same beat as
 // BASIC's own INPUT statement blocking for input.
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/category.dart';
 import '../services/app_prefs.dart';
-import '../ffi/vice_native_paths.dart';
 import '../services/demo_roms_service.dart';
 import '../view_models/workbench_view_model.dart';
 import '../services/storage_access.dart';
@@ -196,11 +193,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       // launch rather than silently reverting to a ROM set they do not have.
       await AppPrefs.setDemoRomMode(true);
 
-      // A copy in their library too, so the demo is something they can start
-      // again themselves rather than a one-off they cannot get back to.
-      final into =
-          await libraryScanRoot() ?? await ViceNativePaths.mediaDirPath();
-      await DemoRomsService.installDemoProgram(Directory(into));
+      // No copy goes into the user's own library: in this mode Games
+      // lists the demo folder itself, so a second copy among their files
+      // would just be litter.
 
       if (!mounted) return;
       final vm = context.read<WorkbenchViewModel>();

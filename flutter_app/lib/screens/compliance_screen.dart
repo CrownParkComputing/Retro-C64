@@ -213,7 +213,12 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                       const SizedBox(height: 6),
                       Text(
                         '  1.  Open Games in the sidebar.\n'
-                        '  2.  Tap "${DemoRomsService.demoTitle}".\n\n'
+                        '  2.  Tap "${DemoRomsService.demoFileName}".\n\n'
+                        'In this mode Games lists the demo folder above, not '
+                        'your own library: your games were written against '
+                        'Commodore ROMs and this machine is not booted on '
+                        'them, so offering them would be offering titles that '
+                        'cannot run.\n\n'
                         'It loads the same way a tape, a disk or any other '
                         'program does -- nothing here is typed in or started '
                         'for you, so what you see the demo do is what the '
