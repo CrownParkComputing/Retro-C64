@@ -221,6 +221,18 @@ class _RetroC64AppState extends State<RetroC64App>
         final demoRoms = demoRomMode ||
             await DemoRomsService.installed(Directory(romDir));
         core.setPrgInject(demoRoms);
+        // Said out loud, because the failure is otherwise invisible: the
+        // FFI binding looks this symbol up softly, so a libvicecore built
+        // before it existed makes setPrgInject a no-op and the demo then
+        // fails to load with "?DEVICE NOT PRESENT" -- with nothing anywhere
+        // pointing at a stale native library as the reason. The Android and
+        // iOS cores are prebuilt and committed, so exactly this drift has
+        // happened once already.
+        if (demoRoms && !core.hasPrgInjectApi) {
+          AppLog.log('WARNING: libvicecore has no vice_core_set_prg_inject. '
+              'It is older than the Dart side, and free ROMs cannot autostart '
+              'a .prg without it. Rebuild the native core for this platform.');
+        }
         AppLog.log('prg autostart: ${demoRoms ? "RAM injection (Open ROMs)" : "virtual filesystem"}');
       registerCore(core);
       } else {
