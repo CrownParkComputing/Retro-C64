@@ -18,7 +18,7 @@ set -e
 # packages and rewrites pubspec.lock mid-build, so an untracked toolchain makes
 # cloud builds differ from CI for reasons that have nothing to do with the
 # commit being built.
-FLUTTER_VERSION="${FLUTTER_VERSION:-3.41.9}"
+FLUTTER_VERSION="${FLUTTER_VERSION:-3.47.1}"
 FLUTTER_HOME="$HOME/flutter"
 
 echo "--- installing Flutter $FLUTTER_VERSION"
