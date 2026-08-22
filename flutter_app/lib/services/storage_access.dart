@@ -28,6 +28,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import '../ffi/vice_native_paths.dart';
+import 'app_prefs.dart';
 import 'media_folder.dart';
 import 'zip_import.dart';
 
@@ -137,6 +138,28 @@ Future<List<Directory>> mediaScanRoots() async {
 }
 
 /// The first search path that actually exists, or null.
+/// The one directory the games library is read from, in the app's own order
+/// of preference: a folder the user configured, else the app's own import
+/// folder, else the first platform media path that exists.
+///
+/// Extracted so that WRITING a game and SCANNING for it cannot disagree.
+/// The demo the setup wizard installs has to land somewhere the library
+/// actually looks, and when the two were worked out separately it did not:
+/// the app's media directory is not a scan root on any platform, so the
+/// demo installed cleanly and then never appeared.
+Future<String?> libraryScanRoot() async {
+  final configured = await AppPrefs.getGamesFolderPath();
+  if (configured != null && Directory(configured).existsSync()) {
+    return configured;
+  }
+  // 'games' rather than kGamesImportSubdir: that constant lives in the setup
+  // wizard, and a service reaching up into a screen for it makes the whole
+  // widget layer a dependency of file-system code.
+  final imported = await StorageAccess.instance.importedDirPath('games');
+  if (imported != null && Directory(imported).existsSync()) return imported;
+  return firstExistingMediaSearchPath() ?? ViceNativePaths.devRomDir;
+}
+
 String? firstExistingMediaSearchPath() {
   for (final path in defaultMediaSearchPaths()) {
     if (Directory(path).existsSync()) return path;

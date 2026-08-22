@@ -123,6 +123,18 @@ class FakeViceCore implements ViceCore {
   @override
   void setPaused(bool paused) => _paused = paused;
 
+  /// The .prg autostart mode the app last asked for. Recorded rather than
+  /// ignored: which mode is chosen depends on whose ROMs are installed, and
+  /// getting it wrong is silent -- the machine boots either way and only the
+  /// eventual load fails.
+  bool prgInject = false;
+
+  @override
+  bool get hasPrgInjectApi => true;
+
+  @override
+  void setPrgInject(bool enable) => prgInject = enable;
+
   @override
   void keyEvent(int key, bool pressed) =>
       keyEvents.add((key: key, pressed: pressed));

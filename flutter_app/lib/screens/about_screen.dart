@@ -69,6 +69,23 @@ class AboutScreen extends StatelessWidget {
               'this app just plays them back through VICE\'s SID emulation.',
         ),
         const _Card(
+          title: 'Licences and source',
+          body: 'This app is built on free software, and the licences require '
+              'that it says so and tells you where the source is.\n\n'
+              'VICE -- GNU General Public License v2 or later.\n'
+              'reSID -- GNU General Public License v2 or later.\n'
+              'Open ROMs (the built-in BASIC, KERNAL and character set from '
+              'the MEGA65 project) -- GNU General Public License v3. Their '
+              'full licence text ships with the app.\n\n'
+              'The complete source for this app, and for the native core it '
+              'is built from, is at:\n'
+              'https://github.com/CrownParkComputing/Retro-C64\n'
+              'https://vice-emu.sourceforge.io\n'
+              'https://github.com/MEGA65/open-roms\n\n'
+              'No Commodore ROM is included. Those are still under copyright '
+              'and are yours to supply.',
+        ),
+        const _Card(
           title: 'Dedication',
           body: 'Thanks to my wife Jules, who is my inspiration.',
           accent: true,

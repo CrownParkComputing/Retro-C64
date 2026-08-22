@@ -1,19 +1,46 @@
 This is a hardware emulator for the Commodore 64 (1982), permitted under
-App Review Guideline 4.7. It ships with no games and no system ROMs.
+App Review Guideline 4.7. It ships with no games and no Commodore ROMs.
 
-The Commodore system ROMs are still under copyright and cannot legally be
-distributed with the app, so the user supplies their own, exactly as with
-every other C64 emulator. On first launch the app explains this and offers a
-scan that finds and installs them.
+HOW TO SEE A WORKING EMULATOR IN UNDER A MINUTE, WITH NOTHING TO DOWNLOAD
 
-To evaluate a working emulator, place any C64 ROM set (kernal, basic,
-chargen, and dos1541 for disk images) in the app's Documents folder via the
-Files app, then use Paths > Scan for ROMs. A zipped set works as-is, with no
-unpacking.
+On the first-run setup screen, tap "See it working". The app installs a
+free, open-source ROM set and puts a small demo program in the games list.
+Tap "Go to games", then tap "Retro-C64 Demo". A real emulated C64 boots and
+runs it.
 
-Without those files the app intentionally shows setup guidance rather than a
-black screen, so nothing here is a crash or a non-functional state.
+Nothing else is needed: no files, no accounts, no network, no ROMs of your
+own. That path exists specifically so the app can be evaluated by someone
+who has no Commodore hardware to take ROMs from.
 
-The app has no accounts, no login, no server, and no network features, so no
-demo account is needed. It collects no data at all; the privacy policy is at
+WHY THE APP ASKS FOR ROMS AT ALL
+
+The C64's own BASIC and KERNAL are still under copyright and cannot legally
+be distributed, so commercial C64 software needs the user to supply them,
+exactly as with every other C64 emulator. The built-in set used by the demo
+is the MEGA65 project's Open ROMs -- an independent, clean-room
+reimplementation, not Commodore's code. It boots and runs the demo, but it
+is an unfinished project and much commercial software will not run on it,
+which is why the app still offers to import a real set.
+
+To evaluate with a real ROM set instead, place one (kernal, basic, chargen,
+and dos1541 for disk images) in the app's Documents folder via the Files
+app, then use Paths > Scan for ROMs. A zipped set works as-is.
+
+The app never shows a black screen for want of ROMs: without them it shows
+setup guidance, and now also the working demo above. Nothing in that state
+is a crash or a non-functional screen.
+
+OTHER
+
+No accounts, no login and no server, so no demo account is needed. The app
+collects no data at all and sends none anywhere; the privacy policy is at
 https://www.crownparkcomputing.com/privacy
+
+The app makes no network request of its own. There is one optional feature
+that can: in Settings you may enter a URL of your own for cover artwork, and
+only then does the app fetch from it. It is empty by default and nothing is
+contacted unless you fill it in.
+
+The app is built on free software (VICE, reSID, Open ROMs). The licences
+and the links to the complete source are listed in the app under About >
+Licences and source.

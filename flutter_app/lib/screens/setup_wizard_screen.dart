@@ -342,8 +342,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     setState(() => _busy = true);
     try {
       await DemoRomsService.install(Directory(await ViceNativePaths.romDir()));
-      await DemoRomsService.installDemoProgram(
-          Directory(await ViceNativePaths.mediaDirPath()));
+      // Into the directory the library is actually read from, not the app's
+      // media directory -- which is a scan root on no platform, so a demo
+      // put there installs perfectly and never appears in Games.
+      final into = await libraryScanRoot() ??
+          await ViceNativePaths.mediaDirPath();
+      await DemoRomsService.installDemoProgram(Directory(into));
       if (!mounted) return;
       // Does NOT hand off yet. The explanation above is the whole point of
       // this step, and a screen that vanishes the moment it appears has not

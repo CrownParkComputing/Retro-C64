@@ -37,9 +37,10 @@ both families, which is also why the description opens "iPhone and iPad".
 
 ## Promotional text (170 max, editable without a new build)
 
-    A full Commodore 64 in your hands: load disk images, tapes, cartridges
-    and SID music, with save states and a library that organises itself.
-                                                          [138]
+    A full Commodore 64 in your hands, working the moment you open it:
+    disk images, tapes, cartridges and SID music, with save states and a
+    library that organises itself.
+                                                          [166]
 
 ## Description (4000 max)
 
@@ -64,17 +65,27 @@ both families, which is also why the description opens "iPhone and iPad".
     On-screen joystick and keyboard laid out for touch, with full support
     for MFi and Bluetooth controllers.
 
-    IMPORTANT: ROMS ARE NOT INCLUDED
-    Like every C64 emulator, this app needs the Commodore ROM files
-    (kernal, basic, chargen) to start, plus the 1541 drive ROM for disk
-    images. Those are Commodore's copyright and cannot be distributed with
-    the app, so you supply your own -- dump them from a C64 you own, use a
-    licensed set such as C64 Forever, or copy them from an existing VICE
-    installation. The app scans for them and files them in the right place
-    automatically; a zipped ROM set works without unpacking.
+    WORKS THE MOMENT YOU OPEN IT
+    Setup offers a demo that runs straight away, using a free,
+    open-source ROM set built into the app. Nothing to find, nothing to
+    download -- you can see a real emulated C64 boot before you decide
+    anything.
 
-    Without those files the emulator will not boot. Please make sure you
-    can supply them before buying or installing.
+    ABOUT COMMODORE'S ROMS
+    Commercial C64 software was written against Commodore's own BASIC and
+    KERNAL, which are still under copyright and cannot be distributed with
+    any emulator. To run your old games you supply those yourself -- dump
+    them from a C64 you own, use a licensed set such as C64 Forever, or
+    copy them from an existing VICE installation. The app scans for them
+    and files them in the right place automatically; a zipped ROM set
+    works without unpacking. The built-in open ROMs are an independent
+    reimplementation and will not run most commercial titles.
+
+The old closing line -- "Without those files the emulator will not boot.
+Please make sure you can supply them before buying or installing" -- was
+true when written and is not any more: the app now ships the MEGA65 Open
+ROMs and boots without anything from the user. Leaving it there would have
+been both wrong and the single most discouraging sentence on the page.
 
 ## Keywords (100 max, comma separated, no spaces after commas)
 
