@@ -70,3 +70,8 @@ Runner */
 # package refs already in the project, and it records absolute paths from
 # whichever machine ran the build.
 **/xcshareddata/swiftpm/
+
+# App Store Connect API private key. Account-wide, downloads from Apple
+# exactly once, and cannot be rotated in place -- it never belongs in git.
+# See docs/APPSTORE_CREDENTIALS.md for how to move it between machines.
+*.p8
