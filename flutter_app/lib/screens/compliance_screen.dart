@@ -43,17 +43,33 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   }
 
   Future<void> _load() async {
-    final dir = await DemoRomsService.demoRomDir();
-    final files = await DemoRomsService.demoFiles();
-    final userRoms = await ViceNativePaths.romsInstalled();
+    // Everything here is reporting, so a lookup that fails should cost a
+    // line of the report rather than the page. This is the screen a store
+    // reviewer is sent to; it has to render whatever else is wrong.
     final demoMode = await AppPrefs.getDemoRomMode();
-    // Only true for installs that ran the older build, which put the free
-    // ROMs on top of the user's. Offered so those copies can be recovered.
-    final legacy = await DemoRomsService.hasUserRomBackup(
-        Directory(await ViceNativePaths.romDir()));
+    var path = '';
+    var files = const <String>[];
+    var userRoms = false;
+    var legacy = false;
+    try {
+      path = (await DemoRomsService.demoRomDir()).path;
+      files = await DemoRomsService.demoFiles();
+    } catch (_) {
+      // Leaves the path blank and the list empty, which the wording below
+      // already covers.
+    }
+    try {
+      userRoms = await ViceNativePaths.romsInstalled();
+      // Only true for installs that ran the older build, which put the free
+      // ROMs on top of the user's. Offered so those copies can be recovered.
+      legacy = await DemoRomsService.hasUserRomBackup(
+          Directory(await ViceNativePaths.romDir()));
+    } catch (_) {
+      // Same again: report what is known rather than nothing.
+    }
     if (!mounted) return;
     setState(() {
-      _demoPath = dir.path;
+      _demoPath = path;
       _demoFiles = files;
       _userRomsInstalled = userRoms;
       _demoMode = demoMode;

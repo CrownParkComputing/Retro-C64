@@ -235,6 +235,25 @@ void main() {
         reason: 'the SID player should have been paused for the game');
   });
 
+  testWidgets('free-ROM mode says so on the main screen', (tester) async {
+    // A mode you can forget you are in is a mode that gets reported as a
+    // fault -- "where have my games gone". So it is on the status bar, not
+    // only on the page that switched it on.
+    SharedPreferences.setMockInitialValues({
+      'setup_completed': true,
+      'games_folder_path': games.path,
+      'demo_rom_mode': true,
+    });
+
+    await pumpWorkbench(tester, FakeViceCore(isRunning: false));
+    expect(find.textContaining('COMPLIANCE MODE'), findsOneWidget);
+  });
+
+  testWidgets('and says nothing when it is off', (tester) async {
+    await pumpWorkbench(tester, FakeViceCore(isRunning: false));
+    expect(find.textContaining('COMPLIANCE MODE'), findsNothing);
+  });
+
   testWidgets('a launch that fails gives the workbench music back',
       (tester) async {
     // The failure paths silence the tune on the way in and then return
