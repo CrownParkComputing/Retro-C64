@@ -27,12 +27,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../data/category.dart';
 import '../data/media_entry.dart';
 import '../services/app_prefs.dart';
 import '../ffi/vice_native_paths.dart';
 import '../services/demo_roms_service.dart';
+import '../view_models/workbench_view_model.dart';
 import '../services/startup_import.dart';
 import '../services/storage_access.dart';
 
@@ -95,7 +97,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   bool _busy = false;
   bool _scanned = false;
-  bool _demoReady = false;
   String? _gamesFolderPath;
   List<ImportedFile> _found = const [];
 
@@ -217,35 +218,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln('20 PRINT "RUNNING ON ${_platformLabel()}"')
       ..writeln('30 LOAD "\$",8');
 
-    // The demo explains ITSELF, on the screen it runs on. A reviewer or a
-    // first-time user should not have to find a help page to learn what they
-    // are looking at, or be left thinking the emulator needs nothing when it
-    // needs Commodore's ROMs for real software.
-    if (_demoReady) {
-      buffer
-        ..writeln()
-        ..writeln('DEMO MODE')
-        ..writeln()
-        ..writeln('THIS IS A REAL C64, RUNNING ON')
-        ..writeln('OPEN ROMS - A FREE, OPEN-SOURCE')
-        ..writeln('BASIC AND KERNAL (GPL), NOT')
-        ..writeln('COMMODORE\'S.')
-        ..writeln()
-        ..writeln('A DEMO IS NOW IN YOUR GAMES')
-        ..writeln('LIST, CALLED')
-        ..writeln('"RETRO-C64 DEMO". PICK IT TO')
-        ..writeln('SEE THE EMULATOR RUN.')
-        ..writeln()
-        ..writeln('FOR COMMERCIAL GAMES YOU NEED THE')
-        ..writeln('REAL COMMODORE ROMS - DUMP THEM')
-        ..writeln('FROM A C64 YOU OWN, OR USE A')
-        ..writeln('LICENSED SET SUCH AS C64 FOREVER,')
-        ..writeln('THEN "SCAN" OR SETTINGS > PATHS.')
-        ..writeln()
-        ..write('READY.');
-      return buffer.toString();
-    }
-
     if (!_scanned) {
       buffer.write('\nSEARCHING...');
       return buffer.toString();
@@ -325,44 +297,52 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  /// Put the machine into demo mode: install the Open ROMs, and put the demo
-  /// program in the library for the user to pick.
+  /// Switches the machine to the Open ROMs and starts the demo.
   ///
-  /// It stops there on purpose. Nothing is launched and no keys are pressed
-  /// on the user's behalf -- they are told what is there and they drive it,
-  /// which is also the only version of this that teaches them how to start
-  /// anything else.
+  /// The whole point is that the user sees a C64 WORKING before being asked
+  /// for anything. A first run used to end at a request for three Commodore
+  /// ROM files, which is a poor way to meet a program and gives an App
+  /// Review reviewer -- who has no ROMs and no C64 to dump them from --
+  /// nothing at all to look at.
   ///
-  /// The point is that the user sees a C64 WORKING before being asked for
-  /// anything. Until now a first run ended at a request for three Commodore
-  /// ROM files, which is a poor way to meet a program -- and gives an App
-  /// Review reviewer, who has no ROMs and no C64 to dump them from, nothing
-  /// at all to look at.
-  Future<void> _showDemo() async {
+  /// Doable here, and only here, without a restart. The emulator loads its
+  /// ROMs when the machine first powers on and cannot be handed a different
+  /// set afterwards, so the compliance page has to ask for a restart. During
+  /// setup no machine has started yet, so pointing the core at the demo's
+  /// own ROM directory now simply decides what it will boot from.
+  Future<void> _openRomDemo() async {
     setState(() => _busy = true);
     try {
-      await DemoRomsService.install(Directory(await ViceNativePaths.romDir()));
-      // Into the directory the library is actually read from, not the app's
-      // media directory -- which is a scan root on no platform, so a demo
-      // put there installs perfectly and never appears in Games.
-      final into = await libraryScanRoot() ??
-          await ViceNativePaths.mediaDirPath();
+      await DemoRomsService.prepareDemoEnvironment();
+      final demoDir = await DemoRomsService.demoRomDir();
+      // Remembered as well as applied, so the choice survives the next
+      // launch rather than silently reverting to a ROM set they do not have.
+      await AppPrefs.setDemoRomMode(true);
+
+      // A copy in their library too, so the demo is something they can start
+      // again themselves rather than a one-off they cannot get back to.
+      final into =
+          await libraryScanRoot() ?? await ViceNativePaths.mediaDirPath();
       await DemoRomsService.installDemoProgram(Directory(into));
+
       if (!mounted) return;
-      // Does NOT hand off yet. The explanation above is the whole point of
-      // this step, and a screen that vanishes the moment it appears has not
-      // explained anything -- so the console types it out and the button
-      // becomes "Start demo" for a second, deliberate tap.
-      setState(() {
-        _demoReady = true;
-        _busy = false;
-      });
+      final vm = context.read<WorkbenchViewModel>();
+      vm.core.init(demoDir.path);
+      // The free ROMs have none of the KERNAL hooks VICE's usual .prg
+      // autostart patches, so that path fails on them with
+      // "?DEVICE NOT PRESENT". Injection needs no KERNAL at all.
+      vm.core.setPrgInject(true);
+
+      widget.onComplete();
+      if (!mounted) return;
+      await vm.launchFreeRomDemo(context);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not start the demo: $e')),
       );
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -395,8 +375,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         children: [
           // FIRST, and deliberately: the only button that needs nothing from
           // the user. Everything else on this screen asks for something.
-          _button(_demoReady ? 'Go to games' : 'See it working',
-              _busy ? null : (_demoReady ? widget.onComplete : _showDemo)),
+          _button('Open ROM demo', _busy ? null : _openRomDemo),
           const SizedBox(width: 8),
           _button(_isFolderScan ? 'Choose folder' : 'Scan',
               _busy ? null : _importMore),

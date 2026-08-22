@@ -137,7 +137,13 @@ void main() {
     // licence texts, next to the ROMs they cover.
     final files = await DemoRomsService.demoFiles(from: demoDir);
     expect(files, contains('COPYING.LESSER'));
-    expect(files.any((f) => f.endsWith('.prg')), isTrue);
+    // 8.3, upper case, no spaces. The emulated machine reads this name, not
+    // the app: a LOAD of "Retro-C64 Demo.prg" failed with the wrong name on
+    // screen, so the name the C64 sees is kept boring.
+    expect(files, contains(DemoRomsService.demoFileName));
+    expect(DemoRomsService.demoFileName, isNot(contains(' ')));
+    expect(DemoRomsService.demoFileName,
+        equals(DemoRomsService.demoFileName.toUpperCase()));
 
     // And the user's own ROM is exactly as it was.
     expect(mine.readAsBytesSync(), myBytes);

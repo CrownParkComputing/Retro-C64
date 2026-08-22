@@ -57,6 +57,11 @@ class AppPrefs {
 
   static const _keySetupCompleted = 'setup_completed';
 
+  /// Whether the machine boots on the bundled free ROMs instead of the
+  /// user's. Read once, at startup, because that is the only moment the
+  /// emulator can be told which ROMs to load -- see [getDemoRomMode].
+  static const _keyDemoRomMode = 'demo_rom_mode';
+
   static const _keyAppFolderPath = 'app_folder_path';
   static const _keyGamesFolderPath = 'games_folder_path';
   static const _keyLeftHandedInput = 'left_handed_input';
@@ -82,6 +87,27 @@ class AppPrefs {
   static Future<bool> isSetupCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keySetupCompleted) ?? false;
+  }
+
+  /// Whether to boot the free ROMs rather than the user's.
+  ///
+  /// A preference rather than a button because of how VICE works: the core
+  /// loads its ROMs once, when the machine starts, and the bridge says in as
+  /// many words that there is no supported way to tear it down and re-run it
+  /// in-process. So the ROM directory is decided at app startup and cannot
+  /// change while the app is running -- which is why the compliance page
+  /// asks for a restart rather than pretending to switch on the spot.
+  ///
+  /// The upside is real separation: in this mode the app never reads, writes
+  /// or even looks at the user's own ROM directory.
+  static Future<bool> getDemoRomMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyDemoRomMode) ?? false;
+  }
+
+  static Future<void> setDemoRomMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyDemoRomMode, value);
   }
 
   static Future<void> setSetupCompleted(bool value) async {

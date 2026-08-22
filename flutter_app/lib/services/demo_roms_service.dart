@@ -95,7 +95,7 @@ class DemoRomsService {
   static Future<String> prepareDemoEnvironment({Directory? into}) async {
     final root = into ?? await demoRomDir();
     await install(root);
-    final prg = File('${root.path}/$demoTitle.prg');
+    final prg = File('${root.path}/$demoFileName');
     final data = await rootBundle.load(_demoAsset);
     await prg.writeAsBytes(data.buffer.asUint8List(), flush: true);
 
@@ -206,8 +206,18 @@ class DemoRomsService {
     return true;
   }
 
-  /// What the demo is called in the library.
+  /// What the demo is called in the library, where the app's own scanner
+  /// reads it and spaces are harmless.
   static const String demoTitle = 'Retro-C64 Demo';
+
+  /// What the demo file is called inside the demo's own directory.
+  ///
+  /// Short, upper case, no spaces, 8.3. This one is not read by the app but
+  /// by the emulated machine, whose filesystem device speaks PETSCII and
+  /// whose LOAD syntax has to survive being typed and echoed on a 40-column
+  /// screen -- "Retro-C64 Demo.prg" does not, and produced a load that
+  /// failed with the wrong name on screen.
+  static const String demoFileName = 'DEMO.PRG';
 
   /// Puts the demo .prg in the user's media folder, so it appears in Games
   /// alongside anything else they have and is started the same way.

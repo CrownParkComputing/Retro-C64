@@ -162,7 +162,25 @@ class _RetroC64AppState extends State<RetroC64App>
         AppLog.log('startup import: ${imported.roms} ROM(s), '
             '${imported.tunes} tune(s), ${imported.games} game(s)');
       }
-      final romDir = await ViceNativePaths.resolveRomDir();
+      // Which ROMs this run boots on is decided HERE and cannot change
+      // later: VICE loads them when the machine starts and the bridge has no
+      // supported way to tear that down and re-run it in-process. Demo mode
+      // therefore points the whole process at the demo's own directory, and
+      // the user's ROM directory is not touched or even read.
+      final demoRomMode = await AppPrefs.getDemoRomMode();
+      String? romDir;
+      if (demoRomMode) {
+        try {
+          await DemoRomsService.prepareDemoEnvironment();
+          romDir = (await DemoRomsService.demoRomDir()).path;
+          AppLog.log('free-ROM demo mode: booting from $romDir');
+        } catch (e) {
+          AppLog.log('free-ROM demo mode failed to prepare ($e); '
+              'falling back to the installed ROMs');
+          romDir = null;
+        }
+      }
+      romDir ??= await ViceNativePaths.resolveRomDir();
       // Bundled SID tunes are extracted in the background at startup rather
       // than on first tap of the Music tab, so the playlist is ready when
       // the user gets there. Idempotent and non-fatal -- the Music screen
@@ -189,14 +207,17 @@ class _RetroC64AppState extends State<RetroC64App>
         // It is not used with real ROMs because it can only start what RUN
         // starts -- a machine-code title would sit at READY doing nothing.
         //
-        // Checked every launch, by comparing the installed kernal against
-        // the bundled one, so importing a real ROM set later switches the
-        // path back with no setting to change.
         // Against the directory the core was actually handed, not the
         // default one: a dev checkout resolves to the repo's test fixtures,
         // and asking about a folder the core is not using would get the
         // answer wrong in exactly the setup used to develop this.
-        final demoRoms = await DemoRomsService.installed(Directory(romDir));
+        // In demo mode this is not a guess: the free ROMs are what booted,
+        // and their .prg autostart MUST be RAM injection. The usual path
+        // patches Commodore KERNAL routines the free ROMs do not have, and
+        // the load then goes out to a drive that is not there -- which is
+        // the "?DEVICE NOT PRESENT" the demo was failing with.
+        final demoRoms = demoRomMode ||
+            await DemoRomsService.installed(Directory(romDir));
         core.setPrgInject(demoRoms);
         AppLog.log('prg autostart: ${demoRoms ? "RAM injection (Open ROMs)" : "virtual filesystem"}');
       registerCore(core);

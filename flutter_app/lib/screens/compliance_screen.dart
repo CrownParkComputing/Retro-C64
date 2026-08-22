@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../ffi/vice_native_paths.dart';
+import '../services/app_prefs.dart';
 import '../services/demo_roms_service.dart';
 import '../theme/vice_theme.dart';
 import '../view_models/workbench_view_model.dart';
@@ -32,6 +33,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   List<String> _demoFiles = const [];
   bool _busy = false;
   bool _userRomsInstalled = false;
+  bool _demoMode = false;
   bool _legacyBackup = false;
 
   @override
@@ -44,6 +46,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     final dir = await DemoRomsService.demoRomDir();
     final files = await DemoRomsService.demoFiles();
     final userRoms = await ViceNativePaths.romsInstalled();
+    final demoMode = await AppPrefs.getDemoRomMode();
     // Only true for installs that ran the older build, which put the free
     // ROMs on top of the user's. Offered so those copies can be recovered.
     final legacy = await DemoRomsService.hasUserRomBackup(
@@ -53,6 +56,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       _demoPath = dir.path;
       _demoFiles = files;
       _userRomsInstalled = userRoms;
+      _demoMode = demoMode;
       _legacyBackup = legacy;
     });
   }
@@ -65,6 +69,49 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       if (mounted) setState(() => _busy = false);
       await _load();
     }
+  }
+
+  /// Turns the mode on or off and tells the user what has to happen next.
+  ///
+  /// The restart is not an inconvenience that could be engineered away: the
+  /// emulator loads its ROMs as the machine powers on, and the bridge has no
+  /// supported way to tear that down and re-run it in the same process. An
+  /// earlier version of this screen pretended otherwise -- it pointed the
+  /// core at another ROM directory and started the program, which looked
+  /// like it worked and silently kept using the ROMs already loaded.
+  Future<void> _toggleDemoMode() async {
+    final next = !_demoMode;
+    setState(() => _busy = true);
+    try {
+      if (next) await DemoRomsService.prepareDemoEnvironment();
+      await AppPrefs.setDemoRomMode(next);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      await _load();
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(next ? 'Free-ROM mode is on' : 'Free-ROM mode is off'),
+        content: Text(
+          next
+              ? 'Close the app completely and open it again. It will then be '
+                  'running on the free ROMs, with none of your own ROMs '
+                  'involved, and "Run the demo program" here will start a '
+                  'real C64 on them.'
+              : 'Close the app completely and open it again to go back to '
+                  'your own ROMs. Nothing of yours was changed while free-ROM '
+                  'mode was on.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _runDemo() async {
@@ -106,23 +153,36 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
         ),
 
         const _Head('1. See it working with nothing supplied'),
-        const _Body(
+        _Body(
           'The app ships free, open-source ROMs and a small demo program. '
           'Together they boot a real emulated Commodore 64 and run it, with '
           'no files, no account and no network.\n\n'
-          'This runs in its OWN world: the demo has a separate ROM directory '
-          'and the emulator is pointed at it only while the demo is running. '
-          'Nothing of yours is used, moved, copied or overwritten, and a '
-          'machine set up with real ROMs is completely unaffected.',
+          'Free-ROM mode is a SEPARATE WORLD, not a swap. In it the emulator '
+          'boots from the demo\'s own ROM directory and never reads, writes '
+          'or touches any ROMs of yours. Turning it on or off takes effect '
+          'when the app is next started, because the emulator loads its ROMs '
+          'once, as the machine powers on, and cannot be handed a different '
+          'set while it is running.\n\n'
+          'Right now this app is running on: '
+          '${_demoMode ? "THE FREE ROMS." : _userRomsInstalled ? "your own ROMs." : "your own ROM directory (no ROM set found in it)."}',
         ),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            FilledButton.icon(
-              onPressed: _busy ? null : _runDemo,
-              icon: const Icon(Icons.play_arrow, size: 18),
-              label: const Text('Run the free-ROM demo'),
+            if (_demoMode)
+              FilledButton.icon(
+                onPressed: _busy ? null : _runDemo,
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: const Text('Run the demo program'),
+              ),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _toggleDemoMode,
+              icon: Icon(_demoMode ? Icons.undo : Icons.science, size: 18),
+              label: Text(_demoMode
+                  ? 'Turn free-ROM mode off'
+                  : 'Turn free-ROM mode on'),
             ),
-            const SizedBox(width: 8),
             OutlinedButton(
               onPressed: _busy ? null : _prepare,
               child: const Text('Write the files out'),
