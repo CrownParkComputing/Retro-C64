@@ -31,6 +31,7 @@ import 'package:retro_c64/data/category.dart';
 import 'package:retro_c64/services/app_prefs.dart';
 import 'package:retro_c64/services/demo_roms_service.dart';
 import 'package:retro_c64/view_models/workbench_view_model.dart';
+import 'package:retro_c64/services/platform_info.dart';
 import 'package:retro_c64/services/service_locator.dart';
 import 'package:retro_c64/services/storage_access.dart';
 
@@ -138,7 +139,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
 
 
-  String _consoleText() {
+  String _consoleText(BuildContext context) {
     final buffer = StringBuffer()
       ..writeln('    **** RETRO-C64 BASIC V2 ****')
       ..writeln()
@@ -154,7 +155,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln('ROMS AND GAMES.')
       ..writeln(_isFolderScan
           ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
-          : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).')
+          : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > '
+              '${filesAppDeviceName(context).toUpperCase()} >\nRETRO-C64).')
       ..writeln()
       ..writeln('OR PRESS "STORE COMPLIANCE" TO RUN')
       ..writeln('ON FREE, OPEN SOURCE ROMS -')
@@ -179,8 +181,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     child: _TypedConsole(
-                      key: ValueKey(_consoleText().length),
-                      text: _consoleText(),
+                      key: ValueKey(_consoleText(context).length),
+                      text: _consoleText(context),
                     ),
                   ),
                 ),

@@ -9,6 +9,7 @@ import 'package:retro_c64/services/app_prefs.dart';
 import 'package:retro_c64/services/artwork_service.dart';
 import 'package:retro_c64/services/rom_install_service.dart';
 import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/services/platform_info.dart';
 import 'package:retro_c64/services/permissions_service.dart';
 import 'package:retro_c64/services/storage_access.dart';
 import 'package:retro_c64/services/service_locator.dart';
@@ -355,11 +356,12 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             // The whole growing-the-library story, told where the button is.
             // Nothing here is a control - it is the answer to "how do I add
             // more?", asked at the moment it gets asked.
-            const Padding(
-              padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
               child: Text(
                 'Adding more games and music\n'
-                '1.  In the Files app, open On My iPad > Retro-C64.\n'
+                '1.  In the Files app, open '
+                '${filesAppDeviceName(context)} > Retro-C64.\n'
                 '2.  Drop in a zip - add games to your games zip, tunes to '
                 'your music zip, or bring a whole new zip; the name does '
                 'not matter.\n'
