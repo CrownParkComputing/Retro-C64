@@ -85,6 +85,10 @@ class WorkbenchContent extends StatelessWidget {
               currentTitle: vm.currentEntry?.displayName,
               onResumeCurrent: vm.resumeCurrent,
               onResumeSaved: (entry) => vm.resumeSaved(entry, context),
+              // Filtered to the machine that is running: in compliance mode
+              // the user's own saved sessions belong to a machine booted on
+              // Commodore's ROMs and have no business being offered here.
+              loadSaved: vm.savedSessions,
             ),
       WorkbenchCategory.music => const MusicScreen(),
       WorkbenchCategory.paths => PathsSettingsScreen(
@@ -107,10 +111,7 @@ class WorkbenchContent extends StatelessWidget {
           gamepadConnected: vm.gamepad.connected,
         ),
       WorkbenchCategory.core => CoreSettingsScreen(core: vm.core),
-      WorkbenchCategory.about => AboutScreen(
-          onOpenCompliance: () =>
-              vm.setCategory(WorkbenchCategory.compliance),
-        ),
+      WorkbenchCategory.about => const AboutScreen(),
     };
   }
 }

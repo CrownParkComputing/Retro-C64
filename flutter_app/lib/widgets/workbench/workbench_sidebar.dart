@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../data/category.dart';
 import '../../theme/vice_theme.dart';
 import '../../view_models/workbench_view_model.dart';
 import '../sidebar.dart';

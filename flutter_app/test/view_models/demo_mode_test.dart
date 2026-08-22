@@ -76,6 +76,22 @@ void main() {
     expect(vm.library, isEmpty);
   });
 
+  test('compliance mode offers no saved sessions of the user\'s', () async {
+    // Resume listed the user's own saved games in compliance mode. Those
+    // sessions were saved on a machine booted with Commodore's ROMs, so
+    // restoring one into a machine booted on the free ROMs restores a
+    // snapshot the ROMs underneath it do not match -- and it put their
+    // titles on screen in the mode whose whole point is that everything
+    // shown came with the app.
+    SharedPreferences.setMockInitialValues({
+      'setup_completed': true,
+      'demo_rom_mode': true,
+    });
+    final vm = await settled(FakeViceCore(isRunning: false));
+    expect(vm.demoMode, isTrue);
+    expect(await vm.savedSessions(), isEmpty);
+  });
+
   test('a hidden destination cannot stay selected', () async {
     SharedPreferences.setMockInitialValues({'setup_completed': true});
     final vm = await settled(FakeViceCore(isRunning: false));

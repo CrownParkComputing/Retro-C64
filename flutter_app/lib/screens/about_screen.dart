@@ -16,11 +16,7 @@ import 'music_screen.dart';
 /// to a developer -- and a single canonical place keeps them in the
 /// user's eye rather than in a tab that nobody visits.
 class AboutScreen extends StatelessWidget {
-  /// Opens the compliance page. Supplied by the workbench, which owns the
-  /// sidebar selection -- About does not navigate on its own.
-  final VoidCallback? onOpenCompliance;
-
-  const AboutScreen({super.key, this.onOpenCompliance});
+  const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -90,18 +86,6 @@ class AboutScreen extends StatelessWidget {
               '${composers.map((c) => '  •  $c').join('\n')}\n\n'
               'All credit for these tunes belongs to the original composers -- '
               'this app just plays them back through VICE\'s SID emulation.',
-        ),
-        // A way through to the compliance page from here as well. About is
-        // where anyone auditing an app looks first, and the answers it wants
-        // -- what is shipped, under which licences, and a demo proving the
-        // app works with nothing supplied -- are one screen away.
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: OutlinedButton.icon(
-            onPressed: () => onOpenCompliance?.call(),
-            icon: const Icon(Icons.verified_outlined, size: 18),
-            label: const Text('App Store / Play Store compliance'),
-          ),
         ),
         const _Card(
           title: 'Licences and source',

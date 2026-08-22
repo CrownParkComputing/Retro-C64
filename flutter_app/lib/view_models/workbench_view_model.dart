@@ -85,6 +85,37 @@ class WorkbenchViewModel extends ChangeNotifier {
   /// music follow immediately rather than at the next launch.
   Future<void> refreshDemoMode() => _loadDemoMode();
 
+  /// Saved sessions, filtered to the machine currently running.
+  ///
+  /// Compliance mode showed the user's own saved games, which is wrong for
+  /// the same reason listing their library was: those sessions were saved on
+  /// a machine booted with Commodore's ROMs, and restoring one into a
+  /// machine booted on the free ROMs restores a snapshot the ROMs underneath
+  /// it do not match. It also put their titles on screen in the mode whose
+  /// whole point is that everything shown came with the app.
+  Future<List<SaveStateEntry>> savedSessions() async {
+    final List<SaveStateEntry> all;
+    try {
+      all = await SaveStateService.list();
+    } catch (e) {
+      // Listing needs the application-support directory. A failure there is
+      // "no saved sessions", not a screen that throws.
+      AppLog.log('saved sessions unavailable: $e');
+      return const [];
+    }
+    if (!_demoMode) return all;
+    // Recognised by where the media came from, not by its name: a user is
+    // free to have a game called DEMO.PRG, and the folder cannot be faked.
+    try {
+      final demoDir = (await DemoRomsService.demoRomDir()).path;
+      return all.where((e) => e.mediaPath.startsWith(demoDir)).toList();
+    } catch (_) {
+      // If the folder cannot be resolved, show nothing rather than showing
+      // the user's own sessions in a mode that must not display them.
+      return const [];
+    }
+  }
+
   Future<void> _loadDemoMode() async {
     final on = await AppPrefs.getDemoRomMode();
     if (on == _demoMode) return;
