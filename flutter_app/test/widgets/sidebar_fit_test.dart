@@ -16,13 +16,19 @@ void main() {
   // The Flip2 in landscape, which is the short one.
   const shortLandscape = Size(853, 456);
 
-  testWidgets('every destination is visible without scrolling',
-      (tester) async {
+  Future<void> pumpRail(WidgetTester tester, double textScale) async {
     tester.view.physicalSize = shortLandscape;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(MaterialApp(
+      builder: (context, child) => MediaQuery(
+        // The Retroid runs its system font at 1.35x, which is the case the
+        // rail has to survive -- and the case it did not.
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Scaffold(
         body: Row(
           children: [
@@ -41,7 +47,23 @@ void main() {
         ),
       ),
     ));
+  }
 
+  testWidgets('every destination is visible without scrolling',
+      (tester) async {
+    await pumpRail(tester, 1.0);
+    expectAllVisible(tester, shortLandscape);
+  });
+
+  testWidgets('and still does at the 1.35x font scale the device uses',
+      (tester) async {
+    await pumpRail(tester, 1.35);
+    expectAllVisible(tester, shortLandscape);
+  });
+}
+
+void expectAllVisible(WidgetTester tester, Size window) {
+  {
     for (final c in WorkbenchCategory.values) {
       final finder = find.text(c.title);
       expect(finder, findsOneWidget, reason: '${c.title} is missing entirely');
@@ -51,8 +73,8 @@ void main() {
       final box = tester.getRect(finder);
       expect(box.top, greaterThanOrEqualTo(0.0),
           reason: '${c.title} is off the top of the rail');
-      expect(box.bottom, lessThanOrEqualTo(shortLandscape.height),
+      expect(box.bottom, lessThanOrEqualTo(window.height),
           reason: '${c.title} is below the fold -- the rail scrolled again');
     }
-  });
+  }
 }

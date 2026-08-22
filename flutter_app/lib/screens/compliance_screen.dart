@@ -61,16 +61,6 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     });
   }
 
-  Future<void> _prepare() async {
-    setState(() => _busy = true);
-    try {
-      await DemoRomsService.prepareDemoEnvironment();
-    } finally {
-      if (mounted) setState(() => _busy = false);
-      await _load();
-    }
-  }
-
   /// Turns the mode on or off and tells the user what has to happen next.
   ///
   /// The restart is not an inconvenience that could be engineered away: the
@@ -83,8 +73,12 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     final next = !_demoMode;
     setState(() => _busy = true);
     try {
+      // Writing the files out is part of turning it on, not a separate
+      // button to remember: a mode you have to prepare by hand is one that
+      // can be half on.
       if (next) await DemoRomsService.prepareDemoEnvironment();
       await AppPrefs.setDemoRomMode(next);
+      if (mounted) await context.read<WorkbenchViewModel>().refreshDemoMode();
     } finally {
       if (mounted) setState(() => _busy = false);
       await _load();
@@ -96,10 +90,11 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
         title: Text(next ? 'Free-ROM mode is on' : 'Free-ROM mode is off'),
         content: Text(
           next
-              ? 'Close the app completely and open it again. It will then be '
-                  'running on the free ROMs, with none of your own ROMs '
-                  'involved, and "Run the demo program" here will start a '
-                  'real C64 on them.'
+              ? 'The free ROMs and the demo program have been written out. '
+                  'Close the app completely and open it again: it will then '
+                  'be running on them, with none of your own ROMs involved, '
+                  'and Games and Music will be hidden because your own '
+                  'folders are not in use.'
               : 'Close the app completely and open it again to go back to '
                   'your own ROMs. Nothing of yours was changed while free-ROM '
                   'mode was on.',
@@ -166,36 +161,64 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           'Right now this app is running on: '
           '${_demoMode ? "THE FREE ROMS." : _userRomsInstalled ? "your own ROMs." : "your own ROM directory (no ROM set found in it)."}',
         ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (_demoMode)
-              FilledButton.icon(
-                onPressed: _busy ? null : _runDemo,
-                icon: const Icon(Icons.play_arrow, size: 18),
-                label: const Text('Run the demo program'),
+        Card(
+          color: const Color(0xFF10151A),
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: ViceColors.panelStroke),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Column(
+            children: [
+              SwitchListTile(
+                value: _demoMode,
+                onChanged: _busy ? null : (_) => _toggleDemoMode(),
+                title: const Text('Free-ROM mode',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: Text(
+                  _demoMode
+                      ? 'On. The app is running on the free ROMs.'
+                      : 'Off. The app is running on your own ROMs.',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                activeThumbColor: ViceColors.accentTeal,
               ),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _toggleDemoMode,
-              icon: Icon(_demoMode ? Icons.undo : Icons.science, size: 18),
-              label: Text(_demoMode
-                  ? 'Turn free-ROM mode off'
-                  : 'Turn free-ROM mode on'),
-            ),
-            OutlinedButton(
-              onPressed: _busy ? null : _prepare,
-              child: const Text('Write the files out'),
-            ),
-          ],
+              if (_demoMode)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _runDemo,
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('Run the demo program'),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
 
-        const _Head('2. The demo files, and where they are'),
+        const _Head('2. What changes in free-ROM mode'),
+        const _Body(
+          'It is a different machine, not a setting. For as long as it is on:'
+          '\n\n'
+          '  •  The emulator boots from the demo\'s own ROM folder. Your ROM '
+          'folder is not read, written or looked at.\n'
+          '  •  Games and Music are not offered. Your library and your tunes '
+          'live in your own folders, which this mode does not use, so those '
+          'screens would be doors onto an empty room.\n'
+          '  •  The only things on offer are the demo, this page and About.'
+          '\n\n'
+          'Turning it off puts everything back exactly as it was. Nothing of '
+          'yours is moved, copied or changed either way.',
+        ),
+
+        const _Head('3. The demo files, and where they are'),
         _Body(
           _demoFiles.isEmpty
-              ? 'Not written out yet. Use "Write the files out" above, or run '
-                  'the demo once, and every file the demo uses appears here '
-                  'where you can open, read and copy it.'
+              ? 'Not written out yet. Turn free-ROM mode on and every file '
+                  'the demo uses appears here, in a folder you can open, '
+                  'read and copy from.'
               : 'These are the actual files the demo runs on. They are in a '
                   'folder you can open, not buried inside the app:',
         ),
@@ -234,7 +257,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           ),
         ),
 
-        const _Head('3. What the free ROMs are'),
+        const _Head('4. What the free ROMs are'),
         const _Body(
           'They are the MEGA65 project\'s Open ROMs: a clean-room BASIC, '
           'KERNAL and character set, written from scratch. They are NOT '
@@ -251,7 +274,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           'ROMs, and why the two are kept apart.',
         ),
 
-        const _Head('4. Commodore\'s ROMs are never shipped'),
+        const _Head('5. Commodore\'s ROMs are never shipped'),
         _Body(
           'The C64\'s own BASIC and KERNAL, and the 1541 disk drive ROM, are '
           'still under copyright. The app contains none of them and never '
@@ -268,14 +291,14 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           '${_userRomsInstalled ? "a ROM set is installed." : "no ROM set is installed, and the app still runs the demo above."}',
         ),
 
-        const _Head('5. Games are never shipped'),
+        const _Head('6. Games are never shipped'),
         const _Body(
           'The app contains no games. Everything playable comes from the '
           'user. It is a hardware emulator for a 1982 home computer, '
           'permitted under App Review Guideline 4.7.',
         ),
 
-        const _Head('6. Free software, and where its source is'),
+        const _Head('7. Free software, and where its source is'),
         const _Body(
           'The emulation core is VICE, with reSID for sound, both under the '
           'GNU General Public License v2 or later. The licences require the '
@@ -286,7 +309,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           '  github.com/MEGA65/open-roms',
         ),
 
-        const _Head('7. Privacy'),
+        const _Head('8. Privacy'),
         const _Body(
           'No accounts, no sign-in, no analytics, no tracking, no data '
           'collected and none transmitted. The app makes no network request '

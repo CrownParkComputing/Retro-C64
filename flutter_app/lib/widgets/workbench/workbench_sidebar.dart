@@ -24,12 +24,15 @@ class WorkbenchSidebar extends StatelessWidget {
             maxWidth: ViceMetrics.sidebarMaxWidth(screenWidth),
           ),
           child: Sidebar(
+            // The rail offers what this mode can actually do. In free-ROM
+            // mode the user's media folder is not the one in use, so Games
+            // and Music would be destinations onto an empty room.
             destinations: [
-              for (final c in WorkbenchCategory.values)
+              for (final c in vm.visibleCategories)
                 SidebarDestination(c.title, icon: c.icon, group: c.group),
             ],
-            selectedIndex: vm.category.index,
-            onSelected: (i) => vm.setCategory(WorkbenchCategory.values[i]),
+            selectedIndex: vm.visibleCategories.indexOf(vm.category),
+            onSelected: (i) => vm.setCategory(vm.visibleCategories[i]),
             style: viceSidebarStyle,
             pinLastGroupToBottom: true,
           ),

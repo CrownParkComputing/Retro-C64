@@ -79,7 +79,10 @@ class ViceMetrics {
   // which is what stops the labels looking cramped on device.
   static const double sidebarButtonHeight = 36.0;
   static const double sidebarButtonTextSize = 13.0;
-  static const double sidebarButtonBottomMargin = 4.0;
+  /// Gap under each rail button. Tight on purpose: the rail has to show
+  /// every destination at once on a 456dp-tall screen, and gaps are the
+  /// cheapest height to give back -- far cheaper than shrinking the text.
+  static const double sidebarButtonBottomMargin = 2.0;
   static const double sidebarButtonSidePadding = 10.0;
   static const double sidebarButtonVerticalPadding = 8.0;
 

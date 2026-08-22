@@ -56,7 +56,41 @@ class WorkbenchViewModel extends ChangeNotifier {
     _init();
   }
 
+  /// Whether this run booted the bundled free ROMs instead of the user's.
+  ///
+  /// It changes what the app IS for the session, not just which ROMs are
+  /// loaded. In demo mode the user's media folder is not the one in use and
+  /// their tunes are not available, so offering Games and Music would be
+  /// offering things that cannot work -- see [visibleCategories].
+  bool _demoMode = false;
+  bool get demoMode => _demoMode;
+
+  /// The destinations the rail should offer. Demo mode is deliberately
+  /// narrow: run the demo, read what the mode means, leave.
+  List<WorkbenchCategory> get visibleCategories => _demoMode
+      ? const [
+          WorkbenchCategory.resume,
+          WorkbenchCategory.compliance,
+          WorkbenchCategory.about,
+        ]
+      : WorkbenchCategory.values;
+
+  /// Re-reads the mode after something has changed it, so the rail and the
+  /// music follow immediately rather than at the next launch.
+  Future<void> refreshDemoMode() => _loadDemoMode();
+
+  Future<void> _loadDemoMode() async {
+    final on = await AppPrefs.getDemoRomMode();
+    if (on == _demoMode) return;
+    _demoMode = on;
+    if (!visibleCategories.contains(_category)) {
+      _category = WorkbenchCategory.compliance;
+    }
+    notifyListeners();
+  }
+
   Future<void> _init() async {
+    await _loadDemoMode();
     await _refreshDriveRomState();
     await _loadInputPrefs();
     // The library does NOT wait for the music.
@@ -412,6 +446,10 @@ class WorkbenchViewModel extends ChangeNotifier {
   }
 
   Future<void> _startWorkbenchMusic() async {
+    // Silent in demo mode. The tunes live in the user's own folders, which
+    // this mode deliberately does not use, so there is nothing to play and a
+    // failed load would look like a fault rather than a choice.
+    if (_demoMode) return;
     if (!await AppPrefs.getWorkbenchMusic()) return;
     final vsid = VsidService.instance;
     if (vsid.currentPath != null) {

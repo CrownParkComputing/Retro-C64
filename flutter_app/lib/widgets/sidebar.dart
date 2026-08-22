@@ -152,7 +152,16 @@ class Sidebar extends StatelessWidget {
     // touch target, and only a rail that cannot fit even then falls back to
     // scrolling.
     const double rowFloor = 30.0;
-    final ruleHeight = pinnedFrom >= 0 ? 13.0 : 0.0;
+    // 3px padding either side of a 1px line -- see _GroupRule.
+    const double ruleHeight = 7.0;
+    // EVERY group boundary draws one, not just the pinned band's. Counting
+    // only the pinned rule is what pushed the last entry out through the
+    // bottom of the panel: the budget was short by one rule plus the
+    // per-button margins, which together came to about one row's worth.
+    var ruleCount = 0;
+    for (var i = 1; i < destinations.length; i++) {
+      if (destinations[i].group != destinations[i - 1].group) ruleCount++;
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -161,11 +170,12 @@ class Sidebar extends StatelessWidget {
         if (rowCount > 0 && constraints.maxHeight.isFinite) {
           final available = constraints.maxHeight -
               style.navPadding * 2 -
-              ruleHeight -
+              ruleCount * ruleHeight -
               (footer != null ? 26.0 : 0.0);
           if (available > 0) {
-            fittedRow =
-                math.min(rowHeight, available / rowCount).clamp(rowFloor, rowHeight);
+            // Each row costs its height PLUS the gap beneath it.
+            final perRow = available / rowCount - style.buttonBottomMargin;
+            fittedRow = math.min(rowHeight, perRow).clamp(rowFloor, rowHeight);
           }
         }
 
@@ -177,10 +187,12 @@ class Sidebar extends StatelessWidget {
                 fontSize: math.max(titleSize * shrink, titleSize * 0.72))
             : textStyle;
 
-        final everythingFits =
-            !constraints.maxHeight.isFinite ||
-                rowCount * rowFloor + ruleHeight + style.navPadding * 2 <=
-                    constraints.maxHeight;
+        final everythingFits = !constraints.maxHeight.isFinite ||
+            rowCount * (rowFloor + style.buttonBottomMargin) +
+                    ruleCount * ruleHeight +
+                    style.navPadding * 2 +
+                    (footer != null ? 26.0 : 0.0) <=
+                constraints.maxHeight;
 
         final topRows = _buttons(
           from: 0,
@@ -330,7 +342,7 @@ class _GroupRule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Container(height: 1, color: color),
     );
   }
@@ -391,6 +403,9 @@ class _SidebarButton extends StatelessWidget {
                           )
                         : Text(
                             destination.icon ?? '',
+                            // See the note on the title below: this size has
+                            // already been scaled.
+                            textScaler: TextScaler.noScaling,
                             style: TextStyle(fontSize: titleStyle.fontSize),
                             textAlign: TextAlign.center,
                           ),
@@ -402,6 +417,14 @@ class _SidebarButton extends StatelessWidget {
                     destination.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    // The size in titleStyle has ALREADY been through the
+                    // platform text scaler (see build()), and the rail's
+                    // width and row heights were measured from it. Letting
+                    // Text scale it a second time squares the factor -- on a
+                    // device set to 1.35x that is 1.8x -- so labels came out
+                    // far larger than the rows measured for them and the
+                    // shrink-to-fit above was silently undone.
+                    textScaler: TextScaler.noScaling,
                     style: titleStyle.copyWith(
                       color: selected ? style.labelSelected : style.labelIdle,
                       fontWeight:

@@ -327,6 +327,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
       if (!mounted) return;
       final vm = context.read<WorkbenchViewModel>();
+      // So the rail comes up in demo shape straight away rather than at the
+      // next launch.
+      await vm.refreshDemoMode();
       vm.core.init(demoDir.path);
       // The free ROMs have none of the KERNAL hooks VICE's usual .prg
       // autostart patches, so that path fails on them with
