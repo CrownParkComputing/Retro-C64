@@ -62,15 +62,18 @@ void main() {
   }
 
   group('left stick', () {
-    test('pushing UP is a NEGATIVE Y value', () async {
-      // SDL / Android MotionEvent.AXIS_Y convention: Y points DOWN the
-      // screen. Guessing the other way is what swapped up and down.
-      expect(await maskAfter([axisEvent(GamepadAxis.leftStickY, -1.0)]),
+    test('pushing UP is a POSITIVE Y value, post-normalization', () async {
+      // These are NORMALIZED events, not raw Android ones. The gamepads
+      // package already negates leftStickY on Android (android_mapping's
+      // normalizeAxis, "Y-axis is inverted on Android"), so up arrives here
+      // as +1. Asserting the raw convention instead is what let up and down
+      // stay swapped on a real Xbox pad while this test passed.
+      expect(await maskAfter([axisEvent(GamepadAxis.leftStickY, 1.0)]),
           ViceJoyBits.up);
     });
 
-    test('pulling DOWN is a POSITIVE Y value', () async {
-      expect(await maskAfter([axisEvent(GamepadAxis.leftStickY, 1.0)]),
+    test('pulling DOWN is a NEGATIVE Y value, post-normalization', () async {
+      expect(await maskAfter([axisEvent(GamepadAxis.leftStickY, -1.0)]),
           ViceJoyBits.down);
     });
 
@@ -87,7 +90,7 @@ void main() {
       expect(
           await maskAfter([
             axisEvent(GamepadAxis.leftStickX, 0.2),
-            axisEvent(GamepadAxis.leftStickY, -0.3),
+            axisEvent(GamepadAxis.leftStickY, 0.3),
           ]),
           0);
       expect(masks, isEmpty);
@@ -96,7 +99,7 @@ void main() {
     test('diagonals report both directions at once', () async {
       final mask = await maskAfter([
         axisEvent(GamepadAxis.leftStickX, 1.0),
-        axisEvent(GamepadAxis.leftStickY, -1.0),
+        axisEvent(GamepadAxis.leftStickY, 1.0),
       ]);
       expect(mask, ViceJoyBits.right | ViceJoyBits.up);
     });

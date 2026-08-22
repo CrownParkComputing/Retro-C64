@@ -114,13 +114,25 @@ class GamepadService {
     const deadZone = 0.35;
     _setBit(ViceJoyBits.left, _stickX < -deadZone);
     _setBit(ViceJoyBits.right, _stickX > deadZone);
-    // Stick Y is Up = NEGATIVE, Down = POSITIVE -- the standard Android
-    // MotionEvent.AXIS_Y / SDL convention, where the Y axis points DOWN the
-    // screen. This was originally written the other way round (guessed as
-    // "Up = +1" when this file was authored with no controller plugged in,
-    // see the header note), which swapped up and down on a real pad.
-    _setBit(ViceJoyBits.up, _stickY < -deadZone);
-    _setBit(ViceJoyBits.down, _stickY > deadZone);
+    // Stick Y here is Up = POSITIVE.
+    //
+    // Not the raw Android convention -- these events are NORMALIZED ones. The
+    // gamepads package has already flipped the sign for us: android_mapping's
+    // normalizeAxis returns -value for leftStickY/rightStickY, commented
+    // "Y-axis is inverted on Android (up = negative)". By the time an event
+    // reaches this method the inversion has happened, and inverting again
+    // puts it back where it started.
+    //
+    // This file has now been wrong in both directions. It was first written
+    // as Up = +1 by guesswork; that was then "corrected" to the raw Android
+    // convention, which is right about the hardware and wrong about this API,
+    // and swapped up and down on an Xbox pad. The unit test moved with it and
+    // kept agreeing, because it fed raw-convention values into
+    // raw-convention code -- two halves of the same mistake confirming each
+    // other. Verified against the pad the bug was reported on: an Xbox
+    // Wireless Controller on a Retroid Pocket Flip2.
+    _setBit(ViceJoyBits.up, _stickY > deadZone);
+    _setBit(ViceJoyBits.down, _stickY < -deadZone);
   }
 
   void dispose() {

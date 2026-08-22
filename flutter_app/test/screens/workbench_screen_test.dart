@@ -11,11 +11,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/screens/emulator_screen.dart';
+import 'package:get_it/get_it.dart';
+import 'package:provider/provider.dart';
 import 'package:retro_c64/screens/workbench_screen.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
 import 'package:retro_c64/widgets/sidebar.dart';
 import 'package:retro_c64/services/platform_info.dart';
 
 import 'package:retro_c64/services/vsid_service.dart';
+
+import 'package:retro_c64/services/service_locator.dart';
 
 import '../fakes/fake_vice_core.dart';
 
@@ -42,6 +47,12 @@ void main() {
   late Directory games;
 
   setUp(() {
+    // The workbench now resolves its services through GetIt, so the locator
+    // has to be populated the way main() populates it. Reset first: GetIt is
+    // a process-wide singleton and would otherwise carry registrations from
+    // one test into the next.
+    GetIt.instance.reset();
+    setupServiceLocator();
     games = Directory.systemTemp.createTempSync('vice_workbench_test');
     File(p.join(games.path, 'Boulder Dash.d64')).writeAsStringSync('C64');
     // In a subfolder, which is where the non-recursive scan used to lose it.
@@ -61,11 +72,31 @@ void main() {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: WorkbenchScreen(core: core)));
+    // The core now reaches the screen through the view model rather than as
+    // a constructor argument, so the test provides it the way main.dart does.
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider(
+        create: (_) => WorkbenchViewModel(core: core),
+        child: const WorkbenchScreen(),
+      ),
+    ));
     // The library scan and the input prefs are read asynchronously; a few
     // frames let them land. pumpAndSettle is not usable here -- the animated
     // C64 backdrop never stops.
-    for (var i = 0; i < 5; i++) {
+    //
+    // The scan now runs in a background isolate (LibraryScanner.scan uses
+    // compute), and an isolate makes no progress at all while the widget
+    // binding holds fake async: the result arrives on the real event loop and
+    // the continuation is never delivered. Pumping INSIDE runAsync is what
+    // bridges the two, so the isolate can finish and the rebuild it triggers
+    // can actually be rendered.
+    await tester.runAsync(() async {
+      for (var i = 0; i < 12; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+    });
+    for (var i = 0; i < 3; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
     addTearDown(() => tester.pumpWidget(const SizedBox()));

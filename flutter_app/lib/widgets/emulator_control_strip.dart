@@ -55,6 +55,11 @@ class EmulatorControlStrip extends StatelessWidget {
   /// picture, and a row of 40px buttons was costing the machine a border's
   /// worth of height. 32px is still a comfortable target with the row's own
   /// padding around it. Same treatment as Retro-Amiga's strip.
+  ///
+  /// The gap between them is 16, not 8. At 8 the buttons read as one blurred
+  /// bar on a handheld rather than as separate targets, and the two that
+  /// matter mid-game -- pause and the port swap -- are the ones you least
+  /// want to hit by accident.
   Widget _tool({
     required Color color,
     required String tooltip,
@@ -62,7 +67,7 @@ class EmulatorControlStrip extends StatelessWidget {
     required Widget child,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: 16),
       child: Material(
         color: color,
         shape: const CircleBorder(),

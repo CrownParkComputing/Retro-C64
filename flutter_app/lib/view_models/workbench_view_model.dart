@@ -58,7 +58,14 @@ class WorkbenchViewModel extends ChangeNotifier {
   Future<void> _init() async {
     await _refreshDriveRomState();
     await _loadInputPrefs();
-    await _startWorkbenchMusic();
+    // The library does NOT wait for the music.
+    //
+    // These were awaited in sequence, which made the games list hostage to
+    // the audio stack: anything slow or unavailable there -- a device still
+    // opening its audio device, a test with no audio plugin -- left the
+    // library spinning forever, because scanLibrary() never got to run. They
+    // are unrelated jobs and there is no reason for one to gate the other.
+    unawaited(_startWorkbenchMusic());
     await scanLibrary();
     scheduleIdle();
     gamepad.start();
@@ -179,7 +186,7 @@ class WorkbenchViewModel extends ChangeNotifier {
   }
 
   Future<void> launch(MediaEntry entry, BuildContext context) async {
-    VsidService.instance.pause();
+    _silenceWorkbenchMusic();
 
     if (SafPath.isSaf(entry.path)) {
       final real = await MediaCache.materialise(FolderEntry(
@@ -238,7 +245,7 @@ class WorkbenchViewModel extends ChangeNotifier {
 
   void resumeCurrent() {
     if (_currentEntry == null) return;
-    VsidService.instance.pause();
+    _silenceWorkbenchMusic();
     core.setPaused(false);
     _inEmulator = true;
     _chromeVisible = true;
@@ -254,7 +261,7 @@ class WorkbenchViewModel extends ChangeNotifier {
       mediaType: entry.mediaType,
     );
 
-    VsidService.instance.pause();
+    _silenceWorkbenchMusic();
 
     if (!entry.canResume) {
       launch(mediaEntry, context);
@@ -305,6 +312,8 @@ class WorkbenchViewModel extends ChangeNotifier {
     _inEmulator = false;
     _chromeVisible = true;
     scheduleIdle();
+    // Back at the workbench, the tune may play again.
+    _musicSuppressed = false;
     unawaited(_startWorkbenchMusic());
     await _captureSaveState(_currentEntry);
     core.setPaused(true);
@@ -332,10 +341,27 @@ class WorkbenchViewModel extends ChangeNotifier {
     await scanLibrary();
   }
 
+  /// True while a game owns the audio. The workbench tune must not play over
+  /// it, and pausing the player is not enough on its own: the starter below
+  /// reaches play() only after several awaits -- reading a pref, searching
+  /// directories, loading the vsid core -- so a launch during that window
+  /// paused a player that had not started yet, and the tune then began
+  /// underneath the game. A flag the starter re-checks just before it plays
+  /// closes that window; a pause call cannot.
+  bool _musicSuppressed = false;
+
+  /// Silences the workbench tune for a game, and keeps it silenced against a
+  /// start that is still in flight.
+  void _silenceWorkbenchMusic() {
+    _musicSuppressed = true;
+    VsidService.instance.pause();
+  }
+
   Future<void> _startWorkbenchMusic() async {
     if (!await AppPrefs.getWorkbenchMusic()) return;
     final vsid = VsidService.instance;
     if (vsid.currentPath != null) {
+      if (_musicSuppressed) return;
       if (vsid.isPaused) vsid.togglePause();
       return;
     }
@@ -343,6 +369,9 @@ class WorkbenchViewModel extends ChangeNotifier {
     final pick = MusicLibrary.firstAvailable(dirs);
     if (pick == null) return;
     if (!await vsid.ensureLoaded()) return;
+    // Re-checked here, after every await, rather than only on entry: this is
+    // the point at which sound would actually start coming out.
+    if (_musicSuppressed) return;
     vsid.play(pick.$2);
   }
 
@@ -397,18 +426,12 @@ class WorkbenchViewModel extends ChangeNotifier {
     );
   }
 
-  String backdropInfoText() {
-    final platform = platformName();
-    final buf = StringBuffer('VICE ON ${platform.toUpperCase()}   *   MACHINE C64 (X64SC)');
-    if (_lastMediaName.isNotEmpty) {
-      buf.write('   *   LOADED ${_lastMediaName.toUpperCase()}');
-    } else {
-      buf.write('   *   NO MEDIA LOADED');
-    }
-    buf.write('   *   ${_library.length} TITLES IN LIBRARY');
-    if (core.isRunning && core.fps > 0) buf.write('   *   ${core.fps} FPS');
-    return buf.toString();
-  }
+  String backdropInfoText() => buildBackdropInfoText(
+        platform: platformName(),
+        loadedMediaName: _lastMediaName,
+        libraryCount: _library.length,
+        fps: core.isRunning ? core.fps : 0,
+      );
 
   @override
   void dispose() {
@@ -417,4 +440,31 @@ class WorkbenchViewModel extends ChangeNotifier {
     gamepad.dispose();
     super.dispose();
   }
+}
+
+/// The screensaver's scrolling status line, as a pure function of what it
+/// reports.
+///
+/// Kept separate from the view model on purpose. It reports live state --
+/// what is loaded, how many titles, the frame rate -- and it must not be able
+/// to lie: it once shipped a hardcoded "VICE ANDROID" that survived the
+/// rename and went on claiming Android on a Linux desktop. That is only
+/// testable while the text can be built from arguments rather than read out
+/// of a view model's private fields.
+String buildBackdropInfoText({
+  required String platform,
+  required String loadedMediaName,
+  required int libraryCount,
+  int fps = 0,
+}) {
+  final buf = StringBuffer(
+      'VICE ON ${platform.toUpperCase()}   *   MACHINE C64 (X64SC)');
+  if (loadedMediaName.isNotEmpty) {
+    buf.write('   *   LOADED ${loadedMediaName.toUpperCase()}');
+  } else {
+    buf.write('   *   NO MEDIA LOADED');
+  }
+  buf.write('   *   $libraryCount TITLES IN LIBRARY');
+  if (fps > 0) buf.write('   *   $fps FPS');
+  return buf.toString();
 }

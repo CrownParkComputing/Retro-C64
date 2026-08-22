@@ -24,7 +24,7 @@ void main() {
       r.entries.map((e) => e.displayName).toList()
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-  test('finds media in subfolders, at any depth', () {
+  test('finds media in subfolders, at any depth', () async {
     // The bug this exists for: the scan was non-recursive, so anyone who
     // filed their games in per-publisher folders had an empty library.
     write('top.d64');
@@ -32,14 +32,14 @@ void main() {
     write('Hewson/Nebulus/nebulus.prg');
     write('a/b/c/d/deep.t64');
 
-    final result = LibraryScanner.scan(root.path);
+    final result = await LibraryScanner.scan(root.path);
 
     expect(namesOf(result),
         ['deep.t64', 'nebulus.prg', 'top.d64', 'Uridium.d64']);
     expect(result.unreadableCount, 0);
   });
 
-  test('classifies each file by its extension and skips the rest', () {
+  test('classifies each file by its extension and skips the rest', () async {
     write('game.d64');
     write('game.tap');
     write('game.crt');
@@ -49,8 +49,9 @@ void main() {
     write('tune.sid'); // Music tab's job, not the games library
     write('noextension');
 
+    final scanned = await LibraryScanner.scan(root.path);
     final result = LibraryScanResult(
-      entries: LibraryScanner.scan(root.path).entries.toList()
+      entries: scanned.entries.toList()
         ..sort((a, b) => a.displayName.compareTo(b.displayName)),
       unreadableCount: 0,
     );
@@ -64,25 +65,25 @@ void main() {
     expect(result.entries.every((e) => File(e.path).existsSync()), isTrue);
   });
 
-  test('a missing folder scans to an empty library, not a crash', () {
-    final result = LibraryScanner.scan(p.join(root.path, 'nope'));
+  test('a missing folder scans to an empty library, not a crash', () async {
+    final result = await LibraryScanner.scan(p.join(root.path, 'nope'));
     expect(result.entries, isEmpty);
     expect(result.unreadableCount, 0);
   });
 
-  test('counts, rather than lists, media it cannot read', () {
+  test('counts, rather than lists, media it cannot read', () async {
     // Android scoped storage lists files the app cannot open; each one
     // would otherwise launch into a blank screen.
     write('good.d64');
     write('empty.d64', contents: '');
 
-    final result = LibraryScanner.scan(root.path);
+    final result = await LibraryScanner.scan(root.path);
 
     expect(namesOf(result), ['good.d64']);
     expect(result.unreadableCount, 1);
   });
 
-  test('isReadable is false for a file that is not there', () {
+  test('isReadable is false for a file that is not there', () async {
     expect(LibraryScanner.isReadable(File(p.join(root.path, 'gone.d64'))),
         isFalse);
   });
