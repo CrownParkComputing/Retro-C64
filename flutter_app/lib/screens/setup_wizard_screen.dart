@@ -30,7 +30,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/category.dart';
-import '../data/media_entry.dart';
 import '../services/app_prefs.dart';
 import '../ffi/vice_native_paths.dart';
 import '../services/demo_roms_service.dart';
@@ -51,18 +50,6 @@ const TextStyle _consoleStyle = TextStyle(
   height: 1.6,
   color: _textColor,
 );
-
-/// The current OS, in the all-caps shout the rest of the console text uses
-/// -- answers the "what will iOS do with SID/games from Downloads"
-/// question right on screen, not just in code comments.
-String _platformLabel() {
-  if (Platform.isLinux) return 'LINUX';
-  if (Platform.isAndroid) return 'ANDROID';
-  if (Platform.isIOS) return 'IOS';
-  if (Platform.isMacOS) return 'MACOS';
-  if (Platform.isWindows) return 'WINDOWS';
-  return Platform.operatingSystem.toUpperCase();
-}
 
 class SetupWizardScreen extends StatefulWidget {
   final VoidCallback onComplete;
@@ -95,82 +82,25 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   final _storage = StorageAccess.instance;
 
   bool _busy = false;
-  bool _scanned = false;
 
-  /// A folder has to be chosen before anything can be looked in. Distinct
-  /// from "scanned and found nothing", which is a different sentence.
-  bool _needsFolder = false;
-  String? _gamesFolderPath;
-  List<ImportedFile> _found = const [];
 
   bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
 
   @override
   void initState() {
     super.initState();
-    _scanIfThereIsSomewhereToScan();
-  }
-
-  /// Only scans when there is somewhere to scan.
-  ///
-  /// On the folder-scan platforms, with no folder chosen yet, there is
-  /// nothing to look in -- so the wizard used to flash "SEARCHING..." and
-  /// then report finding nothing, which reads as a failure rather than as a
-  /// question not yet asked. Choosing the folder is the first step; the scan
-  /// follows it.
-  ///
-  /// The file-import platforms are different and are left alone: their
-  /// folder is not a choice. The app's own Documents folder is the one door
-  /// files can arrive through, so sweeping it on entry is looking in the
-  /// only place there is.
-  Future<void> _scanIfThereIsSomewhereToScan() async {
-    if (_isFolderScan && await AppPrefs.getGamesFolderPath() == null) {
-      if (mounted) setState(() => _needsFolder = true);
-      return;
-    }
-    await _scanOnStartup();
-  }
-
-  /// Pulls in whatever is already reachable, without prompting. On the
-  /// file-import platforms that means sweeping the container and copying
-  /// anything new into the games folder; on folder-scan platforms it means
-  /// re-listing the folder already configured, if there is one.
-  Future<void> _scanOnStartup() async {
-    setState(() => _busy = true);
-    try {
-      if (_isFolderScan) {
-        final games = await AppPrefs.getGamesFolderPath();
-        final files = games == null
-            ? const <ImportedFile>[]
-            : await _storage.scanFolder(games);
-        if (!mounted) return;
-        setState(() {
-          _gamesFolderPath = games;
-          _found = files;
-        });
-      } else {
-        final pending = await _storage.listImportable(
-          destinationSubdir: kGamesImportSubdir,
-        );
-        if (pending.isNotEmpty) {
-          await _storage.importFiles(pending,
-              destinationSubdir: kGamesImportSubdir);
-        }
-        final files = await _storage.listImported(kGamesImportSubdir);
-        if (!mounted) return;
-        setState(() => _found = files);
-      }
-    } catch (_) {
-      // A failed scan is not fatal -- the screen just reports nothing found
-      // and the user can still reach the picker.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _scanned = true;
-        });
-      }
-    }
+    // Nothing is scanned here, on purpose.
+    //
+    // This screen asks one question -- your own ROMs and games, or the free
+    // ones -- and searching the user's folders before they have answered it
+    // is work done on a guess. It also made the screen report on a library
+    // that has nothing to do with the choice: someone taking Store
+    // Compliance never needed the scan, and someone taking Start gets the
+    // library listed the moment they reach the workbench, which is where it
+    // belongs.
+    //
+    // Files dropped into the app's own folder are still imported at launch.
+    // That is StartupImport in main(), and it is not this screen's job.
   }
 
   Future<void> _finishSetup() async {
@@ -179,102 +109,31 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     widget.onComplete();
   }
 
-  /// Groups what was found by media type, so the console can say
-  /// "3 DISK, 2 TAPE" rather than just a bare count.
-  Map<MediaFormatFilter, int> _countsByType() {
-    final counts = <MediaFormatFilter, int>{};
-    for (final file in _found) {
-      final dot = file.displayName.lastIndexOf('.');
-      final ext =
-          dot < 0 ? '' : file.displayName.substring(dot + 1).toLowerCase();
-      final type = ext == 'sid'
-          ? MediaFormatFilter.none
-          : MediaEntry.filterForExtension(ext);
-      counts[type] = (counts[type] ?? 0) + 1;
-    }
-    return counts;
-  }
 
-  String _typeLabel(MediaFormatFilter type, int count) {
-    final name = switch (type) {
-      MediaFormatFilter.disk => 'DISK',
-      MediaFormatFilter.tape => 'TAPE',
-      MediaFormatFilter.cartridge => 'CART',
-      MediaFormatFilter.prg => 'PRG',
-      MediaFormatFilter.none => 'SID',
-    };
-    return '$count $name';
-  }
+
+
 
   String _consoleText() {
     final buffer = StringBuffer()
-      ..writeln('**** COMMODORE 64 BASIC V2 ****')
+      ..writeln('    **** RETRO-C64 BASIC V2 ****')
       ..writeln()
       ..writeln('64K RAM SYSTEM  38911 BASIC BYTES FREE')
       ..writeln()
-      ..writeln('10 PRINT "WELCOME TO RETRO-C64 EMULATOR"')
-      ..writeln('20 PRINT "RUNNING ON ${_platformLabel()}"')
-      ..writeln('30 LOAD "\$",8');
-
-    if (_needsFolder) {
-      buffer
-        ..writeln()
-        ..writeln('READY.')
-        ..writeln()
-        ..writeln('PRESS "START" AND POINT THE APP')
-        ..writeln('AT THE FOLDER YOUR DISKS, TAPES')
-        ..writeln('AND PROGRAMS ARE IN, FROM')
-        ..writeln('PATHS IN THE SIDEBAR.')
-        ..writeln()
-        ..write('OR PRESS "STORE COMPLIANCE" - IT\nNEEDS NOTHING FROM YOU.');
-      return buffer.toString();
-    }
-
-    if (!_scanned) {
-      buffer.write('\nSEARCHING...');
-      return buffer.toString();
-    }
-
-    if (_found.isEmpty) {
-      buffer
-        ..writeln()
-        ..writeln('SEARCHING FOR PROGRAMS')
-        ..writeln('READY.')
-        ..writeln()
-        ..writeln(_isFolderScan
-            ? '? NO GAMES FOUND - SET THE FOLDER IN\n  PATHS AFTER PRESSING START'
-            : '? NOTHING FOUND - PUT ZIPS IN THIS APP\'S FOLDER\n'
-                '  (FILES > ON MY IPAD > RETRO-C64)')
-        ..writeln()
-        ..write('OR PRESS "STORE COMPLIANCE" - IT\n'
-                'NEEDS NOTHING FROM YOU.');
-      return buffer.toString();
-    }
-
-    final counts = _countsByType();
-    final summary = counts.entries
-        .map((e) => _typeLabel(e.key, e.value))
-        .join(', ');
-
-    buffer
+      ..writeln('READY.')
       ..writeln()
-      ..writeln('SEARCHING FOR PROGRAMS')
-      ..writeln('FOUND ${_found.length} FILE(S): $summary');
-    if (_gamesFolderPath != null) {
-      buffer.writeln('IN $_gamesFolderPath');
-    }
-    buffer.writeln();
-
-    // Name them, newest-looking first is unhelpful here -- alphabetical is
-    // what a directory listing would give.
-    final names = _found.map((f) => f.displayName).toList()..sort();
-    for (final name in names.take(12)) {
-      buffer.writeln('  "${name.toUpperCase()}"');
-    }
-    if (names.length > 12) {
-      buffer.writeln('  ... AND ${names.length - 12} MORE');
-    }
-    buffer.write('READY.');
+      ..writeln('AN EMULATOR FOR THE COMMODORE 64.')
+      ..writeln('IT SHIPS NO GAMES AND NO')
+      ..writeln('COMMODORE ROMS.')
+      ..writeln()
+      ..writeln('PRESS "START" TO USE YOUR OWN')
+      ..writeln('ROMS AND GAMES.')
+      ..writeln(_isFolderScan
+          ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
+          : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).')
+      ..writeln()
+      ..writeln('OR PRESS "STORE COMPLIANCE" TO RUN')
+      ..writeln('ON FREE, OPEN SOURCE ROMS -')
+      ..write('IT NEEDS NOTHING FROM YOU.');
     return buffer.toString();
   }
 

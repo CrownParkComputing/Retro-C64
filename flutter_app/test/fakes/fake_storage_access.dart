@@ -31,6 +31,11 @@ class FakeStorageAccess extends StorageAccess {
   final bool throwOnScan;
 
   int importCalls = 0;
+
+  /// Counted so a test can assert that the library was NOT searched. The
+  /// setup wizard must not go looking before the user has said which kind of
+  /// machine they want.
+  int scanCalls = 0;
   int pickCalls = 0;
 
   List<ImportedFile> get imported => List.unmodifiable(_imported);
@@ -44,6 +49,7 @@ class FakeStorageAccess extends StorageAccess {
   @override
   Future<List<ImportedFile>> scanFolder(String folderPath,
       {List<String> extensions = kGameFileExtensions}) async {
+    scanCalls++;
     if (throwOnScan) throw StateError('scan failed');
     return List.unmodifiable(_imported);
   }

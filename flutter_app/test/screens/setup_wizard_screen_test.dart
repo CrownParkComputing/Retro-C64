@@ -47,7 +47,7 @@ void main() {
     addTearDown(() => tester.pumpWidget(const SizedBox()));
   }
 
-  testWidgets('imports what is already reachable, without being asked',
+  testWidgets('does not go looking through the library on entry',
       (tester) async {
     final storage = FakeStorageAccess(
       importable: const [
@@ -58,11 +58,16 @@ void main() {
 
     await pumpWizard(tester, storage: storage);
 
-    // Files sitting in the container are pulled in on entry: a user who
-    // dropped games into the Files app should not also have to find a
-    // picker.
-    expect(storage.importCalls, 1);
-    expect(storage.imported, hasLength(2));
+    // This screen asks one question -- your own ROMs and games, or the free
+    // ones -- and searching the user's folders before they have answered it
+    // is work done on a guess. Someone taking Store Compliance never needed
+    // it; someone taking Start gets the library listed when they arrive at
+    // the workbench, which is where it belongs.
+    //
+    // Files dropped into the app's folder are still imported at launch, by
+    // StartupImport in main(). That is not this screen's job.
+    expect(storage.importCalls, 0);
+    expect(storage.scanCalls, 0);
   });
 
   testWidgets('an empty library still offers a way forward', (tester) async {
