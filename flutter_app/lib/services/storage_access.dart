@@ -238,7 +238,7 @@ class _FolderScanStorage extends StorageAccess {
 
   @override
   Future<FolderPickResult?> pickFolder({required String dialogTitle}) async {
-    final path = await FilePicker.platform.getDirectoryPath(
+    final path = await FilePicker.getDirectoryPath(
       dialogTitle: dialogTitle,
     );
     if (path == null) return null;
@@ -351,7 +351,7 @@ class _IOSFileImportStorage extends StorageAccess {
     // prg, p00, sid all resolve to dynamic UTIs that match nothing -- so the
     // picker greyed out every single file and there was no way to select
     // anything. Take everything and filter by extension ourselves instead.
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.any,
       // No initialDirectory: file_picker's iOS plugin only reads that
@@ -359,12 +359,12 @@ class _IOSFileImportStorage extends StorageAccess {
       // here would be silently ignored. The picker opens wherever iOS last
       // left it, and the user navigates to Downloads themselves.
     );
-    if (result == null || result.files.isEmpty) return const [];
+    if (result == null || result.isEmpty) return const [];
 
     final wanted = extensions.map((e) => e.toLowerCase()).toSet();
     final destDir = await _destinationDir(destinationSubdir);
     final imported = <ImportedFile>[];
-    for (final picked in result.files) {
+    for (final picked in result) {
       final ext =
           p.extension(picked.name).replaceFirst('.', '').toLowerCase();
       if (!wanted.contains(ext)) continue;
