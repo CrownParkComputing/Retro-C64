@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import '../services/artwork_service.dart';
+import 'package:retro_c64/services/artwork_service.dart';
 
-import '../data/media_entry.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/data/media_entry.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// Port of MainActivity.createMediaCard (grid mode only -- the carousel
 /// mode is used by a "list view" toggle deferred in this pass).

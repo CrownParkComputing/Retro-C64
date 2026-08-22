@@ -10,8 +10,8 @@
 // and every play attempt is a no-op, rather than crashing the app.
 import 'package:flutter/foundation.dart';
 
-import '../ffi/vice_native_paths.dart';
-import '../ffi/vice_vsid_bindings.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/ffi/vice_vsid_bindings.dart';
 
 class VsidService {
   VsidService._();
@@ -23,9 +23,9 @@ class VsidService {
   VsidService.forTesting();
 
   /// Settable so widget tests can drive MusicScreen without the native core,
-  /// which cannot be loaded in a `flutter test` process. Assign a subclass
-  /// in setUp and restore it in tearDown; app code should only ever read it.
-  static VsidService instance = VsidService._();
+  /// which cannot be loaded in a `flutter test` process. App code should
+  /// only read it via getIt<VsidService>().
+  factory VsidService() => VsidService._();
 
   ViceVsidBindings? _bindings;
   String? _loadError;

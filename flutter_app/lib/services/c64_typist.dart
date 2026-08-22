@@ -10,7 +10,7 @@
 // the machine itself produces them -- there is no separate '"' key to press.
 import 'dart:async';
 
-import '../ffi/vice_core.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
 
 class C64Typist {
   /// Left SHIFT, held for the shifted characters below.

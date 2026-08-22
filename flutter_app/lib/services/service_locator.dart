@@ -1,28 +1,55 @@
+import 'dart:io';
 import 'package:get_it/get_it.dart';
-import '../ffi/vice_bindings.dart';
-import '../ffi/vice_core.dart';
-import 'gamepad_service.dart';
-import 'video_settings.dart';
-import 'vsid_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/demo_roms_service.dart';
+import 'package:retro_c64/services/gamepad_service.dart';
+import 'package:retro_c64/services/startup_import.dart';
+import 'package:retro_c64/services/rom_install_service.dart';
+import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/services/video_settings.dart';
+import 'package:retro_c64/services/vsid_service.dart';
 
 final getIt = GetIt.instance;
 
-void setupServiceLocator() {
-  // We don't register AppPrefs here because it's a collection of static methods,
-  // but if we refactor it to a class with an interface later, we will.
+Future<void> setupServiceLocator({SharedPreferences? prefs}) async {
+  final sharedPrefs = prefs ?? await SharedPreferences.getInstance();
 
-  // The emulator core. Initialized in main.dart or via the core loader.
-  // We'll register it as a singleton once it's loaded.
+  if (!GetIt.instance.isRegistered<AppPrefs>()) {
+    GetIt.instance.registerSingleton<AppPrefs>(SharedPrefsImpl(sharedPrefs));
+  }
+  if (!GetIt.instance.isRegistered<VsidService>()) {
+    GetIt.instance.registerLazySingleton<VsidService>(() => VsidService());
+  }
+  if (!GetIt.instance.isRegistered<VideoSettings>()) {
+    GetIt.instance.registerLazySingleton<VideoSettings>(() => VideoSettings());
+  }
+  if (!GetIt.instance.isRegistered<GamepadService>()) {
+    GetIt.instance.registerLazySingleton<GamepadService>(() => GamepadService());
+  }
+  if (!GetIt.instance.isRegistered<DemoRomsService>()) {
+    GetIt.instance.registerLazySingleton<DemoRomsService>(() => DemoRomsService());
+  }
+  if (!GetIt.instance.isRegistered<StartupImport>()) {
+    GetIt.instance.registerLazySingleton<StartupImport>(() => StartupImport());
+  }
+  if (!GetIt.instance.isRegistered<RomInstallService>()) {
+    GetIt.instance.registerLazySingleton<RomInstallService>(() => RomInstallService());
+  }
 
-  getIt.registerLazySingleton<VsidService>(() => VsidService.instance);
-  getIt.registerLazySingleton<VideoSettings>(() => VideoSettings.instance);
-  getIt.registerLazySingleton<GamepadService>(() => GamepadService());
+  if (!GetIt.instance.isRegistered<StorageAccess>()) {
+    GetIt.instance.registerLazySingleton<StorageAccess>(() {
+      if (Platform.isIOS) return IOSFileImportStorage();
+      if (Platform.isAndroid) return AndroidSafStorage();
+      return FolderScanStorage();
+    });
+  }
 }
 
-/// Helper to register the core once it's loaded.
 void registerCore(ViceCore core) {
-  if (getIt.isRegistered<ViceCore>()) {
-    getIt.unregister<ViceCore>();
+  if (GetIt.instance.isRegistered<ViceCore>()) {
+    GetIt.instance.unregister<ViceCore>();
   }
-  getIt.registerSingleton<ViceCore>(core);
+  GetIt.instance.registerSingleton<ViceCore>(core);
 }

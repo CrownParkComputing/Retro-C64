@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../data/c64_keys.dart';
-import '../data/custom_button.dart';
-import '../ffi/vice_core.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/data/c64_keys.dart';
+import 'package:retro_c64/data/custom_button.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// An extra on-screen button the user added themselves, bound either to one
 /// C64 keyboard key or to a joystick direction.

@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../services/save_state_service.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/services/save_state_service.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// The sidebar's Resume destination.
 ///

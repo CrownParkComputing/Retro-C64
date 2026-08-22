@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../ffi/vice_core.dart';
-import '../services/c64_typist.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/services/c64_typist.dart';
 
 /// One key on the overlay: either a direct C64 keyboard-matrix key
 /// (row/column non-null, matching vice_bridge.h's vice_core_matrix_key_event

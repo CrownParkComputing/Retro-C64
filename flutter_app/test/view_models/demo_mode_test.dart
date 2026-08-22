@@ -23,13 +23,13 @@ Future<WorkbenchViewModel> settled(FakeViceCore core) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
-    GetIt.instance.reset();
-    setupServiceLocator();
+  setUp(() async {
+    await GetIt.instance.reset();
   });
 
   test('normal mode offers every destination', () async {
     SharedPreferences.setMockInitialValues({'setup_completed': true});
+    await setupServiceLocator();
     final vm = await settled(FakeViceCore(isRunning: false));
     expect(vm.demoMode, isFalse);
     expect(vm.visibleCategories, WorkbenchCategory.values);
@@ -40,6 +40,7 @@ void main() {
       'setup_completed': true,
       'demo_rom_mode': true,
     });
+    await setupServiceLocator();
     final vm = await settled(FakeViceCore(isRunning: false));
 
     expect(vm.demoMode, isTrue);
@@ -56,19 +57,11 @@ void main() {
 
   test('the library follows the mode, and a bad path does not hang it',
       () async {
-    // In compliance mode Games must list the demo folder, not the user's
-    // library: their games were written against Commodore ROMs and this
-    // machine is not booted on them, so listing them would offer titles that
-    // cannot run.
-    //
-    // Resolving that folder needs a platform channel, which is absent here --
-    // which is exactly the failure worth pinning. An unhandled throw used to
-    // leave the library "loading" for ever, so the grid spun and it read as a
-    // hang rather than as an empty list.
     SharedPreferences.setMockInitialValues({
       'setup_completed': true,
       'demo_rom_mode': true,
     });
+    await setupServiceLocator();
     final vm = await settled(FakeViceCore(isRunning: false));
 
     expect(vm.isLibraryLoading, isFalse,
@@ -77,16 +70,11 @@ void main() {
   });
 
   test('compliance mode offers no saved sessions of the user\'s', () async {
-    // Resume listed the user's own saved games in compliance mode. Those
-    // sessions were saved on a machine booted with Commodore's ROMs, so
-    // restoring one into a machine booted on the free ROMs restores a
-    // snapshot the ROMs underneath it do not match -- and it put their
-    // titles on screen in the mode whose whole point is that everything
-    // shown came with the app.
     SharedPreferences.setMockInitialValues({
       'setup_completed': true,
       'demo_rom_mode': true,
     });
+    await setupServiceLocator();
     final vm = await settled(FakeViceCore(isRunning: false));
     expect(vm.demoMode, isTrue);
     expect(await vm.savedSessions(), isEmpty);
@@ -94,13 +82,14 @@ void main() {
 
   test('a hidden destination cannot stay selected', () async {
     SharedPreferences.setMockInitialValues({'setup_completed': true});
+    await setupServiceLocator();
     final vm = await settled(FakeViceCore(isRunning: false));
     vm.setCategory(WorkbenchCategory.music);
     expect(vm.category, WorkbenchCategory.music);
 
     // Switching the mode on with Music selected would otherwise leave the
     // rail pointing at a destination it no longer lists.
-    await AppPrefs.setDemoRomMode(true);
+    await getIt<AppPrefs>().setDemoRomMode(true);
     await vm.refreshDemoMode();
 
     expect(vm.visibleCategories, contains(vm.category));

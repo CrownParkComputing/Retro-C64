@@ -17,7 +17,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:gamepads/gamepads.dart';
 
-import '../ffi/vice_bindings.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
 
 class GamepadService {
   StreamSubscription<NormalizedGamepadEvent>? _sub;

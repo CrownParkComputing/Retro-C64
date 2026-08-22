@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../theme/vice_theme.dart';
-import '../../view_models/workbench_view_model.dart';
-import '../sidebar.dart';
-import '../sidebar_style.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
+import 'package:retro_c64/widgets/sidebar.dart';
+import 'package:retro_c64/widgets/sidebar_style.dart';
 
 class WorkbenchSidebar extends StatelessWidget {
   final double screenWidth;

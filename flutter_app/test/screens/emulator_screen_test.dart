@@ -16,6 +16,9 @@ import 'package:retro_c64/ffi/vice_bindings.dart';
 import 'package:retro_c64/screens/emulator_screen.dart';
 import 'package:retro_c64/services/app_prefs.dart';
 import 'package:retro_c64/services/gamepad_service.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/widgets/assignable_action_button.dart';
 import 'package:retro_c64/widgets/custom_key_button.dart';
 import 'package:retro_c64/data/emulator_ui_state.dart';
@@ -36,6 +39,14 @@ GamepadService fakeGamepad(WidgetTester tester, {required bool connected}) {
 
 void main() {
   const screenSize = Size(1280, 720);
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await GetIt.instance.reset();
+    await setupServiceLocator();
+    getIt.unregister<AppPrefs>();
+    getIt.registerSingleton<AppPrefs>(SharedPrefsImpl(await SharedPreferences.getInstance()));
+  });
 
   Future<void> pumpEmulator(
     WidgetTester tester, {

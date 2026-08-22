@@ -10,28 +10,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/screens/setup_wizard_screen.dart';
 import 'package:retro_c64/services/app_prefs.dart';
 import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/services/service_locator.dart';
 
 import '../fakes/fake_storage_access.dart';
-
-// Not asserted here: what the typed console SAYS. It does not render its
-// lines as Text widgets, so a finder cannot see them -- and a test that
-// cannot observe the thing it names is worse than no test. The counts logic
-// it displays is exercised through the import behaviour below.
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  final real = StorageAccess.instance;
-  tearDown(() => StorageAccess.instance = real);
-
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    if (getIt.isRegistered<AppPrefs>()) {
+      await getIt.unregister<AppPrefs>();
+    }
+    getIt.registerSingleton<AppPrefs>(SharedPrefsImpl(await SharedPreferences.getInstance()));
+  });
 
   Future<void> pumpWizard(
     WidgetTester tester, {
     required FakeStorageAccess storage,
     VoidCallback? onComplete,
   }) async {
-    StorageAccess.instance = storage;
+    if (getIt.isRegistered<StorageAccess>()) {
+      await getIt.unregister<StorageAccess>();
+    }
+    getIt.registerSingleton<StorageAccess>(storage);
+
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -113,6 +116,6 @@ void main() {
     expect(completed, 1);
     // Persisted, or the wizard reappears on the next launch and the user is
     // stuck in a loop.
-    expect(await AppPrefs.isSetupCompleted(), isTrue);
+    expect(await getIt<AppPrefs>().isSetupCompleted(), isTrue);
   });
 }

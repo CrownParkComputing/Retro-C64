@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../services/video_settings.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/video_settings.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// Video Settings tab.
 ///
@@ -61,7 +62,7 @@ class VideoSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = VideoSettings.instance;
+    final settings = getIt<VideoSettings>();
     return AnimatedBuilder(
       animation: settings,
       builder: (context, _) {

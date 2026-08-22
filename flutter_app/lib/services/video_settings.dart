@@ -38,7 +38,7 @@ enum AspectMode {
 
 class VideoSettings extends ChangeNotifier {
   VideoSettings._();
-  static final VideoSettings instance = VideoSettings._();
+  factory VideoSettings() => VideoSettings._();
 
   static const _keyCrt = 'video_crt';
   static const _keyBezel = 'video_bezel';

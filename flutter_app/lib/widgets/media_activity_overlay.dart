@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../ffi/vice_core.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
 
 /// Loading feedback for the emulator screen, drawn in the letterbox space
 /// around the C64 picture.

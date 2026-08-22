@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/app_log.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/services/app_log.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// The log, so a user can tell you what actually happened.
 ///

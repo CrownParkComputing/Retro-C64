@@ -1,19 +1,9 @@
-// Thin wrapper around shared_preferences for the handful of persisted
-// settings the setup wizard needs: whether it's been completed once (so it
-// only shows on first run, mirroring SetupWizardActivity's
-// PREF_SETUP_COMPLETED), and the chosen app/games folder paths on the
-// folder-scan platforms (PREF_APP_FOLDER_URI / PREF_GAMES_FOLDER_URI in the
-// Android original -- here a plain filesystem path rather than a SAF URI,
-// since file_picker hands back a real path on both Linux and Android).
 import 'dart:convert';
 import 'dart:ui' show Offset;
-
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:retro_c64/data/custom_button.dart';
 
-import '../data/c64_keys.dart';
-import '../data/custom_button.dart';
-
-/// When the on-screen joypad is shown. See [AppPrefs.getOnScreenPadMode].
+/// When the on-screen joypad is shown.
 enum OnScreenPadMode {
   auto('Auto', 'Hidden while a controller is connected'),
   always('Always', 'Always shown, even with a controller'),
@@ -23,20 +13,17 @@ enum OnScreenPadMode {
   final String description;
   const OnScreenPadMode(this.label, this.description);
 
-  /// Whether the pad should be on screen right now.
   bool visibleWith({required bool controllerConnected}) => switch (this) {
         OnScreenPadMode.always => true,
         OnScreenPadMode.never => false,
         OnScreenPadMode.auto => !controllerConnected,
       };
 
-  /// Next mode when the user taps the single Quick Settings row.
   OnScreenPadMode get next =>
       OnScreenPadMode.values[(index + 1) % OnScreenPadMode.values.length];
 }
 
-/// Which directional control the on-screen pad draws. Both emit the same
-/// digital 8-way output; this is purely which one your thumb prefers.
+/// Which directional control the on-screen pad draws.
 enum JoystickStyle {
   wobble('Wobble stick', 'Analog-style stick that springs back to centre'),
   dpad('D-pad buttons', 'Four-way cross; corners press two directions');
@@ -46,34 +33,52 @@ enum JoystickStyle {
   const JoystickStyle(this.label, this.description);
 }
 
-/// Identifies the movable on-screen controls in [AppPrefs.getControlPositions].
-/// Two clusters, not two widgets: the fire/custom buttons move together, the
-/// way they are stacked together on screen.
 const String kControlIdStick = 'stick';
 const String kControlIdButtons = 'buttons';
 
-class AppPrefs {
-  AppPrefs._();
+/// Interface for application preferences.
+abstract class AppPrefs {
+  Future<bool> isSetupCompleted();
+  Future<void> setSetupCompleted(bool value);
+  Future<bool> getDemoRomMode();
+  Future<void> setDemoRomMode(bool value);
+  Future<bool> setupCompletedFor(String version);
+  Future<void> setSetupCompletedFor(String version);
+  Future<String?> getAppFolderPath();
+  Future<void> setAppFolderPath(String path);
+  Future<String?> getGamesFolderPath();
+  Future<void> setGamesFolderPath(String path);
+  Future<bool> getLeftHandedInput();
+  Future<void> setLeftHandedInput(bool value);
+  Future<OnScreenPadMode> getOnScreenPadMode();
+  Future<void> setOnScreenPadMode(OnScreenPadMode mode);
+  Future<int> getJoystickPort();
+  Future<void> setJoystickPort(int port);
+  Future<String> getArtworkBaseUrl();
+  Future<void> setArtworkBaseUrl(String url);
+  Future<bool> getWorkbenchMusic();
+  Future<void> setWorkbenchMusic(bool value);
+  Future<JoystickStyle> getJoystickStyle();
+  Future<void> setJoystickStyle(JoystickStyle style);
+  Future<Map<String, Offset>> getControlPositions();
+  Future<void> setControlPosition(String id, Offset fraction);
+  Future<void> clearControlPositions();
+  Future<List<CustomButton>> getCustomButtons();
+  Future<void> setCustomButtons(List<CustomButton> buttons);
+  Future<int?> getActionButtonKey(String button);
+  Future<void> setActionButtonKey(String button, int? ordinal);
+}
 
+/// Concrete implementation using [SharedPreferences].
+class SharedPrefsImpl implements AppPrefs {
   static const _keySetupCompleted = 'setup_completed';
-
-  /// Whether the machine boots on the bundled free ROMs instead of the
-  /// user's. Read once, at startup, because that is the only moment the
-  /// emulator can be told which ROMs to load -- see [getDemoRomMode].
   static const _keyDemoRomMode = 'demo_rom_mode';
-
-  /// The app version that last completed setup. See [setupCompletedFor].
   static const _keySetupVersion = 'setup_completed_version';
-
   static const _keyAppFolderPath = 'app_folder_path';
   static const _keyGamesFolderPath = 'games_folder_path';
   static const _keyLeftHandedInput = 'left_handed_input';
   static const _keyActionButtonAKey = 'action_button_a_key';
   static const _keyActionButtonBKey = 'action_button_b_key';
-  // Distinct key from the short-lived boolean 'force_on_screen_pad' this
-  // replaced: reading an int out of a key that holds a bool is a type error
-  // on some shared_preferences platforms, so the old key is abandoned rather
-  // than reused. Worst case an early tester's setting resets to Auto once.
   static const _keyOnScreenPadMode = 'on_screen_pad_mode';
   static const _keyJoystickPort = 'joystick_port';
   static const _keyCustomButtons = 'custom_on_screen_buttons';
@@ -82,221 +87,105 @@ class AppPrefs {
   static const _keyWorkbenchMusic = 'workbench_music';
   static const _keyControlPositions = 'on_screen_control_positions';
 
-  /// Sentinel stored in prefs for "use the joystick fire default" (no
-  /// explicit key remap), mirroring Android's KEY_MAPPING_DEFAULT. Kept
-  /// private -- callers see this as `null`.
   static const int _mappingDefault = -1;
 
-  static Future<bool> isSetupCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keySetupCompleted) ?? false;
-  }
+  final SharedPreferences _prefs;
 
-  /// Whether to boot the free ROMs rather than the user's.
-  ///
-  /// A preference rather than a button because of how VICE works: the core
-  /// loads its ROMs once, when the machine starts, and the bridge says in as
-  /// many words that there is no supported way to tear it down and re-run it
-  /// in-process. So the ROM directory is decided at app startup and cannot
-  /// change while the app is running -- which is why the compliance page
-  /// asks for a restart rather than pretending to switch on the spot.
-  ///
-  /// The upside is real separation: in this mode the app never reads, writes
-  /// or even looks at the user's own ROM directory.
-  static Future<bool> getDemoRomMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyDemoRomMode) ?? false;
-  }
+  SharedPrefsImpl(this._prefs);
 
-  static Future<void> setDemoRomMode(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyDemoRomMode, value);
-  }
+  @override
+  Future<bool> isSetupCompleted() async => _prefs.getBool(_keySetupCompleted) ?? false;
 
-  /// Whether setup has been completed BY THIS VERSION of the app.
-  ///
-  /// Setup is not only a first-run chore: it is where the app explains what
-  /// it ships, what it needs from the user, and offers the Open ROM demo. A
-  /// new build routinely changes those answers, and the person installing it
-  /// -- a tester, or a store reviewer taking a fresh build -- would never see
-  /// the change, because a flag set months ago said setup was done.
-  ///
-  /// So the flag records WHICH version finished setup, and a different
-  /// version shows the wizard once. Answering it again is cheap; not knowing
-  /// what a build says on first run is not.
-  static Future<bool> setupCompletedFor(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!(prefs.getBool(_keySetupCompleted) ?? false)) return false;
-    final seen = prefs.getString(_keySetupVersion);
-    // An install that completed setup before this was introduced has no
-    // version recorded. Treat it as done rather than dragging every existing
-    // user back through the wizard for an upgrade that changed nothing for
-    // them; the next version after this one starts the new behaviour.
+  @override
+  Future<void> setSetupCompleted(bool value) async => await _prefs.setBool(_keySetupCompleted, value);
+
+  @override
+  Future<bool> getDemoRomMode() async => _prefs.getBool(_keyDemoRomMode) ?? false;
+
+  @override
+  Future<void> setDemoRomMode(bool value) async => await _prefs.setBool(_keyDemoRomMode, value);
+
+  @override
+  Future<bool> setupCompletedFor(String version) async {
+    if (!(_prefs.getBool(_keySetupCompleted) ?? false)) return false;
+    final seen = _prefs.getString(_keySetupVersion);
     if (seen == null) {
-      await prefs.setString(_keySetupVersion, version);
+      await _prefs.setString(_keySetupVersion, version);
       return true;
     }
     return seen == version;
   }
 
-  static Future<void> setSetupCompletedFor(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keySetupCompleted, true);
-    await prefs.setString(_keySetupVersion, version);
+  @override
+  Future<void> setSetupCompletedFor(String version) async {
+    await _prefs.setBool(_keySetupCompleted, true);
+    await _prefs.setString(_keySetupVersion, version);
   }
 
-  static Future<void> setSetupCompleted(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keySetupCompleted, value);
-  }
+  @override
+  Future<String?> getAppFolderPath() async => _prefs.getString(_keyAppFolderPath);
 
-  static Future<String?> getAppFolderPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyAppFolderPath);
-  }
+  @override
+  Future<void> setAppFolderPath(String path) async => await _prefs.setString(_keyAppFolderPath, path);
 
-  static Future<void> setAppFolderPath(String path) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyAppFolderPath, path);
-  }
+  @override
+  Future<String?> getGamesFolderPath() async => _prefs.getString(_keyGamesFolderPath);
 
-  static Future<String?> getGamesFolderPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyGamesFolderPath);
-  }
+  @override
+  Future<void> setGamesFolderPath(String path) async => await _prefs.setString(_keyGamesFolderPath, path);
 
-  static Future<void> setGamesFolderPath(String path) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyGamesFolderPath, path);
-  }
+  @override
+  Future<bool> getLeftHandedInput() async => _prefs.getBool(_keyLeftHandedInput) ?? false;
 
-  /// Mirrors the on-screen joystick's position from bottom-left to
-  /// bottom-right of the emulator screen (position only -- direction
-  /// mapping is unchanged). Set from the Input Settings tab.
-  static Future<bool> getLeftHandedInput() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyLeftHandedInput) ?? false;
-  }
+  @override
+  Future<void> setLeftHandedInput(bool value) async => await _prefs.setBool(_keyLeftHandedInput, value);
 
-  static Future<void> setLeftHandedInput(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyLeftHandedInput, value);
-  }
-
-  /// When the on-screen joypad is shown.
-  ///
-  /// This is ONE setting rather than the two overlapping controls the UI
-  /// briefly had (a local show/hide toggle plus a separate "force visible"
-  /// override, which showed up as duplicate joypad rows in Quick Settings).
-  /// The three modes cover every case between them:
-  ///
-  ///  - [OnScreenPadMode.auto]: hide while a controller is connected. The
-  ///    sensible default, and what the app always used to do.
-  ///  - [OnScreenPadMode.always]: keep the touch controls up regardless --
-  ///    the case auto-hide alone made impossible on a handheld like the
-  ///    Retroid Flip2, whose built-in gamepad is permanently "connected".
-  ///  - [OnScreenPadMode.never]: no touch controls, even with no controller.
-  static Future<OnScreenPadMode> getOnScreenPadMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final index = prefs.getInt(_keyOnScreenPadMode) ?? 0;
+  @override
+  Future<OnScreenPadMode> getOnScreenPadMode() async {
+    final index = _prefs.getInt(_keyOnScreenPadMode) ?? 0;
     return (index >= 0 && index < OnScreenPadMode.values.length)
         ? OnScreenPadMode.values[index]
         : OnScreenPadMode.auto;
   }
 
-  static Future<void> setOnScreenPadMode(OnScreenPadMode mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keyOnScreenPadMode, mode.index);
-  }
+  @override
+  Future<void> setOnScreenPadMode(OnScreenPadMode mode) async => await _prefs.setInt(_keyOnScreenPadMode, mode.index);
 
-  /// Which of the C64's two joystick ports the player's input drives.
-  ///
-  /// Port 2 is the default because it's what most commercial C64 games
-  /// read, but plenty of titles use port 1 instead and there is no way to
-  /// detect which from the outside -- you find out by starting the game and
-  /// discovering nothing moves. Hence a user-visible setting, changeable
-  /// mid-game from Quick Settings.
-  static Future<int> getJoystickPort() async {
-    final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getInt(_keyJoystickPort) ?? 2;
+  @override
+  Future<int> getJoystickPort() async {
+    final value = _prefs.getInt(_keyJoystickPort) ?? 2;
     return (value == 1 || value == 2) ? value : 2;
   }
 
-  static Future<void> setJoystickPort(int port) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keyJoystickPort, port == 1 ? 1 : 2);
-  }
+  @override
+  Future<void> setJoystickPort(int port) async => await _prefs.setInt(_keyJoystickPort, port == 1 ? 1 : 2);
 
-  /// Extra on-screen buttons the user has added, in the order they were
-  /// added (which is the order they appear on screen).
-  ///
-  /// These are ADDITIONAL to the A/B fire buttons, which stay fire buttons.
-  /// Each one sends a real C64 keyboard-matrix key via
-  /// `vice_core_matrix_key_event`, so any key in [C64KeyCatalogue] can be
-  /// assigned -- not just the seven ordinals `vice_core_key_event` knows --
-  /// or a joystick direction, for games that want UP-to-jump under a thumb.
-  /// Entries saved before directions existed still load (see
-  /// CustomButton.fromJson).
-  /// Where per-game artwork packs are served from, as `<base>/<slug>.zip`.
-  ///
-  /// Empty until a host is configured, which is not an error: the games grid
-  /// simply keeps its format-label placeholders.
-  static Future<String> getArtworkBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyArtworkBaseUrl) ?? '';
-  }
+  @override
+  Future<String> getArtworkBaseUrl() async => _prefs.getString(_keyArtworkBaseUrl) ?? '';
 
-  static Future<void> setArtworkBaseUrl(String url) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyArtworkBaseUrl, url.trim());
-  }
+  @override
+  Future<void> setArtworkBaseUrl(String url) async => await _prefs.setString(_keyArtworkBaseUrl, url.trim());
 
-  /// Whether a SID tune plays while you are browsing the workbench.
-  ///
-  /// Defaults to ON: a C64 front end in silence is the wrong first
-  /// impression, and the demo backdrop's equaliser has nothing to show
-  /// without it. Music always stops when a game launches regardless -- the
-  /// game's own audio wins -- so this only governs the workbench.
-  static Future<bool> getWorkbenchMusic() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyWorkbenchMusic) ?? true;
-  }
+  @override
+  Future<bool> getWorkbenchMusic() async => _prefs.getBool(_keyWorkbenchMusic) ?? true;
 
-  static Future<void> setWorkbenchMusic(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyWorkbenchMusic, value);
-  }
+  @override
+  Future<void> setWorkbenchMusic(bool value) async => await _prefs.setBool(_keyWorkbenchMusic, value);
 
-  /// Which directional control the on-screen pad draws.
-  static Future<JoystickStyle> getJoystickStyle() async {
-    final prefs = await SharedPreferences.getInstance();
-    final index = prefs.getInt(_keyJoystickStyle) ?? 0;
+  @override
+  Future<JoystickStyle> getJoystickStyle() async {
+    final index = _prefs.getInt(_keyJoystickStyle) ?? 0;
     return (index >= 0 && index < JoystickStyle.values.length)
         ? JoystickStyle.values[index]
         : JoystickStyle.wobble;
   }
 
-  static Future<void> setJoystickStyle(JoystickStyle style) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keyJoystickStyle, style.index);
-  }
+  @override
+  Future<void> setJoystickStyle(JoystickStyle style) async => await _prefs.setInt(_keyJoystickStyle, style.index);
 
-  /// Where the user has dragged each on-screen control, keyed by
-  /// [kControlIdStick] / [kControlIdButtons].
-  ///
-  /// Stored as a FRACTION of the screen (0..1 from the top-left of the
-  /// control), not pixels. The same setting has to survive rotation, the
-  /// keyboard overlay appearing, and -- on iOS especially -- the identical
-  /// build running on a phone and an iPad. A control parked 40px from the
-  /// bottom of a phone in pixels lands mid-screen on a tablet; as a fraction
-  /// it stays where it looks like it belongs.
-  ///
-  /// An absent entry means "never moved", which is deliberately different
-  /// from a stored 0,0: the defaults follow the left-handed setting, and a
-  /// control the user has never touched should keep doing that.
-  static Future<Map<String, Offset>> getControlPositions() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_keyControlPositions);
+  @override
+  Future<Map<String, Offset>> getControlPositions() async {
+    final raw = _prefs.getString(_keyControlPositions);
     if (raw == null || raw.isEmpty) return const {};
     try {
       final decoded = jsonDecode(raw);
@@ -311,20 +200,18 @@ class AppPrefs {
       });
       return out;
     } catch (_) {
-      // A corrupt layout costs the user their custom positions, not the app:
-      // returning empty puts every control back at its default corner.
       return const {};
     }
   }
 
-  static Future<void> setControlPosition(String id, Offset fraction) async {
-    final prefs = await SharedPreferences.getInstance();
+  @override
+  Future<void> setControlPosition(String id, Offset fraction) async {
     final current = Map<String, Offset>.from(await getControlPositions());
     current[id] = Offset(
       fraction.dx.clamp(0.0, 1.0),
       fraction.dy.clamp(0.0, 1.0),
     );
-    await prefs.setString(
+    await _prefs.setString(
       _keyControlPositions,
       jsonEncode({
         for (final e in current.entries) e.key: [e.value.dx, e.value.dy],
@@ -332,15 +219,12 @@ class AppPrefs {
     );
   }
 
-  /// Puts every control back to its default corner.
-  static Future<void> clearControlPositions() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyControlPositions);
-  }
+  @override
+  Future<void> clearControlPositions() async => await _prefs.remove(_keyControlPositions);
 
-  static Future<List<CustomButton>> getCustomButtons() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_keyCustomButtons);
+  @override
+  Future<List<CustomButton>> getCustomButtons() async {
+    final raw = _prefs.getString(_keyCustomButtons);
     if (raw == null || raw.isEmpty) return const [];
     try {
       final decoded = jsonDecode(raw);
@@ -351,34 +235,28 @@ class AppPrefs {
           .whereType<CustomButton>()
           .toList();
     } catch (_) {
-      // A corrupt list costs the user their extra buttons, not the app.
       return const [];
     }
   }
 
-  static Future<void> setCustomButtons(List<CustomButton> buttons) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+  @override
+  Future<void> setCustomButtons(List<CustomButton> buttons) async {
+    await _prefs.setString(
       _keyCustomButtons,
       jsonEncode([for (final b in buttons) b.toJson()]),
     );
   }
 
-  /// Assignable A/B action-button key mapping, port of
-  /// MainActivity.makeAssignableVirtualButton's PREF_VIRTUAL_BUTTON_*_KEY:
-  /// null means "joystick fire" (the button's default), a non-null value is
-  /// a `vice_core_key_event` ordinal (0=Space, 1=Run/Stop, 2=Return,
-  /// 3=F1, 4=F3, 5=F5, 6=F7 -- see vice_bridge.c's c64_matrix_key()).
-  static Future<int?> getActionButtonKey(String button) async {
-    final prefs = await SharedPreferences.getInstance();
+  @override
+  Future<int?> getActionButtonKey(String button) async {
     final key = button == 'a' ? _keyActionButtonAKey : _keyActionButtonBKey;
-    final value = prefs.getInt(key) ?? _mappingDefault;
+    final value = _prefs.getInt(key) ?? _mappingDefault;
     return value == _mappingDefault ? null : value;
   }
 
-  static Future<void> setActionButtonKey(String button, int? ordinal) async {
-    final prefs = await SharedPreferences.getInstance();
+  @override
+  Future<void> setActionButtonKey(String button, int? ordinal) async {
     final key = button == 'a' ? _keyActionButtonAKey : _keyActionButtonBKey;
-    await prefs.setInt(key, ordinal ?? _mappingDefault);
+    await _prefs.setInt(key, ordinal ?? _mappingDefault);
   }
 }

@@ -6,6 +6,7 @@ import 'package:retro_c64/services/rom_install_service.dart';
 /// fail here -- it fails later, when a disk image will not load and reports
 /// ?DEVICE NOT PRESENT, which points nowhere near this code.
 void main() {
+  final service = RomInstallService();
   group('targetFor', () {
     test('machine ROMs go to C64/, whatever the revision', () {
       for (final name in [
@@ -14,7 +15,7 @@ void main() {
         'basic-901226-01.bin',
         'chargen-906143-02.bin',
       ]) {
-        expect(RomInstallService.targetFor(name), 'C64', reason: name);
+        expect(service.targetFor(name), 'C64', reason: name);
       }
     });
 
@@ -24,20 +25,20 @@ void main() {
         'dos1571-310654-05.bin',
         'dos1581-318045-02.bin',
       ]) {
-        expect(RomInstallService.targetFor(name), 'DRIVES', reason: name);
+        expect(service.targetFor(name), 'DRIVES', reason: name);
       }
     });
 
     test('SID tunes are NOT the ROM scan\'s job', () {
       // Music is game media and belongs to the games scan. Claiming it here
       // would copy every tune into the BIOS folder.
-      expect(RomInstallService.targetFor('Commando.sid'), isNull);
-      expect(RomInstallService.targetFor('/tmp/x/Delta.SID'), isNull);
+      expect(service.targetFor('Commando.sid'), isNull);
+      expect(service.targetFor('/tmp/x/Delta.SID'), isNull);
     });
 
     test('a full path is classified by its filename alone', () {
       expect(
-        RomInstallService.targetFor('/home/jon/Downloads/kernal-901227-03.bin'),
+        service.targetFor('/home/jon/Downloads/kernal-901227-03.bin'),
         'C64',
       );
     });
@@ -56,25 +57,25 @@ void main() {
         'notes.txt',
         'romantic.txt', // starts with "rom" but is not a .bin
       ]) {
-        expect(RomInstallService.targetFor(name), isNull, reason: name);
+        expect(service.targetFor(name), isNull, reason: name);
       }
     });
 
     test('case does not matter', () {
-      expect(RomInstallService.targetFor('KERNAL-901227-03.BIN'), 'C64');
-      expect(RomInstallService.targetFor('DOS1541.BIN'), 'DRIVES');
+      expect(service.targetFor('KERNAL-901227-03.BIN'), 'C64');
+      expect(service.targetFor('DOS1541.BIN'), 'DRIVES');
     });
 
     test('extensionless VICE ROMs are recognised', () {
       // An existing VICE install -- which the guidance tells people to copy
       // from -- has these with no extension at all. Requiring .bin found
       // nothing there, so the drive ROM in particular never got imported.
-      expect(RomInstallService.targetFor('kernal'), 'C64');
-      expect(RomInstallService.targetFor('basic'), 'C64');
-      expect(RomInstallService.targetFor('chargen'), 'C64');
-      expect(RomInstallService.targetFor('/usr/share/vice/DRIVES/dos1541'),
+      expect(service.targetFor('kernal'), 'C64');
+      expect(service.targetFor('basic'), 'C64');
+      expect(service.targetFor('chargen'), 'C64');
+      expect(service.targetFor('/usr/share/vice/DRIVES/dos1541'),
           'DRIVES');
-      expect(RomInstallService.targetFor('dos1571'), 'DRIVES');
+      expect(service.targetFor('dos1571'), 'DRIVES');
     });
 
     test('extensionless files must match a name exactly', () {
@@ -87,7 +88,7 @@ void main() {
         'README',
         'chargenerator',
       ]) {
-        expect(RomInstallService.targetFor(name), isNull, reason: name);
+        expect(service.targetFor(name), isNull, reason: name);
       }
     });
   });

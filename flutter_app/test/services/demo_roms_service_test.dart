@@ -10,12 +10,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Directory temp;
+  final service = DemoRomsService();
 
   setUp(() => temp = Directory.systemTemp.createTempSync('demoroms'));
   tearDown(() => temp.deleteSync(recursive: true));
 
   test('installs the Open ROMs under the names the core actually opens', () async {
-    expect(await DemoRomsService.install(temp), 3);
+    expect(await service.install(temp), 3);
 
     final installed = Directory('${temp.path}/C64')
         .listSync()
@@ -32,7 +33,7 @@ void main() {
   });
 
   test('the ROMs it installs read as a usable set', () async {
-    await DemoRomsService.install(temp);
+    await service.install(temp);
     // The same check the app uses to decide whether it can boot at all. If
     // the demo ROMs did not satisfy it, a first run would still end at
     // "no ROMs found" -- which is the whole thing this feature removes.
@@ -43,9 +44,9 @@ void main() {
   });
 
   test('reports demo ROMs as installed only when they are', () async {
-    expect(await DemoRomsService.installed(temp), isFalse);
-    await DemoRomsService.install(temp);
-    expect(await DemoRomsService.installed(temp), isTrue);
+    expect(await service.installed(temp), isFalse);
+    await service.install(temp);
+    expect(await service.installed(temp), isTrue);
 
     // Decided by content, not by a flag: importing a real kernal over the
     // top has to flip this back, or the app keeps using the .prg autostart
@@ -54,7 +55,7 @@ void main() {
     final bytes = kernal.readAsBytesSync();
     bytes[0] = bytes[0] ^ 0xFF;
     kernal.writeAsBytesSync(bytes, flush: true);
-    expect(await DemoRomsService.installed(temp), isFalse);
+    expect(await service.installed(temp), isFalse);
   });
 
   test('the installed demo is something the library scanner will list', () async {
@@ -63,7 +64,7 @@ void main() {
     // correctly and then never appeared in Games. The install location is
     // now libraryScanRoot(); what this checks is the other half -- that a
     // demo sitting in a scanned folder is recognised as playable media.
-    await DemoRomsService.installDemoProgram(temp);
+    await service.installDemoProgram(temp);
     final found = await LibraryScanner.scan(temp.path);
     expect(
       found.entries.map((e) => e.displayName),
@@ -83,14 +84,14 @@ void main() {
     final myBytes = List<int>.generate(8192, (i) => (i * 7) & 0xff);
     mine.writeAsBytesSync(myBytes);
 
-    await DemoRomsService.install(temp);
-    expect(await DemoRomsService.installed(temp), isTrue);
-    expect(await DemoRomsService.hasUserRomBackup(temp), isTrue);
+    await service.install(temp);
+    expect(await service.installed(temp), isTrue);
+    expect(await service.hasUserRomBackup(temp), isTrue);
 
-    final restored = await DemoRomsService.restoreUserRoms(temp);
+    final restored = await service.restoreUserRoms(temp);
     expect(restored, 1);
     expect(mine.readAsBytesSync(), myBytes, reason: 'the real ROM came back');
-    expect(await DemoRomsService.installed(temp), isFalse);
+    expect(await service.installed(temp), isFalse);
   });
 
   test('running the demo twice does not overwrite the stored-away ROM', () async {
@@ -99,12 +100,12 @@ void main() {
     final myBytes = List<int>.generate(8192, (i) => (i * 3) & 0xff);
     mine.writeAsBytesSync(myBytes);
 
-    await DemoRomsService.install(temp);
+    await service.install(temp);
     // A second run would otherwise back up the demo ROM over the real one,
     // and the user's set would be gone with no way back.
-    await DemoRomsService.install(temp);
+    await service.install(temp);
 
-    await DemoRomsService.restoreUserRoms(temp);
+    await service.restoreUserRoms(temp);
     expect(mine.readAsBytesSync(), myBytes);
   });
 
@@ -127,15 +128,15 @@ void main() {
     addTearDown(() => demoDir.deleteSync(recursive: true));
     expect(demoDir.path, isNot(equals(temp.path)));
 
-    final prg = await DemoRomsService.prepareDemoEnvironment(into: demoDir);
+    final prg = await service.prepareDemoEnvironment(into: demoDir);
 
     expect(File(prg).existsSync(), isTrue);
-    expect(await DemoRomsService.installed(demoDir), isTrue,
+    expect(await service.installed(demoDir), isTrue,
         reason: 'the demo directory has a complete free ROM set');
 
     // The reviewer-facing promise: the files are listable and include the
     // licence texts, next to the ROMs they cover.
-    final files = await DemoRomsService.demoFiles(from: demoDir);
+    final files = await service.demoFiles(from: demoDir);
     expect(files, contains('COPYING.LESSER'));
     // 8.3, upper case, no spaces. The emulated machine reads this name, not
     // the app: a LOAD of "Retro-C64 Demo.prg" failed with the wrong name on
@@ -147,7 +148,7 @@ void main() {
 
     // And the user's own ROM is exactly as it was.
     expect(mine.readAsBytesSync(), myBytes);
-    expect(await DemoRomsService.hasUserRomBackup(temp), isFalse,
+    expect(await service.hasUserRomBackup(temp), isFalse,
         reason: 'nothing of the user\'s was moved aside');
   });
 
@@ -158,16 +159,16 @@ void main() {
     addTearDown(() => demoDir.deleteSync(recursive: true));
     File('${demoDir.path}/Retro-C64 Demo.prg').writeAsBytesSync([1, 2, 3]);
 
-    await DemoRomsService.prepareDemoEnvironment(into: demoDir);
+    await service.prepareDemoEnvironment(into: demoDir);
 
-    final prgs = (await DemoRomsService.demoFiles(from: demoDir))
+    final prgs = (await service.demoFiles(from: demoDir))
         .where((f) => f.toLowerCase().endsWith('.prg'))
         .toList();
     expect(prgs, [DemoRomsService.demoFileName]);
   });
 
   test('puts a demo program in the library for the user to pick', () async {
-    final path = await DemoRomsService.installDemoProgram(temp);
+    final path = await service.installDemoProgram(temp);
     final file = File(path);
     expect(file.existsSync(), isTrue);
     expect(path, endsWith('.prg'));

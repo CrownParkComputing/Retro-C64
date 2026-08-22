@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../services/platform_info.dart';
+import 'package:retro_c64/services/platform_info.dart';
 import 'logs_screen.dart';
 import 'music_screen.dart';
 

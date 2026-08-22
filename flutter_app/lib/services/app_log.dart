@@ -21,7 +21,7 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
-import '../ffi/vice_native_paths.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
 
 typedef _OpenNative = Int32 Function(Pointer<Utf8>, Int32, Int32);
 typedef _OpenDart = int Function(Pointer<Utf8>, int, int);

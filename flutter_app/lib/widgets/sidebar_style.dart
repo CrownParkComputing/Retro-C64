@@ -1,5 +1,5 @@
 import 'sidebar.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// The C64 front end's rail palette. This adapter is the only per-app part of
 /// the side nav -- widgets/sidebar.dart itself is identical in every Retro-*

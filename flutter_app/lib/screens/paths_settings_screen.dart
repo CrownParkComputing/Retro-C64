@@ -5,14 +5,15 @@
 // shared-storage permission that everything else depends on.
 import 'package:flutter/material.dart';
 
-import '../services/app_prefs.dart';
-import '../services/artwork_service.dart';
-import '../services/rom_install_service.dart';
-import '../ffi/vice_native_paths.dart';
-import '../services/permissions_service.dart';
-import '../services/storage_access.dart';
-import '../services/startup_import.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/artwork_service.dart';
+import 'package:retro_c64/services/rom_install_service.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/services/permissions_service.dart';
+import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/startup_import.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 import 'setup_wizard_screen.dart';
 
 class PathsSettingsScreen extends StatefulWidget {
@@ -36,7 +37,7 @@ class PathsSettingsScreen extends StatefulWidget {
 }
 
 class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
-  final _storage = StorageAccess.instance;
+  final _storage = getIt<StorageAccess>();
   String? _appFolderPath;
   String? _gamesFolderPath;
   int _importedCount = 0;
@@ -59,8 +60,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   }
 
   Future<void> _load() async {
-    final app = await AppPrefs.getAppFolderPath();
-    final games = await AppPrefs.getGamesFolderPath();
+    final app = await getIt<AppPrefs>().getAppFolderPath();
+    final games = await getIt<AppPrefs>().getGamesFolderPath();
     final access = await PermissionsService.hasStorageAccess();
     final roms = await ViceNativePaths.romsInstalled();
     final driveRom = await ViceNativePaths.driveRomInstalled();
@@ -130,7 +131,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   }
 
   Future<void> _importRoms() async {
-    final result = await RomInstallService.scanAndImport();
+    final result = await getIt<RomInstallService>().scanAndImport();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result.summary)),
@@ -153,7 +154,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final picked =
         await _storage.pickFolder(dialogTitle: 'Choose your C64 games folder');
     if (picked == null) return;
-    await AppPrefs.setGamesFolderPath(picked.path);
+    await getIt<AppPrefs>().setGamesFolderPath(picked.path);
     await _load();
     widget.onLibraryShouldRescan?.call();
   }
@@ -162,7 +163,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final picked = await _storage.pickFolder(
         dialogTitle: 'Choose the app data folder');
     if (picked == null) return;
-    await AppPrefs.setAppFolderPath(picked.path);
+    await getIt<AppPrefs>().setAppFolderPath(picked.path);
     await _load();
   }
 
@@ -170,7 +171,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   /// flag is cleared rather than just navigating, so a relaunch mid-setup
   /// still lands on the wizard instead of silently reverting.
   Future<void> _rerunSetup() async {
-    await AppPrefs.setSetupCompleted(false);
+    await getIt<AppPrefs>().setSetupCompleted(false);
     if (!mounted) return;
     widget.onRerunSetup?.call();
   }
@@ -180,7 +181,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   /// filed .sid tunes onto the games shelf (sid is a game extension to the
   /// picker) and offered a second road when the folder must be the only one.
   Future<void> _importFiles() async {
-    final imported = await StartupImport.run();
+    final imported = await getIt<StartupImport>().run();
     if (!mounted) return;
     final total = imported.roms + imported.tunes + imported.games;
     ScaffoldMessenger.of(context).showSnackBar(

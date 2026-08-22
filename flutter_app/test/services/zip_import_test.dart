@@ -15,6 +15,7 @@ import 'package:retro_c64/services/zip_import.dart';
 /// later as ?DEVICE NOT PRESENT.
 void main() {
   late Directory tmp;
+  final romService = RomInstallService();
 
   setUp(() => tmp = Directory.systemTemp.createTempSync('zip_import_test'));
   tearDown(() => tmp.deleteSync(recursive: true));
@@ -71,7 +72,7 @@ void main() {
       final drives = Directory(p.join(tmp.path, 'DRIVES'))..createSync();
 
       final written = ZipImport.extractWhere(zip, (name) {
-        switch (RomInstallService.targetFor(name)) {
+        switch (romService.targetFor(name)) {
           case 'C64':
             return c64.path;
           case 'DRIVES':
@@ -105,7 +106,7 @@ void main() {
       final drives = Directory(p.join(tmp.path, 'DRIVES'))..createSync();
 
       ZipImport.extractWhere(zip, (name) => switch (
-          RomInstallService.targetFor(name)) {
+          romService.targetFor(name)) {
             'C64' => c64.path,
             'DRIVES' => drives.path,
             _ => null,
@@ -122,7 +123,7 @@ void main() {
       final c64 = Directory(p.join(tmp.path, 'C64'))..createSync();
 
       ZipImport.extractWhere(
-          zip, (name) => RomInstallService.targetFor(name) == 'C64'
+          zip, (name) => romService.targetFor(name) == 'C64'
               ? c64.path
               : null);
 
@@ -136,7 +137,7 @@ void main() {
       File(p.join(c64.path, 'kernal')).writeAsStringSync('already here');
 
       ZipImport.extractWhere(
-          zip, (name) => RomInstallService.targetFor(name) == 'C64'
+          zip, (name) => romService.targetFor(name) == 'C64'
               ? c64.path
               : null);
 

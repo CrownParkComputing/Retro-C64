@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
-import '../data/vice_resource_catalog.dart';
-import '../ffi/vice_core.dart';
-import '../ffi/vice_native_paths.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/data/vice_resource_catalog.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// The emulated machine's own settings -- VICE resources, edited live.
 ///

@@ -1,38 +1,17 @@
 import 'dart:io';
-
 import 'package:path/path.dart' as p;
-
-import '../ffi/vice_native_paths.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
 import 'app_log.dart';
+import 'service_locator.dart';
 import 'rom_install_service.dart';
 import 'storage_access.dart';
 import 'zip_import.dart';
 
-/// The three-zip startup contract: everything the emulator needs arrives as
-/// zips dropped in the app's folder, and launching the app imports them.
-///
-///   1. A ROM zip - required. Without it the machine cannot start at all,
-///      and the setup screen says so rather than pretending to search.
-///   2. A music zip - every .sid inside goes to the tune library. Optional
-///      but the workbench is better with it.
-///   3. A games zip - the sample set, every recognised game format inside
-///      goes to the games shelf.
-///
-/// Zips are routed by what is INSIDE them, not by their filename, so it does
-/// not matter what a download ended up called. The Files app is the only road
-/// files travel on iOS - the sandbox cannot see the system Downloads folder -
-/// so "drop it in the app's folder" has to be the whole journey, with no
-/// browse step and no import button.
-///
-/// Imports are idempotent: a file that already exists at its destination is
-/// skipped, so the zips can stay in the folder as the user's own originals.
 class StartupImport {
   StartupImport._();
+  factory StartupImport() => StartupImport._();
 
-  /// Whether a member name carries no identity of its own. These come from
-  /// multi-disk releases, where the zip is the game and the members are just
-  /// its sides.
-  static bool _isGenericName(String name) {
+  bool _isGenericName(String name) {
     final stem = name.contains('.')
         ? name.substring(0, name.lastIndexOf('.')).toLowerCase()
         : name.toLowerCase();
@@ -42,21 +21,16 @@ class StartupImport {
         stem == g || (stem.startsWith(g) && stem.length <= g.length + 14));
   }
 
-  /// What one launch imported, for the log and the setup screen.
-  static Future<({int roms, int tunes, int games})> run() async {
-    // ROMs first, and through the existing service: it already knows every
-    // name VICE uses and files them where the core looks.
+  Future<({int roms, int tunes, int games})> run() async {
     var roms = 0;
     if (!await ViceNativePaths.romsInstalled()) {
-      final scanned = await RomInstallService.scanAndImport();
+      final scanned = await getIt<RomInstallService>().scanAndImport();
       roms = scanned.total;
       if (!scanned.isEmpty) AppLog.log('startup import: ${scanned.summary}');
     }
 
     var tunes = 0;
     var games = 0;
-    // The zip routing is the iOS journey; folder-scan platforms already read
-    // media where it lies.
     if (!Platform.isIOS) return (roms: roms, tunes: tunes, games: games);
     final String docsPath = await ViceNativePaths.iosDocumentsDirPath();
 
@@ -69,17 +43,10 @@ class StartupImport {
     for (final entry in docs.listSync()) {
       if (entry is! File || !ZipImport.isZip(entry.path)) continue;
       final zipName = p.basenameWithoutExtension(entry.path);
-      // Whether this zip still owes anything: only a fully-banked zip is
-      // deleted, so the folder empties itself without ever eating content.
       var owes = false;
       for (final member in ZipImport.memberNames(entry)) {
         var name = p.basename(member);
         final ext = p.extension(name).replaceFirst('.', '').toLowerCase();
-        // Multi-disk games name their members Disk1, SideA, Game - names
-        // that say nothing on a shelf and collide across zips, so the last
-        // zip imported silently owned every "Disk1.d64". A generic member
-        // takes its zip's name; a member that already names its game keeps
-        // its own.
         if (_isGenericName(name)) {
           name = '$zipName - $name';
         }
@@ -90,16 +57,14 @@ class StartupImport {
           destPath = p.join(gamesRoot.path, name);
         }
         if (destPath == null) {
-          // A ROM member is satisfied once the ROM set is installed; anything
-          // else unrecognised keeps the zip alive for the user to look at.
-          if (RomInstallService.targetFor(name) != null) {
+          if (getIt<RomInstallService>().targetFor(name) != null) {
             owes = !await ViceNativePaths.romsInstalled();
           } else {
             owes = true;
           }
           continue;
         }
-        if (File(destPath).existsSync()) continue; // already imported
+        if (File(destPath).existsSync()) continue;
         if (ZipImport.extractMember(entry, member, destPath)) {
           if (ext == 'sid') {
             tunes++;
@@ -110,13 +75,10 @@ class StartupImport {
           owes = true;
         }
       }
-      // Everything banked: the zip has done its job, and the folder stays
-      // the drop zone rather than becoming a museum of spent archives.
       if (!owes) {
         try {
           entry.deleteSync();
         } on FileSystemException {
-          // A zip that will not delete is only a zip that gets rescanned.
         }
       }
     }

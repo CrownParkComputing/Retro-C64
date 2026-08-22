@@ -16,10 +16,10 @@ import 'package:flutter/foundation.dart';
 
 import 'package:path/path.dart' as p;
 
-import '../data/category.dart';
-import '../ffi/vice_bindings.dart';
-import '../ffi/vice_core.dart';
-import '../ffi/vice_native_paths.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
 
 /// One resumable session.
 class SaveStateEntry {

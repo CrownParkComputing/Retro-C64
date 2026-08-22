@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../data/custom_button.dart';
-import '../services/app_prefs.dart';
-import '../theme/vice_theme.dart';
-import '../widgets/custom_key_button.dart';
+import 'package:retro_c64/data/custom_button.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/widgets/custom_key_button.dart';
 
 /// Input Settings tab: the left-handed on-screen-joystick position toggle,
 /// live external-gamepad connection status (see services/gamepad_service.dart),
@@ -267,14 +268,14 @@ class _JoystickStyleCardState extends State<_JoystickStyleCard> {
   @override
   void initState() {
     super.initState();
-    AppPrefs.getJoystickStyle().then((s) {
+    getIt<AppPrefs>().getJoystickStyle().then((s) {
       if (mounted) setState(() => _style = s);
     });
   }
 
   Future<void> _select(JoystickStyle style) async {
     setState(() => _style = style);
-    await AppPrefs.setJoystickStyle(style);
+    await getIt<AppPrefs>().setJoystickStyle(style);
   }
 
   @override

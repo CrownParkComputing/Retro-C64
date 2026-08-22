@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../data/category.dart';
-import '../../screens/about_screen.dart';
-import '../../screens/core_settings_screen.dart';
-import '../../screens/emulator_screen.dart';
-import '../../screens/history_screen.dart';
-import '../../screens/input_settings_screen.dart';
-import '../../screens/compliance_screen.dart';
-import '../../screens/library_grid.dart';
-import '../../screens/music_screen.dart';
-import '../../screens/paths_settings_screen.dart';
-import '../../screens/resume_screen.dart';
-import '../../screens/video_settings_screen.dart';
-import '../../theme/vice_theme.dart';
-import '../../view_models/workbench_view_model.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/screens/about_screen.dart';
+import 'package:retro_c64/screens/core_settings_screen.dart';
+import 'package:retro_c64/screens/emulator_screen.dart';
+import 'package:retro_c64/screens/history_screen.dart';
+import 'package:retro_c64/screens/input_settings_screen.dart';
+import 'package:retro_c64/screens/compliance_screen.dart';
+import 'package:retro_c64/screens/library_grid.dart';
+import 'package:retro_c64/screens/music_screen.dart';
+import 'package:retro_c64/screens/paths_settings_screen.dart';
+import 'package:retro_c64/screens/resume_screen.dart';
+import 'package:retro_c64/screens/video_settings_screen.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
 
 class WorkbenchContent extends StatelessWidget {
   final VoidCallback? onRerunSetup;

@@ -21,14 +21,14 @@ import 'services/vsid_service.dart';
 
 import 'view_models/workbench_view_model.dart';
 
-void main() {
+void main() async {
   // Persisted video preferences have to be read before the first frame is
   // painted, or the picture comes up with defaults and visibly snaps to the
   // user's settings a moment later. Nothing called this before, which meant
   // the Video settings never survived a restart at all.
   WidgetsFlutterBinding.ensureInitialized();
 
-  setupServiceLocator();
+  await setupServiceLocator();
 
   // Before anything else that could fail: starting the log redirects the
   // process's stdout, and the emulator core writes there. Started later, the
@@ -37,7 +37,7 @@ void main() {
   // nobody was reading.
   unawaited(AppLog.init());
   _logFrameworkErrors();
-  unawaited(VideoSettings.instance.load());
+  unawaited(getIt<VideoSettings>().load());
   runApp(const RetroC64App());
 }
 
@@ -128,7 +128,7 @@ class _RetroC64AppState extends State<RetroC64App>
     if (!foreground) {
       // inactive / paused / hidden / detached -- all mean "not on screen".
       _corePausedBeforeBackground = _core?.isPaused ?? false;
-      VsidService.instance.pause();
+      getIt<VsidService>().pause();
       if (!_corePausedBeforeBackground) _core?.setPaused(true);
     } else {
       // Music deliberately does NOT auto-resume: it's a background track the
@@ -142,7 +142,7 @@ class _RetroC64AppState extends State<RetroC64App>
   /// Artwork host, read once at startup so the grid can draw box art without
   /// every tile hitting shared_preferences.
   Future<void> _loadArtworkHost() async {
-    ArtworkService.baseUrl = await AppPrefs.getArtworkBaseUrl();
+    ArtworkService.baseUrl = await getIt<AppPrefs>().getArtworkBaseUrl();
   }
 
   Future<void> _loadCore() async {
@@ -159,7 +159,7 @@ class _RetroC64AppState extends State<RetroC64App>
       // whole job: no browse, no button, the next launch finds it. Runs
       // before resolveRomDir so a first launch with a zip waiting boots the
       // machine rather than reporting no ROMs.
-      final imported = await StartupImport.run();
+      final imported = await getIt<StartupImport>().run();
       if (imported.tunes > 0 || imported.games > 0 || imported.roms > 0) {
         AppLog.log('startup import: ${imported.roms} ROM(s), '
             '${imported.tunes} tune(s), ${imported.games} game(s)');
@@ -169,12 +169,12 @@ class _RetroC64AppState extends State<RetroC64App>
       // supported way to tear that down and re-run it in-process. Demo mode
       // therefore points the whole process at the demo's own directory, and
       // the user's ROM directory is not touched or even read.
-      final demoRomMode = await AppPrefs.getDemoRomMode();
+      final demoRomMode = await getIt<AppPrefs>().getDemoRomMode();
       String? romDir;
       if (demoRomMode) {
         try {
-          await DemoRomsService.prepareDemoEnvironment();
-          romDir = (await DemoRomsService.demoRomDir()).path;
+          await getIt<DemoRomsService>().prepareDemoEnvironment();
+          romDir = (await getIt<DemoRomsService>().demoRomDir()).path;
           AppLog.log('free-ROM demo mode: booting from $romDir');
         } catch (e) {
           AppLog.log('free-ROM demo mode failed to prepare ($e); '
@@ -219,7 +219,7 @@ class _RetroC64AppState extends State<RetroC64App>
         // the load then goes out to a drive that is not there -- which is
         // the "?DEVICE NOT PRESENT" the demo was failing with.
         final demoRoms = demoRomMode ||
-            await DemoRomsService.installed(Directory(romDir));
+            await getIt<DemoRomsService>().installed(Directory(romDir));
         core.setPrgInject(demoRoms);
         // Said out loud, because the failure is otherwise invisible: the
         // FFI binding looks this symbol up softly, so a libvicecore built
@@ -272,8 +272,8 @@ class _RetroC64AppState extends State<RetroC64App>
           'version-keyed this run');
     }
     final completed = version == null
-        ? await AppPrefs.isSetupCompleted()
-        : await AppPrefs.setupCompletedFor(version);
+        ? await getIt<AppPrefs>().isSetupCompleted()
+        : await getIt<AppPrefs>().setupCompletedFor(version);
     if (!mounted) return;
     setState(() {
       _appVersion = version;
@@ -301,7 +301,7 @@ class _RetroC64AppState extends State<RetroC64App>
           ? SetupWizardScreen(
               onComplete: () {
                 final v = _appVersion;
-                if (v != null) unawaited(AppPrefs.setSetupCompletedFor(v));
+                if (v != null) unawaited(getIt<AppPrefs>().setSetupCompletedFor(v));
                 setState(() => _setupCompleted = true);
               },
             )

@@ -27,11 +27,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/category.dart';
-import '../services/app_prefs.dart';
-import '../services/demo_roms_service.dart';
-import '../view_models/workbench_view_model.dart';
-import '../services/storage_access.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/demo_roms_service.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/storage_access.dart';
 
 const String kGamesImportSubdir = 'games';
 
@@ -76,12 +77,9 @@ class SetupWizardScreen extends StatefulWidget {
 /// Downloads is reachable only through the picker, which is what
 /// "Import from Files..." opens.
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
-  final _storage = StorageAccess.instance;
-
   bool _busy = false;
 
-
-  bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
+  bool get _isFolderScan => getIt<StorageAccess>().kind == StorageStrategyKind.folderScan;
 
   @override
   void initState() {
@@ -105,9 +103,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     // mode. Without this the flag survived, the next launch quietly booted
     // the free ROMs again, and the user would be looking at a library that
     // is not theirs having just asked for the opposite.
-    final wasDemo = await AppPrefs.getDemoRomMode();
-    if (wasDemo) await AppPrefs.setDemoRomMode(false);
-    await AppPrefs.setSetupCompleted(true);
+    final wasDemo = await getIt<AppPrefs>().getDemoRomMode();
+    if (wasDemo) await getIt<AppPrefs>().setDemoRomMode(false);
+    await getIt<AppPrefs>().setSetupCompleted(true);
     if (!mounted) return;
     if (wasDemo) {
       final vm = context.read<WorkbenchViewModel>();
@@ -217,11 +215,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   Future<void> _storeCompliance() async {
     setState(() => _busy = true);
     try {
-      await DemoRomsService.prepareDemoEnvironment();
-      final demoDir = await DemoRomsService.demoRomDir();
+      await getIt<DemoRomsService>().prepareDemoEnvironment();
+      final demoDir = await getIt<DemoRomsService>().demoRomDir();
       // Remembered as well as applied, so the choice survives the next
       // launch rather than silently reverting to a ROM set they do not have.
-      await AppPrefs.setDemoRomMode(true);
+      await getIt<AppPrefs>().setDemoRomMode(true);
 
       // No copy goes into the user's own library: in this mode Games
       // lists the demo folder itself, so a second copy among their files

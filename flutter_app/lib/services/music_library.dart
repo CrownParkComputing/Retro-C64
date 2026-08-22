@@ -8,8 +8,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../ffi/vice_native_paths.dart';
-import '../screens/setup_wizard_screen.dart' show kGamesImportSubdir;
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/screens/setup_wizard_screen.dart' show kGamesImportSubdir;
+import 'package:retro_c64/services/service_locator.dart';
 import 'app_prefs.dart';
 import 'storage_access.dart';
 
@@ -49,13 +50,13 @@ class MusicLibrary {
   /// own SID folder.
   static Future<List<String>> searchDirs() async {
     final dirs = <String>[];
-    final gamesFolder = await AppPrefs.getGamesFolderPath();
+    final gamesFolder = await getIt<AppPrefs>().getGamesFolderPath();
     if (gamesFolder != null) {
       final candidate = p.join(p.dirname(gamesFolder), 'Music');
       if (Directory(candidate).existsSync()) dirs.add(candidate);
     }
     final importedDir =
-        await StorageAccess.instance.importedDirPath(kGamesImportSubdir);
+        await getIt<StorageAccess>().importedDirPath(kGamesImportSubdir);
     if (importedDir != null && Directory(importedDir).existsSync()) {
       dirs.add(importedDir);
     }

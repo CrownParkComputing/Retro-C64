@@ -4,7 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-import '../ffi/vice_native_paths.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
 import 'storage_access.dart';
 
 /// The images a game pack contains, once extracted.

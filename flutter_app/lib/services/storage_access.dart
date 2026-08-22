@@ -20,14 +20,15 @@
 //     directory, where the app then has ordinary permanent access.
 //
 // The wizard and the rest of the app should only ever talk to
-// [StorageAccess.instance] and the [ImportedFile] / [FolderPickResult]
+// getIt<StorageAccess>() and the [ImportedFile] / [FolderPickResult]
 // shapes below -- never branch on Platform.isX outside this file.
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
-import '../ffi/vice_native_paths.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'service_locator.dart';
 import 'app_prefs.dart';
 import 'media_folder.dart';
 import 'zip_import.dart';
@@ -148,14 +149,14 @@ Future<List<Directory>> mediaScanRoots() async {
 /// the app's media directory is not a scan root on any platform, so the
 /// demo installed cleanly and then never appeared.
 Future<String?> libraryScanRoot() async {
-  final configured = await AppPrefs.getGamesFolderPath();
+  final configured = await getIt<AppPrefs>().getGamesFolderPath();
   if (configured != null && Directory(configured).existsSync()) {
     return configured;
   }
   // 'games' rather than kGamesImportSubdir: that constant lives in the setup
   // wizard, and a service reaching up into a screen for it makes the whole
   // widget layer a dependency of file-system code.
-  final imported = await StorageAccess.instance.importedDirPath('games');
+  final imported = await getIt<StorageAccess>().importedDirPath('games');
   if (imported != null && Directory(imported).existsSync()) return imported;
   return firstExistingMediaSearchPath() ?? ViceNativePaths.devRomDir;
 }
@@ -168,21 +169,6 @@ String? firstExistingMediaSearchPath() {
 }
 
 abstract class StorageAccess {
-  /// Settable so tests can drive the screens that depend on storage --
-  /// chiefly the setup wizard, which is the first thing a new user sees and
-  /// was completely untested because every path through it goes through a
-  /// real picker or a real directory. App code should only read it.
-  static StorageAccess instance = _createInstance();
-
-  static StorageAccess _createInstance() {
-    if (Platform.isIOS) return _IOSFileImportStorage();
-    // Android can pick a folder but not open it by path. See
-    // _AndroidSafStorage.
-    if (Platform.isAndroid) return _AndroidSafStorage();
-    // Linux (and dev runs on macOS/Windows) have an ordinary filesystem.
-    return _FolderScanStorage();
-  }
-
   /// Whether this platform's games/app folder steps present as a folder
   /// picker ([StorageStrategyKind.folderScan]) or a file importer
   /// ([StorageStrategyKind.fileImport]).
@@ -255,7 +241,7 @@ abstract class StorageAccess {
 /// this app targets -- see android/app/build.gradle.kts minSdk) hands back
 /// a filesystem path the app can read from directly via `dart:io`, so no
 /// separate SAF/content-URI plumbing (e.g. `shared_storage`) was needed.
-class _FolderScanStorage extends StorageAccess {
+class FolderScanStorage extends StorageAccess {
   @override
   StorageStrategyKind get kind => StorageStrategyKind.folderScan;
 
@@ -331,7 +317,7 @@ class _FolderScanStorage extends StorageAccess {
 /// mode) and copies each picked file into the app's own Documents
 /// directory, where it stays available across launches without needing a
 /// security-scoped bookmark.
-class _IOSFileImportStorage extends StorageAccess {
+class IOSFileImportStorage extends StorageAccess {
   @override
   StorageStrategyKind get kind => StorageStrategyKind.fileImport;
 
@@ -377,12 +363,8 @@ class _IOSFileImportStorage extends StorageAccess {
     final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.any,
-      // No initialDirectory: file_picker's iOS plugin only reads that
-      // argument on its saveFile path, never on pickFiles, so setting it
-      // here would be silently ignored. The picker opens wherever iOS last
-      // left it, and the user navigates to Downloads themselves.
     );
-    if (result == null || result.isEmpty) return const [];
+    if (result.isEmpty) return const [];
 
     final wanted = extensions.map((e) => e.toLowerCase()).toSet();
     final destDir = await _destinationDir(destinationSubdir);
@@ -392,7 +374,7 @@ class _IOSFileImportStorage extends StorageAccess {
           p.extension(picked.name).replaceFirst('.', '').toLowerCase();
       if (!wanted.contains(ext)) continue;
       final sourcePath = picked.path;
-      if (sourcePath == null) continue; // web-only field, never null on iOS
+      if (sourcePath == null) continue;
       final source = File(sourcePath);
       if (!source.existsSync()) continue;
       final destPath = p.join(destDir.path, picked.name);
@@ -567,7 +549,7 @@ class SafPath {
 /// is copied in bulk. VICE cannot open a content:// URI, so at launch - and
 /// only at launch - the single title being played is materialised into the
 /// cache. See MediaCache.
-class _AndroidSafStorage extends _FolderScanStorage {
+class AndroidSafStorage extends FolderScanStorage {
   /// Marks a path as living in the granted tree rather than the filesystem.
   /// The document id follows, which is what [MediaFolder.copyTo] needs.
   static const String scheme = SafPath.scheme;

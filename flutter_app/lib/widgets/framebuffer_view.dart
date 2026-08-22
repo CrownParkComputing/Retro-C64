@@ -4,8 +4,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import '../ffi/vice_core.dart';
-import '../services/video_settings.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/video_settings.dart';
 
 /// Live view of the C64 framebuffer.
 ///
@@ -104,7 +105,7 @@ class _FramebufferViewState extends State<FramebufferView> {
     // Every knob below is a real render-path setting shared with the Video
     // settings tab and the in-game Quick Settings panel (see
     // services/video_settings.dart).
-    final settings = VideoSettings.instance;
+    final settings = getIt<VideoSettings>();
     return AnimatedBuilder(
       animation: settings,
       builder: (context, _) {
@@ -118,16 +119,10 @@ class _FramebufferViewState extends State<FramebufferView> {
           size: Size(_lastW.toDouble(), _lastH.toDouble()),
         );
 
-        Widget picture;
-        switch (settings.aspect) {
-          case AspectMode.stretch:
-            picture = SizedBox.expand(child: painter);
-          case AspectMode.wide:
-            picture = AspectRatio(aspectRatio: 16 / 9, child: painter);
-          case AspectMode.integer:
-            // Largest whole multiple of the emulator's own pixel grid that
-            // fits, so every C64 pixel is the same size on screen.
-            picture = LayoutBuilder(builder: (context, constraints) {
+        final Widget picture = switch (settings.aspect) {
+          AspectMode.stretch => SizedBox.expand(child: painter),
+          AspectMode.wide => AspectRatio(aspectRatio: 16 / 9, child: painter),
+          AspectMode.integer => LayoutBuilder(builder: (context, constraints) {
               final scale = _integerScale(constraints, _lastW, _lastH);
               return Center(
                 child: SizedBox(
@@ -136,19 +131,19 @@ class _FramebufferViewState extends State<FramebufferView> {
                   child: painter,
                 ),
               );
-            });
-          case AspectMode.authentic:
-            picture = AspectRatio(aspectRatio: 4 / 3, child: painter);
-        }
+            }),
+          AspectMode.authentic => AspectRatio(aspectRatio: 4 / 3, child: painter),
+        };
 
-        if (settings.bezel) picture = _Bezel(child: picture);
+        Widget result = picture;
+        if (settings.bezel) result = _Bezel(child: result);
         if (settings.rotationQuarterTurns != 0) {
-          picture = RotatedBox(
+          result = RotatedBox(
             quarterTurns: settings.rotationQuarterTurns,
-            child: picture,
+            child: result,
           );
         }
-        return picture;
+        return result;
       },
     );
   }

@@ -4,13 +4,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
-import '../ffi/vice_native_paths.dart';
-import '../services/app_prefs.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/services/app_prefs.dart';
 import 'setup_wizard_screen.dart' show kGamesImportSubdir;
-import '../services/storage_access.dart';
-import '../services/music_library.dart';
-import '../services/vsid_service.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/services/music_library.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/vsid_service.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// Port of MainActivity.createMusicContent's Top-10 SID playlist: a grid
 /// that fills the whole page (weight 1.0 -- explicitly NOT a side-by-side
@@ -45,7 +46,7 @@ class MusicScreen extends StatefulWidget {
 }
 
 class _MusicScreenState extends State<MusicScreen> {
-  final _vsid = VsidService.instance;
+  final _vsid = getIt<VsidService>();
 
   bool _loading = true;
 
@@ -67,7 +68,7 @@ class _MusicScreenState extends State<MusicScreen> {
   void initState() {
     super.initState();
     _resolveMusicDir();
-    AppPrefs.getWorkbenchMusic().then((v) {
+    getIt<AppPrefs>().getWorkbenchMusic().then((v) {
       if (mounted) setState(() => _workbenchMusic = v);
     });
     // Polls the real vsid state twice a second so the "PLAYING"/"PAUSED"
@@ -95,7 +96,7 @@ class _MusicScreenState extends State<MusicScreen> {
   /// the tab now plays what the user brings.
   Future<void> _resolveMusicDir() async {
     final dirs = <String>[];
-    final gamesFolder = await AppPrefs.getGamesFolderPath();
+    final gamesFolder = await getIt<AppPrefs>().getGamesFolderPath();
     if (gamesFolder != null) {
       final candidate = p.join(p.dirname(gamesFolder), 'Music');
       if (Directory(candidate).existsSync()) dirs.add(candidate);
@@ -105,7 +106,7 @@ class _MusicScreenState extends State<MusicScreen> {
     // folder -- the Music tab has to look there or an imported tune is
     // invisible to the only screen that plays it.
     final importedDir =
-        await StorageAccess.instance.importedDirPath(kGamesImportSubdir);
+        await getIt<StorageAccess>().importedDirPath(kGamesImportSubdir);
     if (importedDir != null && Directory(importedDir).existsSync()) {
       dirs.add(importedDir);
     }
@@ -257,7 +258,7 @@ class _MusicScreenState extends State<MusicScreen> {
   /// is that you flip it because you want silence *now*.
   Future<void> _setWorkbenchMusic(bool on) async {
     setState(() => _workbenchMusic = on);
-    await AppPrefs.setWorkbenchMusic(on);
+    await getIt<AppPrefs>().setWorkbenchMusic(on);
     if (!on) {
       _vsid.pause();
       return;

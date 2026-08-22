@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/workbench/workbench_shell.dart';
+import 'package:retro_c64/widgets/workbench/workbench_shell.dart';
 
 class WorkbenchScreen extends StatelessWidget {
   final VoidCallback? onRerunSetup;

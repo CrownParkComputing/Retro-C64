@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../data/category.dart';
-import '../data/media_entry.dart';
-import '../services/artwork_service.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/data/media_entry.dart';
+import 'package:retro_c64/services/artwork_service.dart';
 
 /// What a title is and what its artwork pack holds: format, size, how it
 /// loads, then box render, screenshot, title screen and logo.

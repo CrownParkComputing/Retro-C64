@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../theme/vice_theme.dart';
-import '../../view_models/workbench_view_model.dart';
-import '../c64_background.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
+import 'package:retro_c64/widgets/c64_background.dart';
 import 'workbench_content.dart';
 import 'workbench_sidebar.dart';
 import 'workbench_status_bar.dart';

@@ -13,6 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/screens/music_screen.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:get_it/get_it.dart';
 import 'package:retro_c64/services/vsid_service.dart';
 
 /// Records what the screen asked the core to do. The native core can't be
@@ -57,9 +60,8 @@ void main() {
   late Directory root;
   late Directory music;
   late _FakeVsid vsid;
-  final realVsid = VsidService.instance;
 
-  setUp(() {
+  setUp(() async {
     // The screen looks for a Music/ directory beside the games folder.
     root = Directory.systemTemp.createTempSync('vice_music_test');
     Directory(p.join(root.path, 'Games')).createSync();
@@ -70,12 +72,19 @@ void main() {
       'games_folder_path': p.join(root.path, 'Games'),
     });
 
+    await GetIt.instance.reset();
+    await setupServiceLocator();
+
+    // Register the shared prefs mock again because setupServiceLocator() called getInstance()
+    getIt.unregister<AppPrefs>();
+    getIt.registerSingleton<AppPrefs>(SharedPrefsImpl(await SharedPreferences.getInstance()));
+
     vsid = _FakeVsid();
-    VsidService.instance = vsid;
+    getIt.unregister<VsidService>();
+    getIt.registerSingleton<VsidService>(vsid);
   });
 
   tearDown(() {
-    VsidService.instance = realVsid;
     root.deleteSync(recursive: true);
   });
 

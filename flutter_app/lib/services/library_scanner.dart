@@ -13,8 +13,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../data/category.dart';
-import '../data/media_entry.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/data/media_entry.dart';
 
 /// The library as found on disk, plus what had to be skipped.
 class LibraryScanResult {

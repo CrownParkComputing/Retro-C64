@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../data/media_entry.dart';
-import '../theme/vice_theme.dart';
-import '../widgets/game_media_sheet.dart';
-import '../widgets/media_card.dart';
+import 'package:retro_c64/data/media_entry.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/widgets/game_media_sheet.dart';
+import 'package:retro_c64/widgets/media_card.dart';
 
 /// Port of MainActivity.createLibraryContent + layoutMediaGridColumns:
 /// a search box + Grid/Sort buttons row, a status line, then a GridView

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../data/c64_history.dart';
-import '../theme/vice_theme.dart';
+import 'package:retro_c64/data/c64_history.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// The History tab: what the machine was, the twenty games people keep
 /// arguing about, who wrote the music, and the parts that surprise people.

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../data/emulator_ui_state.dart';
-import '../services/app_prefs.dart';
+import 'package:retro_c64/data/emulator_ui_state.dart';
+import 'package:retro_c64/services/app_prefs.dart';
 
 /// The in-game control strip: pause, keyboard, on-screen pad, joystick port
 /// and layout editing, in one row along the bottom of the workbench.

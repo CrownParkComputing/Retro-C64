@@ -10,81 +10,87 @@ import 'package:retro_c64/services/app_prefs.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  late AppPrefs prefs;
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+  });
 
   group('defaults on a fresh install', () {
     test('setup has not been completed, so the wizard runs', () async {
-      expect(await AppPrefs.isSetupCompleted(), isFalse);
+      expect(await prefs.isSetupCompleted(), isFalse);
     });
 
     test('no folders are configured', () async {
-      expect(await AppPrefs.getAppFolderPath(), isNull);
-      expect(await AppPrefs.getGamesFolderPath(), isNull);
+      expect(await prefs.getAppFolderPath(), isNull);
+      expect(await prefs.getGamesFolderPath(), isNull);
     });
 
     test('port 2, right-handed, auto pad, no custom buttons, fire on A/B',
         () async {
       // Port 2 is what most commercial C64 games read.
-      expect(await AppPrefs.getJoystickPort(), 2);
-      expect(await AppPrefs.getLeftHandedInput(), isFalse);
-      expect(await AppPrefs.getOnScreenPadMode(), OnScreenPadMode.auto);
-      expect(await AppPrefs.getCustomButtons(), isEmpty);
+      expect(await prefs.getJoystickPort(), 2);
+      expect(await prefs.getLeftHandedInput(), isFalse);
+      expect(await prefs.getOnScreenPadMode(), OnScreenPadMode.auto);
+      expect(await prefs.getCustomButtons(), isEmpty);
       // null means "joystick fire", not "unset key 0" (which is Space).
-      expect(await AppPrefs.getActionButtonKey('a'), isNull);
-      expect(await AppPrefs.getActionButtonKey('b'), isNull);
+      expect(await prefs.getActionButtonKey('a'), isNull);
+      expect(await prefs.getActionButtonKey('b'), isNull);
     });
   });
 
   group('round trips', () {
     test('setup completion, folders and handedness persist', () async {
-      await AppPrefs.setSetupCompleted(true);
-      await AppPrefs.setAppFolderPath('/home/user/vice');
-      await AppPrefs.setGamesFolderPath('/home/user/games');
-      await AppPrefs.setLeftHandedInput(true);
+      await prefs.setSetupCompleted(true);
+      await prefs.setAppFolderPath('/home/user/vice');
+      await prefs.setGamesFolderPath('/home/user/games');
+      await prefs.setLeftHandedInput(true);
 
-      expect(await AppPrefs.isSetupCompleted(), isTrue);
-      expect(await AppPrefs.getAppFolderPath(), '/home/user/vice');
-      expect(await AppPrefs.getGamesFolderPath(), '/home/user/games');
-      expect(await AppPrefs.getLeftHandedInput(), isTrue);
+      expect(await prefs.isSetupCompleted(), isTrue);
+      expect(await prefs.getAppFolderPath(), '/home/user/vice');
+      expect(await prefs.getGamesFolderPath(), '/home/user/games');
+      expect(await prefs.getLeftHandedInput(), isTrue);
     });
 
     test('the pad mode survives a restart', () async {
-      await AppPrefs.setOnScreenPadMode(OnScreenPadMode.always);
-      expect(await AppPrefs.getOnScreenPadMode(), OnScreenPadMode.always);
-      await AppPrefs.setOnScreenPadMode(OnScreenPadMode.never);
-      expect(await AppPrefs.getOnScreenPadMode(), OnScreenPadMode.never);
+      await prefs.setOnScreenPadMode(OnScreenPadMode.always);
+      expect(await prefs.getOnScreenPadMode(), OnScreenPadMode.always);
+      await prefs.setOnScreenPadMode(OnScreenPadMode.never);
+      expect(await prefs.getOnScreenPadMode(), OnScreenPadMode.never);
     });
 
     test('a stored pad mode from a future version falls back to auto',
         () async {
       SharedPreferences.setMockInitialValues({'on_screen_pad_mode': 99});
-      expect(await AppPrefs.getOnScreenPadMode(), OnScreenPadMode.auto);
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      expect(await prefs.getOnScreenPadMode(), OnScreenPadMode.auto);
     });
 
     test('the joystick port only ever comes back as 1 or 2', () async {
-      await AppPrefs.setJoystickPort(1);
-      expect(await AppPrefs.getJoystickPort(), 1);
+      await prefs.setJoystickPort(1);
+      expect(await prefs.getJoystickPort(), 1);
       // Anything else is clamped on the way in AND on the way out -- a
       // nonsense port means every input silently goes nowhere.
-      await AppPrefs.setJoystickPort(7);
-      expect(await AppPrefs.getJoystickPort(), 2);
+      await prefs.setJoystickPort(7);
+      expect(await prefs.getJoystickPort(), 2);
       SharedPreferences.setMockInitialValues({'joystick_port': 0});
-      expect(await AppPrefs.getJoystickPort(), 2);
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      expect(await prefs.getJoystickPort(), 2);
     });
 
     test('an action button key round-trips, and clears back to fire',
         () async {
-      await AppPrefs.setActionButtonKey('a', 1); // Run/Stop
-      expect(await AppPrefs.getActionButtonKey('a'), 1);
+      await prefs.setActionButtonKey('a', 1); // Run/Stop
+      expect(await prefs.getActionButtonKey('a'), 1);
       // The two buttons are stored separately.
-      expect(await AppPrefs.getActionButtonKey('b'), isNull);
+      expect(await prefs.getActionButtonKey('b'), isNull);
 
-      await AppPrefs.setActionButtonKey('a', 0); // Space -- ordinal zero
-      expect(await AppPrefs.getActionButtonKey('a'), 0,
+      await prefs.setActionButtonKey('a', 0); // Space -- ordinal zero
+      expect(await prefs.getActionButtonKey('a'), 0,
           reason: 'ordinal 0 (Space) must not be confused with "unmapped"');
 
-      await AppPrefs.setActionButtonKey('a', null);
-      expect(await AppPrefs.getActionButtonKey('a'), isNull);
+      await prefs.setActionButtonKey('a', null);
+      expect(await prefs.getActionButtonKey('a'), isNull);
     });
   });
 
@@ -95,9 +101,9 @@ void main() {
         CustomButton.key(C64KeyCatalogue.find(7, 7)!), // RUN/STOP
         CustomButton.key(C64KeyCatalogue.find(1, 2)!), // A
       ];
-      await AppPrefs.setCustomButtons(buttons);
+      await prefs.setCustomButtons(buttons);
 
-      final restored = await AppPrefs.getCustomButtons();
+      final restored = await prefs.getCustomButtons();
       expect(restored.map((k) => k.label).toList(),
           ['SPACE', 'RUN/STOP', 'A']);
       expect(restored.map((k) => k.id).toList(),
@@ -112,7 +118,8 @@ void main() {
         'custom_on_screen_buttons':
             jsonEncode([{'label': 'MYSTERY', 'row': 6, 'column': 3}]),
       });
-      final restored = await AppPrefs.getCustomButtons();
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      final restored = await prefs.getCustomButtons();
       expect(restored.single.label, 'MYSTERY');
       expect(restored.single.key!.row, 6);
       expect(restored.single.key!.column, 3);
@@ -121,22 +128,24 @@ void main() {
     test('a corrupt list costs the buttons, not the app', () async {
       SharedPreferences.setMockInitialValues(
           {'custom_on_screen_buttons': 'not json at all'});
-      expect(await AppPrefs.getCustomButtons(), isEmpty);
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      expect(await prefs.getCustomButtons(), isEmpty);
 
       SharedPreferences.setMockInitialValues({
         'custom_on_screen_buttons':
             jsonEncode([{'label': 'BAD', 'row': 'one', 'column': null}]),
       });
-      expect(await AppPrefs.getCustomButtons(), isEmpty);
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      expect(await prefs.getCustomButtons(), isEmpty);
     });
 
     test('joystick directions round-trip alongside keys', () async {
-      await AppPrefs.setCustomButtons([
+      await prefs.setCustomButtons([
         CustomButton.direction(JoyDirection.up),
         CustomButton.key(C64KeyCatalogue.find(7, 4)!),
       ]);
 
-      final restored = await AppPrefs.getCustomButtons();
+      final restored = await prefs.getCustomButtons();
       expect(restored.map((b) => b.label).toList(), ['Up', 'SPACE']);
       expect(restored.first.isDirection, isTrue);
       expect(restored.first.direction, JoyDirection.up);
@@ -152,7 +161,8 @@ void main() {
         'custom_on_screen_buttons':
             jsonEncode([{'label': 'SPACE', 'row': 7, 'column': 4}]),
       });
-      final restored = await AppPrefs.getCustomButtons();
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      final restored = await prefs.getCustomButtons();
       expect(restored.single.isDirection, isFalse);
       expect(restored.single.label, 'SPACE');
     });
@@ -161,14 +171,15 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'custom_on_screen_buttons': jsonEncode([{'direction': 'sideways'}]),
       });
-      expect(await AppPrefs.getCustomButtons(), isEmpty);
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      expect(await prefs.getCustomButtons(), isEmpty);
     });
 
     test('clearing the list removes every button', () async {
-      await AppPrefs.setCustomButtons(
+      await prefs.setCustomButtons(
           [CustomButton.key(C64KeyCatalogue.find(7, 4)!)]);
-      await AppPrefs.setCustomButtons([]);
-      expect(await AppPrefs.getCustomButtons(), isEmpty);
+      await prefs.setCustomButtons([]);
+      expect(await prefs.getCustomButtons(), isEmpty);
     });
   });
 
@@ -210,64 +221,65 @@ void main() {
 
   group('on-screen control layout', () {
     test('defaults to the wobble stick and no saved positions', () async {
-      expect(await AppPrefs.getJoystickStyle(), JoystickStyle.wobble);
-      expect(await AppPrefs.getControlPositions(), isEmpty);
+      expect(await prefs.getJoystickStyle(), JoystickStyle.wobble);
+      expect(await prefs.getControlPositions(), isEmpty);
     });
 
     test('remembers the chosen style', () async {
-      await AppPrefs.setJoystickStyle(JoystickStyle.dpad);
-      expect(await AppPrefs.getJoystickStyle(), JoystickStyle.dpad);
+      await prefs.setJoystickStyle(JoystickStyle.dpad);
+      expect(await prefs.getJoystickStyle(), JoystickStyle.dpad);
     });
 
     test('stores each control independently', () async {
-      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
-      await AppPrefs.setControlPosition(
+      await prefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
+      await prefs.setControlPosition(
           kControlIdButtons, const Offset(0.8, 0.6));
 
-      final positions = await AppPrefs.getControlPositions();
+      final positions = await prefs.getControlPositions();
       expect(positions[kControlIdStick], const Offset(0.2, 0.7));
       expect(positions[kControlIdButtons], const Offset(0.8, 0.6));
     });
 
     test('moving one control does not forget the other', () async {
-      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
-      await AppPrefs.setControlPosition(
+      await prefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
+      await prefs.setControlPosition(
           kControlIdButtons, const Offset(0.8, 0.6));
-      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.3, 0.5));
+      await prefs.setControlPosition(kControlIdStick, const Offset(0.3, 0.5));
 
-      final positions = await AppPrefs.getControlPositions();
+      final positions = await prefs.getControlPositions();
       expect(positions[kControlIdStick], const Offset(0.3, 0.5));
       expect(positions[kControlIdButtons], const Offset(0.8, 0.6),
           reason: 'the buttons were not touched');
     });
 
     test('clamps positions that would put a control off screen', () async {
-      await AppPrefs.setControlPosition(kControlIdStick, const Offset(-4, 9));
-      expect((await AppPrefs.getControlPositions())[kControlIdStick],
+      await prefs.setControlPosition(kControlIdStick, const Offset(-4, 9));
+      expect((await prefs.getControlPositions())[kControlIdStick],
           const Offset(0.0, 1.0));
     });
 
     test('a corrupt layout resets to defaults instead of throwing', () async {
       SharedPreferences.setMockInitialValues(
           {'on_screen_control_positions': 'not json at all'});
-      expect(await AppPrefs.getControlPositions(), isEmpty);
+      prefs = SharedPrefsImpl(await SharedPreferences.getInstance());
+      expect(await prefs.getControlPositions(), isEmpty);
     });
 
     test('reset clears every stored position', () async {
-      await AppPrefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
-      await AppPrefs.clearControlPositions();
-      expect(await AppPrefs.getControlPositions(), isEmpty);
+      await prefs.setControlPosition(kControlIdStick, const Offset(0.2, 0.7));
+      await prefs.clearControlPositions();
+      expect(await prefs.getControlPositions(), isEmpty);
     });
   });
 
   group('workbench music', () {
     test('is on by default -- silence is the wrong first impression', () async {
-      expect(await AppPrefs.getWorkbenchMusic(), isTrue);
+      expect(await prefs.getWorkbenchMusic(), isTrue);
     });
 
     test('the off switch is remembered', () async {
-      await AppPrefs.setWorkbenchMusic(false);
-      expect(await AppPrefs.getWorkbenchMusic(), isFalse);
+      await prefs.setWorkbenchMusic(false);
+      expect(await prefs.getWorkbenchMusic(), isFalse);
     });
   });
 }

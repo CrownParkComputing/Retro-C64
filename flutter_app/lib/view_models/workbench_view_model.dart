@@ -2,27 +2,26 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import '../data/category.dart';
-import '../data/custom_button.dart';
-import '../data/emulator_ui_state.dart';
-import '../data/media_entry.dart';
-import '../ffi/vice_bindings.dart';
-import '../ffi/vice_core.dart';
-import '../ffi/vice_native_paths.dart';
-import '../services/app_log.dart';
-import '../services/app_prefs.dart';
-import '../services/gamepad_service.dart';
-import '../services/library_scanner.dart';
-import '../services/media_folder.dart';
-import '../services/music_library.dart';
-import '../services/permissions_service.dart';
-import '../services/platform_info.dart';
-import '../services/save_state_service.dart';
-import '../services/service_locator.dart';
-import '../services/storage_access.dart';
-import '../services/demo_roms_service.dart';
-import '../services/vsid_service.dart';
-import '../screens/setup_wizard_screen.dart' show kGamesImportSubdir;
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/data/custom_button.dart';
+import 'package:retro_c64/data/emulator_ui_state.dart';
+import 'package:retro_c64/data/media_entry.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/services/app_log.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/gamepad_service.dart';
+import 'package:retro_c64/services/library_scanner.dart';
+import 'package:retro_c64/services/media_folder.dart';
+import 'package:retro_c64/services/music_library.dart';
+import 'package:retro_c64/services/permissions_service.dart';
+import 'package:retro_c64/services/platform_info.dart';
+import 'package:retro_c64/services/save_state_service.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/services/demo_roms_service.dart';
+import 'package:retro_c64/services/vsid_service.dart';
 
 class WorkbenchViewModel extends ChangeNotifier {
   final ViceCore core;
@@ -107,7 +106,7 @@ class WorkbenchViewModel extends ChangeNotifier {
     // Recognised by where the media came from, not by its name: a user is
     // free to have a game called DEMO.PRG, and the folder cannot be faked.
     try {
-      final demoDir = (await DemoRomsService.demoRomDir()).path;
+      final demoDir = (await getIt<DemoRomsService>().demoRomDir()).path;
       return all.where((e) => e.mediaPath.startsWith(demoDir)).toList();
     } catch (_) {
       // If the folder cannot be resolved, show nothing rather than showing
@@ -117,7 +116,7 @@ class WorkbenchViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadDemoMode() async {
-    final on = await AppPrefs.getDemoRomMode();
+    final on = await getIt<AppPrefs>().getDemoRomMode();
     if (on == _demoMode) return;
     _demoMode = on;
     if (!visibleCategories.contains(_category)) {
@@ -208,10 +207,10 @@ class WorkbenchViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadInputPrefs() async {
-    _leftHanded = await AppPrefs.getLeftHandedInput();
-    _padMode = await AppPrefs.getOnScreenPadMode();
-    _joystickPort = await AppPrefs.getJoystickPort();
-    _customButtons = await AppPrefs.getCustomButtons();
+    _leftHanded = await getIt<AppPrefs>().getLeftHandedInput();
+    _padMode = await getIt<AppPrefs>().getOnScreenPadMode();
+    _joystickPort = await getIt<AppPrefs>().getJoystickPort();
+    _customButtons = await getIt<AppPrefs>().getCustomButtons();
     notifyListeners();
   }
 
@@ -237,7 +236,7 @@ class WorkbenchViewModel extends ChangeNotifier {
     String? scanDir;
     try {
       scanDir = _demoMode
-          ? (await DemoRomsService.demoRomDir()).path
+          ? (await getIt<DemoRomsService>().demoRomDir()).path
           : await libraryScanRoot();
     } catch (e) {
       // Resolving a directory can fail -- a platform channel that is not
@@ -256,7 +255,7 @@ class WorkbenchViewModel extends ChangeNotifier {
     // appearing. The demo folder is inside the app's own storage, so it can
     // be read directly with no SAF grant at all.
     if (!_demoMode && Platform.isAndroid && await MediaFolder.hasFolder()) {
-      final imported = await StorageAccess.instance.scanFolder(scanDir ?? '');
+      final imported = await getIt<StorageAccess>().scanFolder(scanDir ?? '');
       result = LibraryScanResult(
         entries: [
           for (final f in imported)
@@ -447,7 +446,7 @@ class WorkbenchViewModel extends ChangeNotifier {
   /// start that is still in flight.
   void _silenceWorkbenchMusic() {
     _musicSuppressed = true;
-    VsidService.instance.pause();
+    getIt<VsidService>().pause();
   }
 
   /// Lets the workbench tune play again, and starts it. The counterpart to
@@ -463,11 +462,11 @@ class WorkbenchViewModel extends ChangeNotifier {
     // this mode deliberately does not use, so there is nothing to play and a
     // failed load would look like a fault rather than a choice.
     if (_demoMode) return;
-    if (!await AppPrefs.getWorkbenchMusic()) return;
-    final vsid = VsidService.instance;
+    if (!await getIt<AppPrefs>().getWorkbenchMusic()) return;
+    final vsid = getIt<VsidService>();
     if (vsid.currentPath != null) {
       if (_musicSuppressed) return;
-      if (vsid.isPaused) vsid.togglePause();
+      if (vsid.isPaused) getIt<VsidService>().togglePause();
       return;
     }
     final dirs = await MusicLibrary.searchDirs();
@@ -477,18 +476,18 @@ class WorkbenchViewModel extends ChangeNotifier {
     // Re-checked here, after every await, rather than only on entry: this is
     // the point at which sound would actually start coming out.
     if (_musicSuppressed) return;
-    vsid.play(pick.$2);
+    getIt<VsidService>().play(pick.$2);
   }
 
   void setLeftHanded(bool v) {
     _leftHanded = v;
-    AppPrefs.setLeftHandedInput(v);
+    getIt<AppPrefs>().setLeftHandedInput(v);
     notifyListeners();
   }
 
   void setPadMode(OnScreenPadMode mode) {
     _padMode = mode;
-    AppPrefs.setOnScreenPadMode(mode);
+    getIt<AppPrefs>().setOnScreenPadMode(mode);
     notifyListeners();
   }
 
@@ -497,13 +496,13 @@ class WorkbenchViewModel extends ChangeNotifier {
       core.joystick(_joystickPort, 0);
     }
     _joystickPort = port;
-    AppPrefs.setJoystickPort(port);
+    getIt<AppPrefs>().setJoystickPort(port);
     notifyListeners();
   }
 
   void setCustomButtons(List<CustomButton> buttons) {
     _customButtons = buttons;
-    AppPrefs.setCustomButtons(buttons);
+    getIt<AppPrefs>().setCustomButtons(buttons);
     notifyListeners();
   }
 

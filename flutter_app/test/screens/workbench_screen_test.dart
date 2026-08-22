@@ -18,6 +18,7 @@ import 'package:retro_c64/view_models/workbench_view_model.dart';
 import 'package:retro_c64/widgets/sidebar.dart';
 import 'package:retro_c64/services/platform_info.dart';
 
+import 'package:retro_c64/services/app_prefs.dart';
 import 'package:retro_c64/services/vsid_service.dart';
 
 import 'package:retro_c64/services/service_locator.dart';
@@ -60,13 +61,9 @@ void main() {
 
   late Directory games;
 
-  setUp(() {
-    // The workbench now resolves its services through GetIt, so the locator
-    // has to be populated the way main() populates it. Reset first: GetIt is
-    // a process-wide singleton and would otherwise carry registrations from
-    // one test into the next.
-    GetIt.instance.reset();
-    setupServiceLocator();
+  setUp(() async {
+    await GetIt.instance.reset();
+
     games = Directory.systemTemp.createTempSync('vice_workbench_test');
     File(p.join(games.path, 'Boulder Dash.d64')).writeAsStringSync('C64');
     // In a subfolder, which is where the non-recursive scan used to lose it.
@@ -86,6 +83,16 @@ void main() {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
+
+    // ensure locator is ready before VM creation
+    if (!GetIt.instance.isRegistered<AppPrefs>()) {
+      SharedPreferences.setMockInitialValues({
+        'setup_completed': true,
+        'games_folder_path': games.path,
+      });
+      await setupServiceLocator();
+    }
+
     // The core now reaches the screen through the view model rather than as
     // a constructor argument, so the test provides it the way main.dart does.
     await tester.pumpWidget(MaterialApp(
@@ -217,13 +224,15 @@ void main() {
   });
 
   testWidgets('launching a game silences the workbench music', (tester) async {
+    // ensure locator is ready so we can replace one service
+    await setupServiceLocator();
+
     // Every route into the emulator must stop the tune, not just this one:
     // the workbench resumes its music on the way back, so a route that
     // forgets leaves the SID player audible underneath the game.
-    final real = VsidService.instance;
     final vsid = _FakeVsid();
-    VsidService.instance = vsid;
-    addTearDown(() => VsidService.instance = real);
+    getIt.unregister<VsidService>();
+    getIt.registerSingleton<VsidService>(vsid);
 
     await pumpWorkbench(tester, FakeViceCore(isRunning: false));
     await tester.tap(find.text('Boulder Dash'));
@@ -244,26 +253,36 @@ void main() {
       'games_folder_path': games.path,
       'demo_rom_mode': true,
     });
+    await setupServiceLocator();
 
     await pumpWorkbench(tester, FakeViceCore(isRunning: false));
     expect(find.textContaining('COMPLIANCE MODE'), findsOneWidget);
   });
 
   testWidgets('and says nothing when it is off', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'setup_completed': true,
+      'games_folder_path': games.path,
+      'demo_rom_mode': false,
+    });
+    await setupServiceLocator();
+
     await pumpWorkbench(tester, FakeViceCore(isRunning: false));
     expect(find.textContaining('COMPLIANCE MODE'), findsNothing);
   });
 
   testWidgets('a launch that fails gives the workbench music back',
       (tester) async {
+    // ensure locator is ready so we can replace one service
+    await setupServiceLocator();
+
     // The failure paths silence the tune on the way in and then return
     // early, having never started a game. Without putting it back, one
     // unreadable file or one missing drive ROM left the menu silent for the
     // rest of the session -- and nothing on screen would connect the two.
-    final real = VsidService.instance;
     final vsid = _FakeVsid();
-    VsidService.instance = vsid;
-    addTearDown(() => VsidService.instance = real);
+    getIt.unregister<VsidService>();
+    getIt.registerSingleton<VsidService>(vsid);
 
     final core = FakeViceCore(isRunning: false)..startResult = -1;
     await pumpWorkbench(tester, core);

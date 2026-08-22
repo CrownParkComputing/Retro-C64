@@ -3,19 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../ffi/vice_bindings.dart';
-import '../ffi/vice_core.dart';
-import '../services/app_prefs.dart';
-import '../services/gamepad_service.dart';
-import '../data/emulator_ui_state.dart';
-import '../data/custom_button.dart';
-import '../widgets/assignable_action_button.dart';
-import '../widgets/custom_key_button.dart';
-import '../widgets/c64_keyboard_overlay.dart';
-import '../widgets/dpad_view.dart';
-import '../widgets/wobble_joystick.dart';
-import '../widgets/framebuffer_view.dart';
-import '../widgets/media_activity_overlay.dart';
+import 'package:retro_c64/ffi/vice_bindings.dart';
+import 'package:retro_c64/ffi/vice_core.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/gamepad_service.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/data/emulator_ui_state.dart';
+import 'package:retro_c64/data/custom_button.dart';
+import 'package:retro_c64/widgets/assignable_action_button.dart';
+import 'package:retro_c64/widgets/custom_key_button.dart';
+import 'package:retro_c64/widgets/c64_keyboard_overlay.dart';
+import 'package:retro_c64/widgets/dpad_view.dart';
+import 'package:retro_c64/widgets/wobble_joystick.dart';
+import 'package:retro_c64/widgets/framebuffer_view.dart';
+import 'package:retro_c64/widgets/media_activity_overlay.dart';
 
 /// The in-emulator screen: full-screen framebuffer, on-screen wobble
 /// joystick + A/B action buttons, an optional full C64 keyboard overlay,
@@ -122,8 +123,8 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
   }
 
   Future<void> _loadControlLayout() async {
-    final style = await AppPrefs.getJoystickStyle();
-    final positions = await AppPrefs.getControlPositions();
+    final style = await getIt<AppPrefs>().getJoystickStyle();
+    final positions = await getIt<AppPrefs>().getControlPositions();
     if (!mounted) return;
     setState(() {
       _joystickStyle = style;
@@ -151,11 +152,11 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
 
   Future<void> _commitControlPosition(String id) async {
     final pos = _controlPositions[id];
-    if (pos != null) await AppPrefs.setControlPosition(id, pos);
+    if (pos != null) await getIt<AppPrefs>().setControlPosition(id, pos);
   }
 
   Future<void> _resetControlLayout() async {
-    await AppPrefs.clearControlPositions();
+    await getIt<AppPrefs>().clearControlPositions();
     if (!mounted) return;
     setState(() => _controlPositions = const {});
   }

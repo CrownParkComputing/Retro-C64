@@ -15,12 +15,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../data/category.dart';
-import '../ffi/vice_native_paths.dart';
-import '../services/app_prefs.dart';
-import '../services/demo_roms_service.dart';
-import '../theme/vice_theme.dart';
-import '../view_models/workbench_view_model.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/demo_roms_service.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
 
 class ComplianceScreen extends StatefulWidget {
   /// Reopens the setup wizard. Supplied by the workbench, which owns that
@@ -51,14 +54,14 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     // Everything here is reporting, so a lookup that fails should cost a
     // line of the report rather than the page. This is the screen a store
     // reviewer is sent to; it has to render whatever else is wrong.
-    final demoMode = await AppPrefs.getDemoRomMode();
+    final demoMode = await getIt<AppPrefs>().getDemoRomMode();
     var path = '';
     var files = const <String>[];
     var userRoms = false;
     var legacy = false;
     try {
-      path = (await DemoRomsService.demoRomDir()).path;
-      files = await DemoRomsService.demoFiles();
+      path = (await getIt<DemoRomsService>().demoRomDir()).path;
+      files = await getIt<DemoRomsService>().demoFiles();
     } catch (_) {
       // Leaves the path blank and the list empty, which the wording below
       // already covers.
@@ -67,7 +70,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       userRoms = await ViceNativePaths.romsInstalled();
       // Only true for installs that ran the older build, which put the free
       // ROMs on top of the user's. Offered so those copies can be recovered.
-      legacy = await DemoRomsService.hasUserRomBackup(
+      legacy = await getIt<DemoRomsService>().hasUserRomBackup(
           Directory(await ViceNativePaths.romDir()));
     } catch (_) {
       // Same again: report what is known rather than nothing.
@@ -97,8 +100,8 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       // Writing the files out is part of turning it on, not a separate
       // button to remember: a mode you have to prepare by hand is one that
       // can be half on.
-      if (next) await DemoRomsService.prepareDemoEnvironment();
-      await AppPrefs.setDemoRomMode(next);
+      if (next) await getIt<DemoRomsService>().prepareDemoEnvironment();
+      await getIt<AppPrefs>().setDemoRomMode(next);
       if (mounted) await context.read<WorkbenchViewModel>().refreshDemoMode();
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -139,7 +142,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       context.read<WorkbenchViewModel>().setCategory(WorkbenchCategory.games);
 
   Future<void> _restoreLegacy() async {
-    final n = await DemoRomsService.restoreUserRoms(
+    final n = await getIt<DemoRomsService>().restoreUserRoms(
         Directory(await ViceNativePaths.romDir()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -165,6 +168,23 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           'Everything a store review needs, on the device. No network '
           'connection is required to check any of it.',
           style: TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snap) {
+            final info = snap.data;
+            if (info == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Version ${info.version} (build ${info.buildNumber})',
+                style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    fontFamily: 'monospace'),
+              ),
+            );
+          },
         ),
 
         const _Head('1. See it working with nothing supplied'),

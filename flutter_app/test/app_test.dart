@@ -9,10 +9,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get_it/get_it.dart';
 import 'package:retro_c64/main.dart';
+import 'package:retro_c64/services/service_locator.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await GetIt.instance.reset();
+    await setupServiceLocator();
+  });
 
   testWidgets('builds and settles into a real state, core or no core',
       (tester) async {

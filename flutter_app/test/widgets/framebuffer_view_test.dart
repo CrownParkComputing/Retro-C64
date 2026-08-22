@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/services/video_settings.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:get_it/get_it.dart';
 import 'package:retro_c64/widgets/framebuffer_view.dart';
 
 import '../fakes/fake_vice_core.dart';
@@ -13,9 +15,10 @@ import '../fakes/fake_vice_core.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    VideoSettings.instance.resetForTests();
+    await GetIt.instance.reset();
+    await setupServiceLocator();
   });
 
   /// Pumps the view and gives the core's frame time to decode.
@@ -56,7 +59,7 @@ void main() {
   });
 
   testWidgets('the aspect setting reaches the render path', (tester) async {
-    await VideoSettings.instance.load();
+    await getIt<VideoSettings>().load();
     await pumpFrames(tester, FakeViceCore(withFrame: true));
 
     // Default: 4:3, the shape a real C64 monitor produced.
@@ -65,12 +68,12 @@ void main() {
         .first);
     expect(ratio().aspectRatio, closeTo(4 / 3, 1e-9));
 
-    VideoSettings.instance.setAspect(AspectMode.wide);
+    getIt<VideoSettings>().setAspect(AspectMode.wide);
     await tester.pump();
     expect(ratio().aspectRatio, closeTo(16 / 9, 1e-9));
 
     // Stretch drops the AspectRatio box entirely.
-    VideoSettings.instance.setAspect(AspectMode.stretch);
+    getIt<VideoSettings>().setAspect(AspectMode.stretch);
     await tester.pump();
     expect(
       find.descendant(
@@ -80,11 +83,11 @@ void main() {
   });
 
   testWidgets('rotation is applied to the picture', (tester) async {
-    await VideoSettings.instance.load();
+    await getIt<VideoSettings>().load();
     await pumpFrames(tester, FakeViceCore(withFrame: true));
     expect(find.byType(RotatedBox), findsNothing);
 
-    VideoSettings.instance.setRotationQuarterTurns(1);
+    getIt<VideoSettings>().setRotationQuarterTurns(1);
     await tester.pump();
     expect(tester.widget<RotatedBox>(find.byType(RotatedBox)).quarterTurns, 1);
   });

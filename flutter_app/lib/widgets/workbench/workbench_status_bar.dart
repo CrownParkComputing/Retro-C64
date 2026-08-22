@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../data/category.dart';
-import '../../theme/vice_theme.dart';
-import '../../view_models/workbench_view_model.dart';
-import '../emulator_control_strip.dart';
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
+import 'package:retro_c64/view_models/workbench_view_model.dart';
+import 'package:retro_c64/widgets/emulator_control_strip.dart';
 
 class WorkbenchStatusBar extends StatelessWidget {
   const WorkbenchStatusBar({super.key});
