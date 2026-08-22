@@ -40,22 +40,77 @@ const Map<String, String> _openRomAssets = {
 };
 
 class DemoRomsService {
-  /// Copy the Open ROMs into [viceDir]/C64, replacing whatever is there.
+  /// Suffix for a user ROM moved aside so a demo ROM can take its name.
+  static const String _backupSuffix = '.user-rom';
+
+  /// Copy the Open ROMs into [viceDir]/C64, moving any of the user's own
+  /// ROMs aside first.
   ///
-  /// Returns the number installed. Deliberately overwrites: the caller is
-  /// switching the machine into demo mode, and half a ROM set is a machine
-  /// that boots to a black screen.
+  /// Returns the number installed.
+  ///
+  /// The Open ROMs have to occupy VICE's default filenames, which are the
+  /// same names a user's own dump occupies -- so installing them on a machine
+  /// that already has real ROMs would overwrite them. That was harmless while
+  /// this only ran on a first launch with an empty ROM directory. It stopped
+  /// being harmless the moment the demo became something you can run again at
+  /// any time, from Paths or by re-running setup: it would have destroyed a
+  /// ROM set the user may have no other copy of.
+  ///
+  /// So anything that is not already one of ours is renamed rather than
+  /// overwritten, and [restoreUserRoms] puts it back.
   static Future<int> install(Directory viceDir) async {
     final target = Directory('${viceDir.path}/C64');
     await target.create(recursive: true);
     var n = 0;
     for (final entry in _openRomAssets.entries) {
       final data = await rootBundle.load(entry.key);
+      final bytes = data.buffer.asUint8List();
       final file = File('${target.path}/${entry.value}');
-      await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+
+      if (await file.exists() && !await _sameBytes(file, bytes)) {
+        final backup = File('${file.path}$_backupSuffix');
+        // Never clobber an existing backup: that would be the user's real ROM
+        // being replaced by a previous demo's copy of itself.
+        if (!await backup.exists()) await file.rename(backup.path);
+      }
+
+      await file.writeAsBytes(bytes, flush: true);
       n++;
     }
     return n;
+  }
+
+  /// Whether a user ROM is waiting to be put back, i.e. whether the machine
+  /// is in demo mode over the top of somebody's own set.
+  static Future<bool> hasUserRomBackup(Directory viceDir) async {
+    for (final name in _openRomAssets.values) {
+      if (await File('${viceDir.path}/C64/$name$_backupSuffix').exists()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Puts the user's own ROMs back, undoing [install]. Returns how many were
+  /// restored.
+  static Future<int> restoreUserRoms(Directory viceDir) async {
+    var n = 0;
+    for (final name in _openRomAssets.values) {
+      final backup = File('${viceDir.path}/C64/$name$_backupSuffix');
+      if (!await backup.exists()) continue;
+      await backup.rename('${viceDir.path}/C64/$name');
+      n++;
+    }
+    return n;
+  }
+
+  static Future<bool> _sameBytes(File file, List<int> other) async {
+    final there = await file.readAsBytes();
+    if (there.length != other.length) return false;
+    for (var i = 0; i < other.length; i++) {
+      if (there[i] != other[i]) return false;
+    }
+    return true;
   }
 
   /// True when the ROMs currently installed are the Open ones rather than a

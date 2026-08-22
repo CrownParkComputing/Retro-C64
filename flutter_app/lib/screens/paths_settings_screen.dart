@@ -3,9 +3,12 @@
 // change folders directly with real Browse buttons (rather than only being
 // able to re-run the whole wizard), and -- on Android -- exposes the
 // shared-storage permission that everything else depends on.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../services/app_prefs.dart';
+import '../services/demo_roms_service.dart';
 import '../services/artwork_service.dart';
 import '../services/rom_install_service.dart';
 import '../ffi/vice_native_paths.dart';
@@ -43,6 +46,12 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   bool _loading = true;
   bool _hasStorageAccess = true;
   bool _romsInstalled = false;
+
+  /// Whether the ROMs in place are the bundled free ones rather than the
+  /// user's, and whether a set of theirs is waiting underneath to be restored.
+  bool _demoRomsActive = false;
+  bool _hasUserRomBackup = false;
+  bool _demoBusy = false;
   bool _driveRomInstalled = false;
   String? _driveRomFile;
   List<String> _drivesDirFiles = const [];
@@ -62,6 +71,9 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final games = await AppPrefs.getGamesFolderPath();
     final access = await PermissionsService.hasStorageAccess();
     final roms = await ViceNativePaths.romsInstalled();
+    final viceDir = Directory(await ViceNativePaths.romDir());
+    final demoActive = await DemoRomsService.installed(viceDir);
+    final userBackup = await DemoRomsService.hasUserRomBackup(viceDir);
     final driveRom = await ViceNativePaths.driveRomInstalled();
     final driveRomFile = await ViceNativePaths.driveRomFile();
     final drivesFiles = await ViceNativePaths.driveRomsPresent();
@@ -78,6 +90,8 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _importedCount = imported;
       _hasStorageAccess = access;
       _romsInstalled = roms;
+      _demoRomsActive = demoActive;
+      _hasUserRomBackup = userBackup;
       _driveRomInstalled = driveRom;
       _driveRomFile = driveRomFile;
       _drivesDirFiles = drivesFiles;
@@ -199,6 +213,55 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     widget.onLibraryShouldRescan?.call();
   }
 
+  /// Puts the machine into demo mode on demand, not just on a first run.
+  ///
+  /// This is what makes the compliance claim demonstrable at any time: the
+  /// app can be shown working on free ROMs whenever somebody asks, without
+  /// wiping the app or hunting for a first-launch state. The user's own ROMs
+  /// are moved aside, not overwritten, and [_restoreUserRoms] puts them back.
+  Future<void> _useDemoRoms() async {
+    setState(() => _demoBusy = true);
+    try {
+      final viceDir = Directory(await ViceNativePaths.romDir());
+      await DemoRomsService.install(viceDir);
+      await DemoRomsService.installDemoProgram(
+          Directory(await libraryScanRoot() ??
+              await ViceNativePaths.mediaDirPath()));
+      widget.onLibraryShouldRescan?.call();
+      if (!mounted) return;
+      _toast('Free ROMs installed. "${DemoRomsService.demoTitle}" is in '
+          'Games. Restart the emulator for the ROM change to take effect.');
+    } catch (e) {
+      if (mounted) _toast('Could not switch to the demo ROMs: $e');
+    } finally {
+      if (mounted) setState(() => _demoBusy = false);
+      await _load();
+    }
+  }
+
+  Future<void> _restoreUserRoms() async {
+    setState(() => _demoBusy = true);
+    try {
+      final n = await DemoRomsService.restoreUserRoms(
+          Directory(await ViceNativePaths.romDir()));
+      if (!mounted) return;
+      _toast(n == 0
+          ? 'No ROMs of yours were stored away.'
+          : 'Restored $n of your own ROM file(s). Restart the emulator for '
+              'the change to take effect.');
+    } catch (e) {
+      if (mounted) _toast('Could not restore your ROMs: $e');
+    } finally {
+      if (mounted) setState(() => _demoBusy = false);
+      await _load();
+    }
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -237,6 +300,73 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
             onAction: _importRoms,
           ),
+          const _SectionHeader('App Store / Play Store compliance'),
+          // Everything a store submission turns on, in one place, so it can
+          // be checked or demonstrated on demand rather than reconstructed
+          // from memory on the day. See docs/LICENCE_COMPLIANCE.md and
+          // store/SIGNOFF.md in the repository.
+          _Row(
+            label: 'Show it working with no Commodore ROMs',
+            value: _demoRomsActive
+                ? 'ON -- running the bundled Open ROMs. Pick '
+                    '"${DemoRomsService.demoTitle}" in Games to see a real '
+                    'C64 boot and run. Most commercial software needs real '
+                    'ROMs, so switch back when you are done.'
+                : _hasUserRomBackup
+                    ? 'Off -- your own ROMs are in use, and a copy of them '
+                        'from an earlier demo is stored away.'
+                    : 'Off -- installs free ROMs and a demo program so the '
+                        'emulator can be shown working with nothing supplied '
+                        'by you. This is the path the review notes give '
+                        'Apple. Your own ROMs are moved aside, not '
+                        'overwritten.',
+            valueColor:
+                _demoRomsActive ? Colors.orangeAccent : ViceColors.accentTeal,
+            actionLabel: _demoBusy
+                ? null
+                : (_demoRomsActive || _hasUserRomBackup)
+                    ? 'Restore my ROMs'
+                    : 'Use free ROMs',
+            onAction: _demoBusy
+                ? null
+                : (_demoRomsActive || _hasUserRomBackup)
+                    ? _restoreUserRoms
+                    : _useDemoRoms,
+          ),
+          const _Row(
+            label: 'Commodore ROMs',
+            value: 'Never shipped. The C64 BASIC, KERNAL and the 1541 drive '
+                'ROM are still under copyright, so the app carries none of '
+                'them and the user supplies their own. Nothing above changes '
+                'that -- the free ROMs are an independent reimplementation, '
+                'not Commodore code.',
+            valueColor: ViceColors.accentTeal,
+          ),
+          const _Row(
+            label: 'Emulator rules',
+            value: 'Permitted under App Review Guideline 4.7 (retro game '
+                'console emulators). The app ships no games; everything '
+                'playable comes from the user.',
+            valueColor: ViceColors.accentTeal,
+          ),
+          const _Row(
+            label: 'Free software licences',
+            value: 'VICE and reSID are GPL v2 or later; the bundled Open ROMs '
+                'are LGPL v3 or later. Both licences require the app to say '
+                'so and to point at its source, which it does in About > '
+                'Licences and source.',
+            valueColor: ViceColors.accentTeal,
+          ),
+          const _Row(
+            label: 'Privacy',
+            value: 'No accounts, no analytics, no data collected and none '
+                'sent anywhere. The app makes no network request of its own; '
+                'the optional cover-artwork URL is the only thing that can, '
+                'and only once you fill it in.',
+            valueColor: ViceColors.accentTeal,
+          ),
+          const SizedBox(height: 6),
+          const _SectionHeader('Paths'),
           // Reported separately from the machine ROMs, because it is missed
           // separately: the emulator boots and looks completely healthy
           // without it, right up until a disk image refuses to load.
@@ -454,6 +584,34 @@ class _Row extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A heading inside the Paths list.
+///
+/// Added for the compliance block: those rows answer a different question
+/// from the rest of the screen -- "can this be submitted, and can that be
+/// demonstrated" rather than "where do my files live" -- and running them
+/// together as one undifferentiated list buried them.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 6),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.1,
         ),
       ),
     );

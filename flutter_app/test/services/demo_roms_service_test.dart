@@ -72,6 +72,42 @@ void main() {
     expect(found.entries.single.mediaType, MediaFormatFilter.prg);
   });
 
+  test('moves the user\'s own ROMs aside instead of destroying them', () async {
+    // The demo is now runnable at any time -- from Paths, or by re-running
+    // setup -- not only on a first launch with an empty ROM directory. The
+    // Open ROMs must occupy VICE's default filenames, which are the same
+    // names a real dump occupies, so a plain overwrite would destroy a ROM
+    // set the user may have no other copy of.
+    final c64 = Directory('${temp.path}/C64')..createSync(recursive: true);
+    final mine = File('${c64.path}/${ViceNativePaths.requiredRomNames.first}');
+    final myBytes = List<int>.generate(8192, (i) => (i * 7) & 0xff);
+    mine.writeAsBytesSync(myBytes);
+
+    await DemoRomsService.install(temp);
+    expect(await DemoRomsService.installed(temp), isTrue);
+    expect(await DemoRomsService.hasUserRomBackup(temp), isTrue);
+
+    final restored = await DemoRomsService.restoreUserRoms(temp);
+    expect(restored, 1);
+    expect(mine.readAsBytesSync(), myBytes, reason: 'the real ROM came back');
+    expect(await DemoRomsService.installed(temp), isFalse);
+  });
+
+  test('running the demo twice does not overwrite the stored-away ROM', () async {
+    final c64 = Directory('${temp.path}/C64')..createSync(recursive: true);
+    final mine = File('${c64.path}/${ViceNativePaths.requiredRomNames.first}');
+    final myBytes = List<int>.generate(8192, (i) => (i * 3) & 0xff);
+    mine.writeAsBytesSync(myBytes);
+
+    await DemoRomsService.install(temp);
+    // A second run would otherwise back up the demo ROM over the real one,
+    // and the user's set would be gone with no way back.
+    await DemoRomsService.install(temp);
+
+    await DemoRomsService.restoreUserRoms(temp);
+    expect(mine.readAsBytesSync(), myBytes);
+  });
+
   test('puts a demo program in the library for the user to pick', () async {
     final path = await DemoRomsService.installDemoProgram(temp);
     final file = File(path);

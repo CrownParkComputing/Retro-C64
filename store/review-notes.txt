@@ -8,6 +8,12 @@ free, open-source ROM set and puts a small demo program in the games list.
 Tap "Go to games", then tap "Retro-C64 Demo". A real emulated C64 boots and
 runs it.
 
+If setup has already been completed, the same thing is available at any
+time: Paths > App Store / Play Store compliance > "Use free ROMs", then
+pick "Retro-C64 Demo" in Games. That section also states, on screen, what
+the app does and does not ship and under which licences. Setup itself can
+be re-run from the same screen with "Run setup again".
+
 Nothing else is needed: no files, no accounts, no network, no ROMs of your
 own. That path exists specifically so the app can be evaluated by someone
 who has no Commodore hardware to take ROMs from.
