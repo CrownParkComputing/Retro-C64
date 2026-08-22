@@ -86,7 +86,11 @@ recommendation here — write to the MEGA65 authors for a distribution
 exception — was a response to a licence they do not use. It is worth doing
 only as a courtesy, not as a blocker.
 
-**About VICE: make a deliberate decision.** GPL v2 is the real exposure and it
+**About VICE: make a deliberate decision.** `CORE_ALTERNATIVES.md` researches
+the replacement question and finds a real answer — VirtualC64's core is
+dual-licensed GPL-3 *or* MPL-2, has genuine 1541 emulation, and builds and
+runs here. That does not make the swap free; read the costs there.
+ GPL v2 is the real exposure and it
 predates all of this work. The options are the familiar ones — ship and accept
 the risk, or seek an exception from the copyright holders, who for a project
 of VICE's age and size are many. Shipping is the status quo and this document
