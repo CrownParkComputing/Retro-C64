@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'services/app_prefs.dart';
 import 'services/artwork_service.dart';
 import 'services/startup_import.dart';
 import 'services/app_log.dart';
+import 'services/demo_roms_service.dart';
 import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
 
@@ -171,6 +173,25 @@ class _RetroC64AppState extends State<RetroC64App>
       if (romDir != null) {
         core.init(romDir);
         AppLog.log('core.init done');
+        // Match the .prg autostart path to whose ROMs are actually fitted.
+        //
+        // The usual path patches Commodore KERNAL routines at fixed
+        // addresses; the bundled Open ROMs are a clean reimplementation and
+        // do not have them, so a .prg autostarted that way never loads and
+        // reports "?DEVICE NOT PRESENT". Injecting into RAM needs no KERNAL.
+        // It is not used with real ROMs because it can only start what RUN
+        // starts -- a machine-code title would sit at READY doing nothing.
+        //
+        // Checked every launch, by comparing the installed kernal against
+        // the bundled one, so importing a real ROM set later switches the
+        // path back with no setting to change.
+        // Against the directory the core was actually handed, not the
+        // default one: a dev checkout resolves to the repo's test fixtures,
+        // and asking about a folder the core is not using would get the
+        // answer wrong in exactly the setup used to develop this.
+        final demoRoms = await DemoRomsService.installed(Directory(romDir));
+        core.setPrgInject(demoRoms);
+        AppLog.log('prg autostart: ${demoRoms ? "RAM injection (Open ROMs)" : "virtual filesystem"}');
       } else {
         // Without a ROM dir the core has no data directory, so VICE cannot
         // create its XDG dirs and aborts during archdep_init. That abort used

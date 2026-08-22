@@ -123,6 +123,7 @@ class ViceCoreBindings implements ViceCore {
   final DynamicLibrary _lib;
 
   late final _VoidInitDart _init;
+  late final _SetPausedDart? _setPrgInject;
   late final _StartDart _start;
   late final _VoidVoidDart _stop;
   late final _Int32VoidDart _isRunning;
@@ -165,6 +166,17 @@ class ViceCoreBindings implements ViceCore {
     _init = _lib
         .lookup<NativeFunction<_VoidInitNative>>('vice_core_init')
         .asFunction();
+    // Looked up softly. An older libvicecore.so built before the demo work
+    // does not export this, and the app still runs against it -- it just
+    // cannot autostart a .prg on the Open ROMs, which is exactly what the
+    // symbol is for.
+    try {
+      _setPrgInject = _lib
+          .lookup<NativeFunction<_SetPausedNative>>('vice_core_set_prg_inject')
+          .asFunction();
+    } on ArgumentError {
+      _setPrgInject = null;
+    }
     _start = _lib
         .lookup<NativeFunction<_StartNative>>('vice_core_start')
         .asFunction();
@@ -387,6 +399,12 @@ class ViceCoreBindings implements ViceCore {
   bool _paused = false;
   @override
   bool get isPaused => _paused;
+
+  @override
+  bool get hasPrgInjectApi => _setPrgInject != null;
+
+  @override
+  void setPrgInject(bool enable) => _setPrgInject?.call(enable ? 1 : 0);
 
   @override
   void setPaused(bool paused) {

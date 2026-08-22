@@ -179,6 +179,11 @@ static uint64_t g_snapshot_seq = 0;
 static atomic_bool g_snapshot_trap_armed = false;
 
 static char g_data_dir[1024];
+
+/* Autostart .prg by RAM injection rather than through the virtual filesystem
+ * device. Set by vice_core_set_prg_inject(); see the header for why the
+ * right answer depends on which ROMs are installed. */
+static int g_prg_inject = 0;
 static int g_joystick_port = 2;
 static int g_joystick_mask = 0;
 
@@ -612,7 +617,7 @@ static void apply_pending_media_if_any(void) {
 
     switch (media_type) {
         case 0: /* PRG: VFS injection, true drive emulation must be off */
-            resources_set_int("AutostartPrgMode", 0);
+            resources_set_int("AutostartPrgMode", g_prg_inject ? 1 : 0);
             resources_set_int_sprintf("Drive%dTrueEmulation", 0, 8);
             break;
         case 1: /* DISK */
@@ -1126,6 +1131,11 @@ void vice_core_init(const char *rom_dir) {
     pthread_mutex_unlock(&g_mutex);
 }
 
+void vice_core_set_prg_inject(int enable) {
+    g_prg_inject = enable ? 1 : 0;
+    LOGI("prg autostart mode: %s", g_prg_inject ? "RAM injection" : "virtual filesystem");
+}
+
 /* Wakes the core thread if it happens to be parked in the pause gate, so a
  * request queued while the user is browsing the workbench is picked up
  * without waiting for the gate's own 50ms poll. */
@@ -1212,7 +1222,7 @@ int32_t vice_core_start(int32_t media_type, const char *media_path, const char *
      * scratch disk template configured). VFS mode injects the PRG directly
      * via virtual device traps instead, with no disk image needed. */
     args[argc++] = "-autostartprgmode";
-    args[argc++] = "0";
+    args[argc++] = g_prg_inject ? "1" : "0";
 
     if (g_data_dir[0] != '\0') {
         args[argc++] = "-directory";

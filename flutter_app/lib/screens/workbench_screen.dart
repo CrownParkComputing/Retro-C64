@@ -15,7 +15,6 @@ import '../ffi/vice_core.dart';
 import '../ffi/vice_native_paths.dart';
 import '../theme/vice_theme.dart';
 import '../widgets/c64_background.dart';
-import '../services/c64_typist.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/sidebar_style.dart';
 import 'emulator_screen.dart';
@@ -157,41 +156,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
     _scheduleIdle();
     _loadInputPrefs();
     _gamepad.start();
-    _runPendingDemo();
-  }
-
-  /// If the setup wizard left a demo listing behind, boot the machine and
-  /// type it in.
-  ///
-  /// This is how the app proves it works with no Commodore ROMs at all: the
-  /// wizard has installed the Open ROMs, and the listing is TYPED rather than
-  /// loaded, because loading would need the 1541's own Commodore ROM and so
-  /// would fail on exactly the machine being demonstrated.
-  Future<void> _runPendingDemo() async {
-    final listing = await AppPrefs.takeDemoProgram();
-    if (listing == null || !mounted) return;
-
-    if (!widget.core.isRunning) {
-      widget.core.start(mediaType: ViceMedia.none, mediaPath: null);
-    }
-    if (!await _waitForFirstFrame()) return;
-    if (!mounted) return;
-
-    _silenceWorkbenchMusic();
-    setState(() {
-      _inEmulator = true;
-      _chromeVisible = true;
-      _sidebarHidden = true;
-      _emulatorLabel = 'Demo';
-      _lastMediaName = 'Demo';
-    });
-    _idleTimer?.cancel();
-
-    // The Open ROMs print their banner and reach READY a beat after the first
-    // frame; typing before then goes into a machine that is still resetting.
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    await C64Typist.typeListing(widget.core, listing.split('\n'));
   }
 
   Future<void> _loadInputPrefs() async {

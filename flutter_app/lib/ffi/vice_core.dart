@@ -31,6 +31,20 @@ abstract class ViceCore {
 
   void setPaused(bool paused);
 
+  /// Whether this core knows how to autostart a .prg by RAM injection.
+  bool get hasPrgInjectApi;
+
+  /// Choose how a .prg is autostarted: RAM injection when true, VICE's
+  /// virtual filesystem device when false. Must be set before [start].
+  ///
+  /// It follows which ROMs are installed rather than being a preference.
+  /// The virtual-filesystem path patches Commodore KERNAL routines that the
+  /// bundled Open ROMs simply do not have, so a .prg autostarted that way on
+  /// Open ROMs dies with "?DEVICE NOT PRESENT". Injection needs no KERNAL,
+  /// but only starts programs that RUN starts -- which is fine for the demo
+  /// and wrong for real machine-code titles. See vice_bridge.h.
+  void setPrgInject(bool enable);
+
   /// One of the seven fixed key ordinals the bridge's key_event path knows.
   void keyEvent(int key, bool pressed);
 

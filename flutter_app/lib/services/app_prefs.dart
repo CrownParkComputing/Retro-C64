@@ -57,11 +57,6 @@ class AppPrefs {
 
   static const _keySetupCompleted = 'setup_completed';
 
-  /// A BASIC listing for the workbench to type in on the next boot, set when
-  /// the wizard's "See it working" demo is chosen. CLEARED once taken: it is a
-  /// one-shot instruction, not a setting, and a demo that replayed itself on
-  /// every launch would be a bug rather than a feature.
-  static const _keyDemoProgram = 'demo_program';
   static const _keyAppFolderPath = 'app_folder_path';
   static const _keyGamesFolderPath = 'games_folder_path';
   static const _keyLeftHandedInput = 'left_handed_input';
@@ -87,18 +82,6 @@ class AppPrefs {
   static Future<bool> isSetupCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keySetupCompleted) ?? false;
-  }
-
-  static Future<String?> takeDemoProgram() async {
-    final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getString(_keyDemoProgram);
-    if (value != null) await prefs.remove(_keyDemoProgram);
-    return value;
-  }
-
-  static Future<void> setDemoProgram(String listing) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyDemoProgram, listing);
   }
 
   static Future<void> setSetupCompleted(bool value) async {

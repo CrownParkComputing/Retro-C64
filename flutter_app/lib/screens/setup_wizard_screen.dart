@@ -231,8 +231,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ..writeln('BASIC AND KERNAL (GPL), NOT')
         ..writeln('COMMODORE\'S.')
         ..writeln()
-        ..writeln('SO NOTHING WAS NEEDED FROM YOU')
-        ..writeln('TO SHOW YOU THIS.')
+        ..writeln('A DEMO IS NOW IN YOUR GAMES')
+        ..writeln('LIST, CALLED')
+        ..writeln('"RETRO-C64 DEMO". PICK IT TO')
+        ..writeln('SEE THE EMULATOR RUN.')
         ..writeln()
         ..writeln('FOR COMMERCIAL GAMES YOU NEED THE')
         ..writeln('REAL COMMODORE ROMS - DUMP THEM')
@@ -323,8 +325,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  /// Put the machine into demo mode: install the Open ROMs and hand the
-  /// workbench a BASIC listing to type in.
+  /// Put the machine into demo mode: install the Open ROMs, and put the demo
+  /// program in the library for the user to pick.
+  ///
+  /// It stops there on purpose. Nothing is launched and no keys are pressed
+  /// on the user's behalf -- they are told what is there and they drive it,
+  /// which is also the only version of this that teaches them how to start
+  /// anything else.
   ///
   /// The point is that the user sees a C64 WORKING before being asked for
   /// anything. Until now a first run ended at a request for three Commodore
@@ -335,7 +342,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     setState(() => _busy = true);
     try {
       await DemoRomsService.install(Directory(await ViceNativePaths.romDir()));
-      await AppPrefs.setDemoProgram(DemoRomsService.demoProgram.join('\n'));
+      await DemoRomsService.installDemoProgram(
+          Directory(await ViceNativePaths.mediaDirPath()));
       if (!mounted) return;
       // Does NOT hand off yet. The explanation above is the whole point of
       // this step, and a screen that vanishes the moment it appears has not
@@ -383,7 +391,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         children: [
           // FIRST, and deliberately: the only button that needs nothing from
           // the user. Everything else on this screen asks for something.
-          _button(_demoReady ? 'Start demo' : 'See it working',
+          _button(_demoReady ? 'Go to games' : 'See it working',
               _busy ? null : (_demoReady ? widget.onComplete : _showDemo)),
           const SizedBox(width: 8),
           _button(_isFolderScan ? 'Choose folder' : 'Scan',

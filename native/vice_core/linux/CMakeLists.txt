@@ -159,6 +159,11 @@ add_executable(vice_smoke_test test/smoke_test.c)
 target_include_directories(vice_smoke_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../bridge")
 target_link_libraries(vice_smoke_test vicecore Threads::Threads dl)
 
+# Proves the first-run claim: Open ROMs only, no 1541 ROM, demo .prg runs.
+add_executable(vice_openroms_demo_test test/openroms_demo_test.c)
+target_include_directories(vice_openroms_demo_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../bridge")
+target_link_libraries(vice_openroms_demo_test vicecore Threads::Threads dl)
+
 add_executable(vice_audio_tone_test test/audio_tone_test.c)
 target_include_directories(vice_audio_tone_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../bridge")
 target_link_libraries(vice_audio_tone_test vicecore Threads::Threads dl m)

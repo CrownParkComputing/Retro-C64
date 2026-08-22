@@ -24,11 +24,19 @@ import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 
 /// Where the Open ROMs live in the bundle, and what each is called once
-/// installed. VICE wants extensionless names in its own C64 directory.
+/// installed.
+///
+/// The installed names are VICE's OWN DEFAULTS, not descriptive ones. The
+/// bridge starts the core without -kernal/-basic/-chargen, so VICE looks up
+/// its built-in resource defaults inside the C64 directory; a file called
+/// plain "kernal" is never opened and the core dies at
+/// "Couldn't load kernal ROM `kernal-901227-03.bin'". These are the same
+/// names ViceNativePaths.requiredRoms expects of a user's own dump, so demo
+/// ROMs and real ROMs occupy the same slots and the later one wins.
 const Map<String, String> _openRomAssets = {
-  'assets/vice/OPENROMS/kernal': 'kernal',
-  'assets/vice/OPENROMS/basic': 'basic',
-  'assets/vice/OPENROMS/chargen': 'chargen',
+  'assets/vice/OPENROMS/kernal': 'kernal-901227-03.bin',
+  'assets/vice/OPENROMS/basic': 'basic-901226-01.bin',
+  'assets/vice/OPENROMS/chargen': 'chargen-901225-01.bin',
 };
 
 class DemoRomsService {
@@ -54,7 +62,7 @@ class DemoRomsService {
   /// user's own. Decided by SIZE and content, not by a flag we wrote down:
   /// a flag goes stale the moment somebody imports their own set over the top.
   static Future<bool> installed(Directory viceDir) async {
-    final kernal = File('${viceDir.path}/C64/kernal');
+    final kernal = File('${viceDir.path}/C64/${_openRomAssets.values.first}');
     if (!await kernal.exists()) return false;
     final ours = (await rootBundle.load('assets/vice/OPENROMS/kernal'))
         .buffer
@@ -67,24 +75,27 @@ class DemoRomsService {
     return true;
   }
 
-  /// The demo itself: a BASIC listing typed at the READY prompt.
+  /// What the demo is called in the library.
+  static const String demoTitle = 'Retro-C64 Demo';
+
+  /// Puts the demo .prg in the user's media folder, so it appears in Games
+  /// alongside anything else they have and is started the same way.
   ///
-  /// TYPED, not loaded. Loading needs the 1541's own Commodore ROM, which the
-  /// app cannot ship either, so a .prg or .d64 demo would fail on exactly the
-  /// machine this is meant to prove works.
-  static const List<String> demoProgram = <String>[
-    '10 POKE 53280,0:POKE 53281,0',
-    '20 PRINT CHR\$(147)',
-    '30 PRINT "RETRO-C64"',
-    '40 PRINT',
-    '50 PRINT "THIS IS A REAL C64, RUNNING ON"',
-    '60 PRINT "FREE OPEN-SOURCE ROMS."',
-    '70 PRINT',
-    '80 PRINT "NO COMMODORE ROMS WERE NEEDED"',
-    '90 PRINT "TO SHOW YOU THIS."',
-    '100 FOR I=0 TO 15:POKE 53280,I',
-    '110 FOR J=0 TO 60:NEXT J,I',
-    '120 GOTO 100',
-    'RUN',
-  ];
+  /// The user drives it. Nothing is autoplayed and no keys are pressed for
+  /// them: setup says the demo is there, and they pick it.
+  ///
+  /// Returns the installed path. Overwrites, so a newer build of the app
+  /// replaces an older demo rather than leaving a stale one; nothing else is
+  /// called this, and it is ours to replace.
+  static Future<String> installDemoProgram(Directory mediaDir) async {
+    await mediaDir.create(recursive: true);
+    final file = File('${mediaDir.path}/$demoTitle.prg');
+    final data = await rootBundle.load(_demoAsset);
+    await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+    return file.path;
+  }
+
+  static const String _demoAsset = 'assets/demo/demo.prg';
+
+
 }

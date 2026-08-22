@@ -28,6 +28,31 @@ extern "C" {
 void vice_core_init(const char *rom_dir);
 
 /*
+ * Choose how a .prg is autostarted. 0 (the default) injects it through
+ * VICE's virtual filesystem device; 1 pokes it straight into RAM.
+ *
+ * This exists because the two modes fail on opposite ROM sets, and neither
+ * is right for both:
+ *
+ *   * VFS mode works by patching Commodore KERNAL routines at fixed
+ *     addresses. On the bundled Open ROMs -- an independent reimplementation
+ *     -- those routines are not there, the patch never fires, and the LOAD
+ *     goes out to a drive that does not exist: "?DEVICE NOT PRESENT ERROR".
+ *   * RAM injection needs no KERNAL at all, but it can only start a program
+ *     that RUN will start. A machine-code game that loads outside the BASIC
+ *     area sits at the READY prompt doing nothing, which is what happens to
+ *     real titles under it.
+ *
+ * So the caller decides, and it is not a preference: it follows which ROMs
+ * are fitted. With Open ROMs the only thing expected to run is the bundled
+ * demo, which is a BASIC stub and starts fine either way; with real ROMs the
+ * VFS path is the one that has always worked and stays the default.
+ *
+ * Must be called before vice_core_start().
+ */
+void vice_core_set_prg_inject(int enable);
+
+/*
  * Start the VICE x64sc core on a background thread, or -- if the core is
  * already started -- hot-swap it to a different title.
  *
