@@ -69,8 +69,12 @@ void main() {
     await pumpWizard(tester, storage: FakeStorageAccess());
 
     // Nothing found is the common first-run case, not an error state. The
-    // way forward is the folder plus a rescan - the Files picker is gone.
-    expect(find.textContaining('Scan'), findsWidgets);
+    // way forward is either of the two buttons the screen now offers: Start,
+    // which goes on to the workbench where the folder is chosen, or Store
+    // Compliance, which needs nothing from the user at all. Choosing a
+    // folder is no longer a third button here.
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('Store Compliance'), findsOneWidget);
   });
 
   testWidgets('a failed sweep does not strand the user', (tester) async {
@@ -79,7 +83,8 @@ void main() {
     await pumpWizard(tester, storage: FakeStorageAccess(throwOnScan: true));
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Scan'), findsWidgets);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('Store Compliance'), findsOneWidget);
   });
 
   testWidgets('finishing marks setup complete and calls back', (tester) async {

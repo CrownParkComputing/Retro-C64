@@ -14,10 +14,12 @@ Open the app and tap "Compliance" in the sidebar. One page, on the device,
 needing no network connection, that answers everything this submission
 turns on:
 
-  1. "Run the free-ROM demo" -- a real emulated C64 boots and runs, with
-     nothing supplied by you. It uses its OWN ROM directory and the
-     emulator is pointed at it only while it runs, so it cannot touch or
-     depend on any ROMs a user has installed.
+  1. A switch that puts the app on the free ROMs. It boots from its own
+     ROM folder, so it cannot touch or depend on any ROMs a user has
+     installed. The page then says which file to open and where: Games in
+     the sidebar, then "Retro-C64 Demo". A real emulated C64 boots and runs
+     it, loaded the same way any tape or disk is loaded -- nothing is typed
+     in or started for you.
   2. The demo's files are listed by name with their full path, in a folder
      you can open and read -- the free ROMs, their licence texts and the
      demo program itself.

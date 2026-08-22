@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../data/category.dart';
 import '../ffi/vice_native_paths.dart';
 import '../services/app_prefs.dart';
 import '../services/demo_roms_service.dart';
@@ -125,14 +126,13 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     );
   }
 
-  Future<void> _runDemo() async {
-    setState(() => _busy = true);
-    try {
-      await context.read<WorkbenchViewModel>().launchFreeRomDemo(context);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  /// Takes them to the library rather than starting anything.
+  ///
+  /// The demo is opened the way any other file is opened. An earlier version
+  /// started it from here, which both failed and taught the user nothing
+  /// about how to open their own files.
+  void _goToGames() =>
+      context.read<WorkbenchViewModel>().setCategory(WorkbenchCategory.games);
 
   Future<void> _restoreLegacy() async {
     final n = await DemoRomsService.restoreUserRoms(
@@ -200,14 +200,34 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
               ),
               if (_demoMode)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton.icon(
-                      onPressed: _busy ? null : _runDemo,
-                      icon: const Icon(Icons.play_arrow, size: 18),
-                      label: const Text('Run the demo program'),
-                    ),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'To run the demo:',
+                        style: TextStyle(
+                            color: Colors.white, fontSize: 13,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '  1.  Open Games in the sidebar.\n'
+                        '  2.  Tap "${DemoRomsService.demoTitle}".\n\n'
+                        'It loads the same way a tape, a disk or any other '
+                        'program does -- nothing here is typed in or started '
+                        'for you, so what you see the demo do is what the '
+                        'emulator does with any file you give it.',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13, height: 1.4),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _goToGames,
+                        icon: const Icon(Icons.videogame_asset, size: 18),
+                        label: const Text('Open Games'),
+                      ),
+                    ],
                   ),
                 ),
             ],

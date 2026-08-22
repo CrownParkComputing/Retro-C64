@@ -35,7 +35,6 @@ import '../services/app_prefs.dart';
 import '../ffi/vice_native_paths.dart';
 import '../services/demo_roms_service.dart';
 import '../view_models/workbench_view_model.dart';
-import '../services/startup_import.dart';
 import '../services/storage_access.dart';
 
 const String kGamesImportSubdir = 'games';
@@ -174,34 +173,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
   }
 
-  Future<void> _importMore() async {
-    if (_busy) return;
-    if (_isFolderScan) {
-      setState(() => _busy = true);
-      final result =
-          await _storage.pickFolder(dialogTitle: 'Select Games Folder');
-      if (result != null) {
-        await AppPrefs.setGamesFolderPath(result.path);
-      }
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        if (result != null) _needsFolder = false;
-      });
-      await _scanOnStartup();
-      return;
-    }
-
-    // iOS has no picker any more: the app's folder in Files is the one door,
-    // and everything dropped there imports itself. "Import more" is therefore
-    // a rescan - run the startup import again and re-read the shelf.
-    setState(() => _busy = true);
-    await StartupImport.run();
-    if (!mounted) return;
-    setState(() => _busy = false);
-    await _scanOnStartup();
-  }
-
   Future<void> _finishSetup() async {
     await AppPrefs.setSetupCompleted(true);
     if (!mounted) return;
@@ -250,9 +221,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ..writeln()
         ..writeln('READY.')
         ..writeln()
-        ..writeln('CHOOSE THE FOLDER YOUR DISKS,')
-        ..writeln('TAPES AND PROGRAMS ARE IN, AND')
-        ..writeln('THEY WILL BE LISTED HERE.')
+        ..writeln('PRESS "START" AND POINT THE APP')
+        ..writeln('AT THE FOLDER YOUR DISKS, TAPES')
+        ..writeln('AND PROGRAMS ARE IN, FROM')
+        ..writeln('PATHS IN THE SIDEBAR.')
         ..writeln()
         ..write('OR PRESS "STORE COMPLIANCE" - IT\nNEEDS NOTHING FROM YOU.');
       return buffer.toString();
@@ -270,9 +242,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         ..writeln('READY.')
         ..writeln()
         ..writeln(_isFolderScan
-            ? '? NO GAMES FOLDER SET - CHOOSE ONE'
+            ? '? NO GAMES FOUND - SET THE FOLDER IN\n  PATHS AFTER PRESSING START'
             : '? NOTHING FOUND - PUT ZIPS IN THIS APP\'S FOLDER\n'
-                '  (FILES > ON MY IPAD > RETRO-C64), THEN SCAN')
+                '  (FILES > ON MY IPAD > RETRO-C64)')
         ..writeln()
         ..write('OR PRESS "STORE COMPLIANCE" - IT\n'
                 'NEEDS NOTHING FROM YOU.');
@@ -382,13 +354,17 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       // "?DEVICE NOT PRESENT". Injection needs no KERNAL at all.
       vm.core.setPrgInject(true);
 
+      // Lands on the compliance page, which says which file to open and
+      // how. Nothing is started for the user: they open the demo from the
+      // library the same way they would open a tape or a disk, which is
+      // also the only version of this that shows them how to open anything
+      // else.
+      vm.setCategory(WorkbenchCategory.compliance);
       widget.onComplete();
-      if (!mounted) return;
-      await vm.launchFreeRomDemo(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start the demo: $e')),
+        SnackBar(content: Text('Could not switch to the free ROMs: $e')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -426,9 +402,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
           // the user. Everything else on this screen asks for something.
           _button('Store Compliance', _busy ? null : _storeCompliance),
           const SizedBox(width: 8),
-          _button(_isFolderScan ? 'Choose folder' : 'Scan',
-              _busy ? null : _importMore),
-          const SizedBox(width: 8),
+          // Choosing a folder is NOT on this screen any more. Two buttons
+          // that both need something from the user, next to one that does
+          // not, made the first decision look like three. Picking a folder
+          // belongs where the folder is described -- Paths -- and Start goes
+          // there anyway when nothing has been found.
           _button('Start', _busy ? null : _finishSetup),
         ],
       ),

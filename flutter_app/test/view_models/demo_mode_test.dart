@@ -35,7 +35,7 @@ void main() {
     expect(vm.visibleCategories, WorkbenchCategory.values);
   });
 
-  test('free-ROM mode hides Games and Music', () async {
+  test('free-ROM mode hides Music but keeps Games', () async {
     SharedPreferences.setMockInitialValues({
       'setup_completed': true,
       'demo_rom_mode': true,
@@ -43,8 +43,10 @@ void main() {
     final vm = await settled(FakeViceCore(isRunning: false));
 
     expect(vm.demoMode, isTrue);
-    expect(vm.visibleCategories, isNot(contains(WorkbenchCategory.games)));
     expect(vm.visibleCategories, isNot(contains(WorkbenchCategory.music)));
+    // Games stays: the demo is opened from the library like any other file,
+    // because nothing is auto-started on the user's behalf.
+    expect(vm.visibleCategories, contains(WorkbenchCategory.games));
     // What is left has to be enough to run the demo, read what the mode
     // means, and get out.
     expect(vm.visibleCategories, contains(WorkbenchCategory.compliance));
@@ -55,10 +57,10 @@ void main() {
   test('a hidden destination cannot stay selected', () async {
     SharedPreferences.setMockInitialValues({'setup_completed': true});
     final vm = await settled(FakeViceCore(isRunning: false));
-    vm.setCategory(WorkbenchCategory.games);
-    expect(vm.category, WorkbenchCategory.games);
+    vm.setCategory(WorkbenchCategory.music);
+    expect(vm.category, WorkbenchCategory.music);
 
-    // Switching the mode on with Games selected would otherwise leave the
+    // Switching the mode on with Music selected would otherwise leave the
     // rail pointing at a destination it no longer lists.
     await AppPrefs.setDemoRomMode(true);
     await vm.refreshDemoMode();

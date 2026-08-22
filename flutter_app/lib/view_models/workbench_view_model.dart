@@ -69,6 +69,12 @@ class WorkbenchViewModel extends ChangeNotifier {
   /// narrow: run the demo, read what the mode means, leave.
   List<WorkbenchCategory> get visibleCategories => _demoMode
       ? const [
+          // Games stays, and has to: the demo is a file you open from the
+          // library like any other, using the same load the emulator uses
+          // for a tape or a disk. Nothing is auto-started or typed in on the
+          // user's behalf, so taking the library away would leave no way to
+          // start the demo at all.
+          WorkbenchCategory.games,
           WorkbenchCategory.resume,
           WorkbenchCategory.compliance,
           WorkbenchCategory.about,
@@ -217,53 +223,6 @@ class WorkbenchViewModel extends ChangeNotifier {
     _library = result.entries;
     _unreadableCount = result.unreadableCount;
     _isLibraryLoading = false;
-    notifyListeners();
-  }
-
-  /// Starts the demo program on the machine as it is.
-  ///
-  /// It does NOT switch ROM sets. It cannot: VICE loads its ROMs when the
-  /// machine starts and the bridge has no supported way to re-run that
-  /// in-process, so which ROMs are in use was settled at app startup by
-  /// AppPrefs.getDemoRomMode(). An earlier version of this pointed the core
-  /// at a different ROM directory and called start() again, which looked
-  /// right and did nothing at all: the core was already running, so start()
-  /// only queued a media swap and the machine carried on with the ROMs it
-  /// had booted with.
-  ///
-  /// So the compliance page turns demo mode on and asks for a restart, and
-  /// this just runs the program.
-  Future<void> launchFreeRomDemo(BuildContext context) async {
-    if (_inEmulator) return;
-    _silenceWorkbenchMusic();
-
-    final String prg;
-    try {
-      prg = await DemoRomsService.prepareDemoEnvironment();
-    } catch (e) {
-      if (context.mounted) {
-        _showLaunchError(context, 'Could not set the demo up.', detail: '$e');
-      }
-      return;
-    }
-
-    core.setPaused(false);
-    final result = core.start(mediaType: ViceMedia.prg, mediaPath: prg);
-    if (result != 0) {
-      if (context.mounted) {
-        _showLaunchError(context, 'The demo would not start.',
-            detail: 'Error $result');
-      }
-      return;
-    }
-
-    _inEmulator = true;
-    _chromeVisible = true;
-    _category = WorkbenchCategory.resume;
-    _emulatorLabel = DemoRomsService.demoTitle;
-    _lastMediaName = DemoRomsService.demoTitle;
-    _currentEntry = null;
-    _idleTimer?.cancel();
     notifyListeners();
   }
 
