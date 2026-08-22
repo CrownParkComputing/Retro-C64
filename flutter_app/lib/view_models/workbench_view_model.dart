@@ -312,9 +312,7 @@ class WorkbenchViewModel extends ChangeNotifier {
     _inEmulator = false;
     _chromeVisible = true;
     scheduleIdle();
-    // Back at the workbench, the tune may play again.
-    _musicSuppressed = false;
-    unawaited(_startWorkbenchMusic());
+    _resumeWorkbenchMusic();
     await _captureSaveState(_currentEntry);
     core.setPaused(true);
     notifyListeners();
@@ -355,6 +353,14 @@ class WorkbenchViewModel extends ChangeNotifier {
   void _silenceWorkbenchMusic() {
     _musicSuppressed = true;
     VsidService.instance.pause();
+  }
+
+  /// Lets the workbench tune play again, and starts it. The counterpart to
+  /// [_silenceWorkbenchMusic]: every path that silences has to reach this
+  /// one, including the paths where the game never actually started.
+  void _resumeWorkbenchMusic() {
+    _musicSuppressed = false;
+    unawaited(_startWorkbenchMusic());
   }
 
   Future<void> _startWorkbenchMusic() async {
@@ -403,6 +409,13 @@ class WorkbenchViewModel extends ChangeNotifier {
   }
 
   void _showLaunchError(BuildContext context, String message, {required String detail, bool offerPermission = false}) {
+    // A launch that failed leaves the user at the workbench, so the workbench
+    // tune belongs back on. Every failure path in launch() and resumeSaved()
+    // exits through here, and each one had already silenced the music on the
+    // way in -- without this, one unreadable file or one missing drive ROM
+    // left the menu silent for the rest of the session, with nothing to
+    // connect the two.
+    _resumeWorkbenchMusic();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: const Color(0xFF3A1D1D),

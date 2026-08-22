@@ -43,6 +43,11 @@ class FakeViceCore implements ViceCore {
   /// are not about the picture.
   FrameSnapshot? frame;
 
+  /// What start() returns. Non-zero is how the real core reports that it
+  /// could not launch the media, and the workbench has to undo what it did in
+  /// preparation -- so a fake that can only succeed cannot test that.
+  int startResult = 0;
+
   FakeViceCore({this.isRunning = true, this.fps = 50, bool withFrame = false}) {
     if (withFrame) frame = solidFrame();
   }
@@ -63,8 +68,9 @@ class FakeViceCore implements ViceCore {
   int start({required int mediaType, String? mediaPath, String? commandLine}) {
     startCount++;
     startedPaths.add(mediaPath);
+    if (startResult != 0) return startResult;
     isRunning = true;
-    return 0;
+    return startResult;
   }
 
   /// VICE's resource table, faked as a plain map. Tests that drive the Core

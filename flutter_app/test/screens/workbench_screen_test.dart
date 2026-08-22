@@ -28,17 +28,31 @@ import '../fakes/fake_vice_core.dart';
 class _FakeVsid extends VsidService {
   _FakeVsid() : super.forTesting();
   int pauseCalls = 0;
+  int resumeCalls = 0;
+  bool paused = false;
   final String _path = '/music/Commando.sid';
   @override
   Future<bool> ensureLoaded() async => true;
   @override
-  void pause() => pauseCalls++;
+  void pause() {
+    pauseCalls++;
+    paused = true;
+  }
+
+  /// The workbench restarts an already-loaded tune by un-pausing it, so this
+  /// is what "the music came back" looks like from here.
+  @override
+  void togglePause() {
+    paused = !paused;
+    if (!paused) resumeCalls++;
+  }
+
   @override
   String? get currentPath => _path;
   @override
   bool get isRunning => true;
   @override
-  bool get isPaused => false;
+  bool get isPaused => paused;
 }
 
 void main() {
@@ -219,5 +233,32 @@ void main() {
 
     expect(vsid.pauseCalls, greaterThan(0),
         reason: 'the SID player should have been paused for the game');
+  });
+
+  testWidgets('a launch that fails gives the workbench music back',
+      (tester) async {
+    // The failure paths silence the tune on the way in and then return
+    // early, having never started a game. Without putting it back, one
+    // unreadable file or one missing drive ROM left the menu silent for the
+    // rest of the session -- and nothing on screen would connect the two.
+    final real = VsidService.instance;
+    final vsid = _FakeVsid();
+    VsidService.instance = vsid;
+    addTearDown(() => VsidService.instance = real);
+
+    final core = FakeViceCore(isRunning: false)..startResult = -1;
+    await pumpWorkbench(tester, core);
+    await tester.tap(find.text('Boulder Dash'));
+    // Restarting the tune reads a preference first, so it takes a real async
+    // hop rather than a frame.
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(vsid.paused, isFalse,
+        reason: 'the tune must not be left paused by a launch that failed');
+    expect(vsid.resumeCalls, greaterThan(0));
   });
 }
