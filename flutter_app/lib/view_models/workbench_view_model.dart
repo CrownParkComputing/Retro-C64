@@ -20,6 +20,7 @@ import '../services/platform_info.dart';
 import '../services/save_state_service.dart';
 import '../services/service_locator.dart';
 import '../services/storage_access.dart';
+import '../services/demo_roms_service.dart';
 import '../services/vsid_service.dart';
 import '../screens/setup_wizard_screen.dart' show kGamesImportSubdir;
 
@@ -185,6 +186,76 @@ class WorkbenchViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// True while the machine is running the bundled free ROMs rather than the
+  /// user's. Kept so the core can be pointed back when the demo ends.
+  bool _inFreeRomDemo = false;
+  bool get inFreeRomDemo => _inFreeRomDemo;
+
+  /// Starts the free-ROM demo in its own world.
+  ///
+  /// Deliberately separate from a normal launch. The demo exists to show the
+  /// emulator working with nothing of the user's supplied, and it would be a
+  /// poor demonstration of that if it had to borrow -- or worse, overwrite --
+  /// their ROMs to do it. Instead the core is pointed at the demo's own ROM
+  /// directory for the duration, and pointed back on the way out, so the two
+  /// never meet.
+  Future<void> launchFreeRomDemo(BuildContext context) async {
+    _silenceWorkbenchMusic();
+    final String prg;
+    final Directory romDir;
+    try {
+      prg = await DemoRomsService.prepareDemoEnvironment();
+      romDir = await DemoRomsService.demoRomDir();
+    } catch (e) {
+      if (context.mounted) {
+        _showLaunchError(context, 'Could not set the demo up.',
+            detail: '$e');
+      }
+      return;
+    }
+
+    core.init(romDir.path);
+    // The free ROMs are not Commodore's and have none of the KERNAL hooks
+    // VICE's usual .prg autostart patches, so that path reports
+    // "?DEVICE NOT PRESENT" on them. Injection needs no KERNAL at all.
+    core.setPrgInject(true);
+    core.setPaused(false);
+
+    final result = core.start(mediaType: ViceMedia.prg, mediaPath: prg);
+    if (result != 0) {
+      await _leaveFreeRomDemo();
+      if (context.mounted) {
+        _showLaunchError(context, 'The demo would not start.',
+            detail: 'Error $result');
+      }
+      return;
+    }
+
+    _inFreeRomDemo = true;
+    _inEmulator = true;
+    _chromeVisible = true;
+    _category = WorkbenchCategory.resume;
+    _emulatorLabel = DemoRomsService.demoTitle;
+    _lastMediaName = DemoRomsService.demoTitle;
+    _currentEntry = null;
+    _idleTimer?.cancel();
+    notifyListeners();
+  }
+
+  /// Puts the core back on the user's own ROMs after the demo.
+  Future<void> _leaveFreeRomDemo() async {
+    if (!_inFreeRomDemo) return;
+    _inFreeRomDemo = false;
+    final real = await ViceNativePaths.resolveRomDir();
+    if (real != null) {
+      core.init(real);
+      // And back to the autostart path that suits real ROMs, which is the
+      // only one that starts a machine-code title.
+      core.setPrgInject(
+          await DemoRomsService.installed(Directory(real)));
+    }
+  }
+
   Future<void> launch(MediaEntry entry, BuildContext context) async {
     _silenceWorkbenchMusic();
 
@@ -307,6 +378,7 @@ class WorkbenchViewModel extends ChangeNotifier {
   }
 
   Future<void> backToLibrary() async {
+    await _leaveFreeRomDemo();
     emulatorUi.reset();
     _chromeTimer?.cancel();
     _inEmulator = false;

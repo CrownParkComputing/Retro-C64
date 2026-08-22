@@ -8,11 +8,28 @@ free, open-source ROM set and puts a small demo program in the games list.
 Tap "Go to games", then tap "Retro-C64 Demo". A real emulated C64 boots and
 runs it.
 
-If setup has already been completed, the same thing is available at any
-time: Paths > App Store / Play Store compliance > "Use free ROMs", then
-pick "Retro-C64 Demo" in Games. That section also states, on screen, what
-the app does and does not ship and under which licences. Setup itself can
-be re-run from the same screen with "Run setup again".
+THE COMPLIANCE PAGE
+
+Paths > App Store / Play Store compliance > Open. One page, on the device,
+needing no network connection, that answers everything this submission
+turns on:
+
+  1. "Run the free-ROM demo" -- a real emulated C64 boots and runs, with
+     nothing supplied by you. It uses its OWN ROM directory and the
+     emulator is pointed at it only while it runs, so it cannot touch or
+     depend on any ROMs a user has installed.
+  2. The demo's files are listed by name with their full path, in a folder
+     you can open and read -- the free ROMs, their licence texts and the
+     demo program itself.
+  3. What the free ROMs are, who wrote them and under which licence.
+  4. That Commodore's ROMs are never shipped, and the legitimate ways to
+     obtain them.
+  5. That no games are shipped.
+  6. The free-software licences and where the source is.
+  7. The privacy position.
+
+Setup can also be re-run at any time from the same screen ("Run setup
+again"), which offers the demo as it does on a first launch.
 
 Nothing else is needed: no files, no accounts, no network, no ROMs of your
 own. That path exists specifically so the app can be evaluated by someone

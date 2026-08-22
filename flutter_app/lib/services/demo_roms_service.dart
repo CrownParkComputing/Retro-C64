@@ -23,6 +23,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart' show rootBundle;
 
+import '../ffi/vice_native_paths.dart';
+
 /// Where the Open ROMs live in the bundle, and what each is called once
 /// installed.
 ///
@@ -40,6 +42,80 @@ const Map<String, String> _openRomAssets = {
 };
 
 class DemoRomsService {
+  /// The demo's OWN ROM directory, beside the user's rather than inside it.
+  ///
+  /// This is what keeps the two worlds apart. The Open ROMs have to be called
+  /// what VICE calls its ROMs, so putting them in the user's directory means
+  /// standing on top of that user's own dump -- fine on a first run with an
+  /// empty folder, not fine for something you can now start at any time. The
+  /// core takes its ROM directory as an argument (vice_core_init) and reads
+  /// it when a machine starts, so the demo simply points the core somewhere
+  /// else for as long as it runs, and points it back afterwards. Nothing of
+  /// the user's is moved, copied or overwritten.
+  /// It is also a VISIBLE directory, not a private one. A store review team
+  /// has to be able to look at what the app claims to ship -- the free ROMs,
+  /// their licence text and the demo program -- and "trust us, they are in
+  /// there somewhere" is not an answer. On iOS this is the Documents folder
+  /// the Files app shows; elsewhere it is the app's own media folder, which
+  /// is reachable over USB. The compliance page prints the full path and
+  /// lists what is in it.
+  static Future<Directory> demoRomDir() async {
+    final root = Platform.isIOS
+        ? await ViceNativePaths.iosDocumentsDirPath()
+        : await ViceNativePaths.mediaDirPath();
+    return Directory('$root/FreeRomDemo');
+  }
+
+  /// Everything the demo directory holds, for display. Names only -- the
+  /// point is that a reviewer can see the list and go and open the files.
+  static Future<List<String>> demoFiles({Directory? from}) async {
+    final dir = from ?? await demoRomDir();
+    if (!dir.existsSync()) return const [];
+    final names = <String>[];
+    for (final e in dir.listSync(recursive: true)) {
+      if (e is File) {
+        names.add(e.path.substring(dir.path.length + 1));
+      }
+    }
+    names.sort();
+    return names;
+  }
+
+  /// Lays out the demo's own world: its ROMs and its program. Idempotent.
+  ///
+  /// Returns the .prg to start. The program lives here too, not in the user's
+  /// games folder, because it belongs to the demo rather than to their
+  /// library -- see [installDemoProgram] for the case where they do want a
+  /// copy of it among their own files.
+  ///
+  /// [into] overrides the location, which is how this is tested without a
+  /// platform channel: resolving the real directory needs path_provider, and
+  /// a service that can only be exercised on a device is one whose promises
+  /// go unchecked.
+  static Future<String> prepareDemoEnvironment({Directory? into}) async {
+    final root = into ?? await demoRomDir();
+    await install(root);
+    final prg = File('${root.path}/$demoTitle.prg');
+    final data = await rootBundle.load(_demoAsset);
+    await prg.writeAsBytes(data.buffer.asUint8List(), flush: true);
+
+    // The licence text goes next to the ROMs it covers, so that anyone
+    // looking at the files can see the terms without leaving the folder.
+    // The LGPL is written as an additional permission on top of the GPL, so
+    // both texts are needed to state it correctly.
+    for (final name in const [
+      'README.txt',
+      'COPYING',
+      'COPYING.LESSER',
+      'LICENSE.txt',
+    ]) {
+      final bytes = await rootBundle.load('assets/vice/OPENROMS/$name');
+      await File('${root.path}/$name')
+          .writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+    }
+    return prg.path;
+  }
+
   /// Suffix for a user ROM moved aside so a demo ROM can take its name.
   static const String _backupSuffix = '.user-rom';
 

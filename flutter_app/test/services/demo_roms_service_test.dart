@@ -108,6 +108,43 @@ void main() {
     expect(mine.readAsBytesSync(), myBytes);
   });
 
+  test('the demo environment is a separate world from the user\'s ROMs',
+      () async {
+    // The claim the compliance page makes is that running the demo cannot
+    // affect a machine set up with real ROMs. That holds only while the demo
+    // has its own ROM directory -- so this checks that preparing it writes a
+    // complete, self-contained set somewhere, and that the somewhere is not
+    // the directory the user's ROMs live in.
+    final userRoms = Directory('${temp.path}/C64')
+      ..createSync(recursive: true);
+    final mine = File('${userRoms.path}/${ViceNativePaths.requiredRomNames.first}');
+    final myBytes = List<int>.generate(8192, (i) => (i * 11) & 0xff);
+    mine.writeAsBytesSync(myBytes);
+
+    // A directory of its own, standing in for the visible one the app picks
+    // on a device (resolving that needs a platform channel).
+    final demoDir = Directory.systemTemp.createTempSync('demoworld');
+    addTearDown(() => demoDir.deleteSync(recursive: true));
+    expect(demoDir.path, isNot(equals(temp.path)));
+
+    final prg = await DemoRomsService.prepareDemoEnvironment(into: demoDir);
+
+    expect(File(prg).existsSync(), isTrue);
+    expect(await DemoRomsService.installed(demoDir), isTrue,
+        reason: 'the demo directory has a complete free ROM set');
+
+    // The reviewer-facing promise: the files are listable and include the
+    // licence texts, next to the ROMs they cover.
+    final files = await DemoRomsService.demoFiles(from: demoDir);
+    expect(files, contains('COPYING.LESSER'));
+    expect(files.any((f) => f.endsWith('.prg')), isTrue);
+
+    // And the user's own ROM is exactly as it was.
+    expect(mine.readAsBytesSync(), myBytes);
+    expect(await DemoRomsService.hasUserRomBackup(temp), isFalse,
+        reason: 'nothing of the user\'s was moved aside');
+  });
+
   test('puts a demo program in the library for the user to pick', () async {
     final path = await DemoRomsService.installDemoProgram(temp);
     final file = File(path);
