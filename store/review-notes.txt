@@ -31,7 +31,7 @@ turns on:
 There is also a link to it from About.
 
 Setup can be re-run at any time from Paths ("Run setup again"), and its
-"Open ROM demo" button switches to the free ROMs and starts the demo
+"Store Compliance" button switches to the free ROMs and starts the demo
 immediately.
 
 Nothing else is needed: no files, no accounts, no network, no ROMs of your

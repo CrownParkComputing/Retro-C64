@@ -97,6 +97,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   bool _busy = false;
   bool _scanned = false;
+
+  /// A folder has to be chosen before anything can be looked in. Distinct
+  /// from "scanned and found nothing", which is a different sentence.
+  bool _needsFolder = false;
   String? _gamesFolderPath;
   List<ImportedFile> _found = const [];
 
@@ -105,7 +109,27 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   @override
   void initState() {
     super.initState();
-    _scanOnStartup();
+    _scanIfThereIsSomewhereToScan();
+  }
+
+  /// Only scans when there is somewhere to scan.
+  ///
+  /// On the folder-scan platforms, with no folder chosen yet, there is
+  /// nothing to look in -- so the wizard used to flash "SEARCHING..." and
+  /// then report finding nothing, which reads as a failure rather than as a
+  /// question not yet asked. Choosing the folder is the first step; the scan
+  /// follows it.
+  ///
+  /// The file-import platforms are different and are left alone: their
+  /// folder is not a choice. The app's own Documents folder is the one door
+  /// files can arrive through, so sweeping it on entry is looking in the
+  /// only place there is.
+  Future<void> _scanIfThereIsSomewhereToScan() async {
+    if (_isFolderScan && await AppPrefs.getGamesFolderPath() == null) {
+      if (mounted) setState(() => _needsFolder = true);
+      return;
+    }
+    await _scanOnStartup();
   }
 
   /// Pulls in whatever is already reachable, without prompting. On the
@@ -160,7 +184,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         await AppPrefs.setGamesFolderPath(result.path);
       }
       if (!mounted) return;
-      setState(() => _busy = false);
+      setState(() {
+        _busy = false;
+        if (result != null) _needsFolder = false;
+      });
       await _scanOnStartup();
       return;
     }
@@ -218,6 +245,19 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln('20 PRINT "RUNNING ON ${_platformLabel()}"')
       ..writeln('30 LOAD "\$",8');
 
+    if (_needsFolder) {
+      buffer
+        ..writeln()
+        ..writeln('READY.')
+        ..writeln()
+        ..writeln('CHOOSE THE FOLDER YOUR DISKS,')
+        ..writeln('TAPES AND PROGRAMS ARE IN, AND')
+        ..writeln('THEY WILL BE LISTED HERE.')
+        ..writeln()
+        ..write('OR PRESS "STORE COMPLIANCE" - IT\nNEEDS NOTHING FROM YOU.');
+      return buffer.toString();
+    }
+
     if (!_scanned) {
       buffer.write('\nSEARCHING...');
       return buffer.toString();
@@ -234,8 +274,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             : '? NOTHING FOUND - PUT ZIPS IN THIS APP\'S FOLDER\n'
                 '  (FILES > ON MY IPAD > RETRO-C64), THEN SCAN')
         ..writeln()
-        ..write('OR PRESS "SEE IT WORKING" - NEEDS\n'
-                'NOTHING FROM YOU');
+        ..write('OR PRESS "STORE COMPLIANCE" - IT\n'
+                'NEEDS NOTHING FROM YOU.');
       return buffer.toString();
     }
 
@@ -297,7 +337,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
-  /// Switches the machine to the Open ROMs and starts the demo.
+  /// The store-compliance route: switches the machine to the free Open ROMs
+  /// and starts the demo on them.
+  ///
+  /// Named for what it is FOR rather than for what it does mechanically. It
+  /// is the thing a store reviewer is pointed at, and it has to be
+  /// recognisable as that on a screen they have never seen before -- the
+  /// sidebar entry it matches is called Compliance for the same reason.
   ///
   /// The whole point is that the user sees a C64 WORKING before being asked
   /// for anything. A first run used to end at a request for three Commodore
@@ -310,7 +356,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   /// set afterwards, so the compliance page has to ask for a restart. During
   /// setup no machine has started yet, so pointing the core at the demo's
   /// own ROM directory now simply decides what it will boot from.
-  Future<void> _openRomDemo() async {
+  Future<void> _storeCompliance() async {
     setState(() => _busy = true);
     try {
       await DemoRomsService.prepareDemoEnvironment();
@@ -378,7 +424,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         children: [
           // FIRST, and deliberately: the only button that needs nothing from
           // the user. Everything else on this screen asks for something.
-          _button('Open ROM demo', _busy ? null : _openRomDemo),
+          _button('Store Compliance', _busy ? null : _storeCompliance),
           const SizedBox(width: 8),
           _button(_isFolderScan ? 'Choose folder' : 'Scan',
               _busy ? null : _importMore),
