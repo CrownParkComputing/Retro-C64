@@ -17,15 +17,26 @@ It has the thing a permissive C64 core normally lacks: **real 1541
 emulation**, with D64 and G64. It also already embeds the MEGA65 Open ROMs as
 a hex dump — the same out-of-the-box story we just built, for free.
 
-**It builds and runs here.** Cloned, configured and compiled on this Linux
-box, and its own smoke tests pass:
+**It builds, and the spike passed on all four questions.** See
+`native/vc64_spike/` for the code, the frames and how to re-run it:
 
-    cmake -S VCCore -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
-    ./build/VC64Headless --smoke     # exits 0
+| | Question | Result |
+|---|---|---|
+| 1 | Boots with no Commodore ROM? | **Yes** — on the Open ROMs it embeds |
+| 2 | Runs `assets/demo/demo.prg`? | **Yes** — same text as the VICE frame |
+| 3 | Loads a real `.d64` through the 1541? | **Yes** — `LOADING FROM $0801 TO $9158`, `READY.` |
+| 4 | Runs a commercial title on real ROMs? | **Yes** — 1942 reaches its high-score screen |
 
-One upstream portability slip: `Peripherals/Joystick/Joystick.cpp` uses
-`INT_MAX` without including `<climits>`, which GCC rejects and Clang lets
-through. One line, worth sending upstream.
+That is the compatibility question answered with evidence rather than
+reputation: real drive emulation, a real disk image, a real game.
+
+**A finding worth knowing:** the Open ROMs include no 1541 DOS ROM, so disk
+images still need Commodore's drive ROM — exactly as under VICE. Changing
+cores does not buy a disk-based demo.
+
+Two upstream portability slips, both one-liners on Linux/GCC:
+`Joystick.cpp` uses `INT_MAX` without including `<climits>`, and `warpOn(0)`
+throws because source 0 is reserved for the warp config itself.
 
 ## The candidates
 
