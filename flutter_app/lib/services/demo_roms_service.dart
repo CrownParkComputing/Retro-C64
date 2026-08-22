@@ -95,6 +95,24 @@ class DemoRomsService {
   static Future<String> prepareDemoEnvironment({Directory? into}) async {
     final root = into ?? await demoRomDir();
     await install(root);
+    // Clear out any earlier demo before writing this one.
+    //
+    // The name has changed once already -- it was the display name, spaces
+    // and all, until the emulated machine turned out to be the thing reading
+    // it -- and the old file simply stayed behind, so the library listed two
+    // demos where there is one. Anything ending in .prg here belongs to the
+    // demo and is ours to replace; nothing of the user's is ever written to
+    // this folder.
+    if (root.existsSync()) {
+      for (final f in root.listSync()) {
+        if (f is File &&
+            f.path.toLowerCase().endsWith('.prg') &&
+            f.uri.pathSegments.last != demoFileName) {
+          f.deleteSync();
+        }
+      }
+    }
+
     final prg = File('${root.path}/$demoFileName');
     final data = await rootBundle.load(_demoAsset);
     await prg.writeAsBytes(data.buffer.asUint8List(), flush: true);

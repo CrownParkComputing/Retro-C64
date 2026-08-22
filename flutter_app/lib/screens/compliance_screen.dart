@@ -23,7 +23,11 @@ import '../theme/vice_theme.dart';
 import '../view_models/workbench_view_model.dart';
 
 class ComplianceScreen extends StatefulWidget {
-  const ComplianceScreen({super.key});
+  /// Reopens the setup wizard. Supplied by the workbench, which owns that
+  /// flag -- this screen does not navigate on its own.
+  final VoidCallback? onRerunSetup;
+
+  const ComplianceScreen({super.key, this.onRerunSetup});
 
   @override
   State<ComplianceScreen> createState() => _ComplianceScreenState();
@@ -357,6 +361,24 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           'of its own. The one feature that can is cover artwork, which does '
           'nothing until you enter a URL of your own in Settings.',
         ),
+
+        if (widget.onRerunSetup != null) ...[
+          const _Head('Start over'),
+          const _Body(
+            'Reopens the first-run screen, where the same choice is offered '
+            'again. Worth knowing because compliance mode hides Paths, which '
+            'is the other way back to it -- without this there would be no '
+            'way out of the mode except turning the switch off above.',
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : widget.onRerunSetup,
+              icon: const Icon(Icons.replay, size: 18),
+              label: const Text('Back to the setup screen'),
+            ),
+          ),
+        ],
 
         if (_legacyBackup) ...[
           const _Head('Left over from an earlier version'),

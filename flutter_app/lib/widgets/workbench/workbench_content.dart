@@ -92,7 +92,8 @@ class WorkbenchContent extends StatelessWidget {
           onRerunSetup: onRerunSetup,
         ),
       WorkbenchCategory.history => const HistoryScreen(),
-      WorkbenchCategory.compliance => const ComplianceScreen(),
+      WorkbenchCategory.compliance =>
+        ComplianceScreen(onRerunSetup: onRerunSetup),
       WorkbenchCategory.video => const VideoSettingsScreen(),
       WorkbenchCategory.input => InputSettingsScreen(
           leftHanded: vm.leftHanded,

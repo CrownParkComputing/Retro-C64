@@ -151,6 +151,21 @@ void main() {
         reason: 'nothing of the user\'s was moved aside');
   });
 
+  test('leaves exactly one demo program behind', () async {
+    // The demo's filename has already changed once, and the old file simply
+    // stayed put -- so the library listed two demos where there is one.
+    final demoDir = Directory.systemTemp.createTempSync('demoworld');
+    addTearDown(() => demoDir.deleteSync(recursive: true));
+    File('${demoDir.path}/Retro-C64 Demo.prg').writeAsBytesSync([1, 2, 3]);
+
+    await DemoRomsService.prepareDemoEnvironment(into: demoDir);
+
+    final prgs = (await DemoRomsService.demoFiles(from: demoDir))
+        .where((f) => f.toLowerCase().endsWith('.prg'))
+        .toList();
+    expect(prgs, [DemoRomsService.demoFileName]);
+  });
+
   test('puts a demo program in the library for the user to pick', () async {
     final path = await DemoRomsService.installDemoProgram(temp);
     final file = File(path);

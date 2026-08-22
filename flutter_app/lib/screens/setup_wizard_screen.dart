@@ -101,8 +101,38 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   Future<void> _finishSetup() async {
+    // Start means "use my own ROMs and games", so it also leaves compliance
+    // mode. Without this the flag survived, the next launch quietly booted
+    // the free ROMs again, and the user would be looking at a library that
+    // is not theirs having just asked for the opposite.
+    final wasDemo = await AppPrefs.getDemoRomMode();
+    if (wasDemo) await AppPrefs.setDemoRomMode(false);
     await AppPrefs.setSetupCompleted(true);
     if (!mounted) return;
+    if (wasDemo) {
+      final vm = context.read<WorkbenchViewModel>();
+      await vm.refreshDemoMode();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Back on your own ROMs'),
+          content: const Text(
+            'Close the app completely and open it again. The emulator picks '
+            'its ROMs as it starts, so the change takes effect on the next '
+            'launch. Nothing of yours was altered while compliance mode was '
+            'on.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+    }
     widget.onComplete();
   }
 
