@@ -581,6 +581,13 @@ class _AndroidSafStorage extends _FolderScanStorage {
     return FolderPickResult(await MediaFolder.displayPath() ?? granted);
   }
 
+  /// NOTE: [folderPath] is IGNORED here, and cannot be honoured.
+  ///
+  /// Android hands the app a SAF tree, not a path it may open: the grant is
+  /// for one specific tree and there is no way to point this at another
+  /// directory. Callers that need a particular directory read must not come
+  /// through here -- see WorkbenchViewModel.scanLibrary, where passing the
+  /// demo folder to this method silently kept listing the user's own games.
   @override
   Future<List<ImportedFile>> scanFolder(String folderPath,
       {List<String> extensions = kGameFileExtensions}) async {

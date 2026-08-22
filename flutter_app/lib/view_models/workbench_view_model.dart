@@ -218,7 +218,13 @@ class WorkbenchViewModel extends ChangeNotifier {
     }
 
     LibraryScanResult result;
-    if (Platform.isAndroid && await MediaFolder.hasFolder()) {
+    // Compliance mode never goes through the SAF path, and must not: on
+    // Android _AndroidSafStorage.scanFolder IGNORES the directory it is
+    // given and always lists the tree the user granted. Handing it the demo
+    // folder therefore changed nothing and the user's own games kept
+    // appearing. The demo folder is inside the app's own storage, so it can
+    // be read directly with no SAF grant at all.
+    if (!_demoMode && Platform.isAndroid && await MediaFolder.hasFolder()) {
       final imported = await StorageAccess.instance.scanFolder(scanDir ?? '');
       result = LibraryScanResult(
         entries: [
