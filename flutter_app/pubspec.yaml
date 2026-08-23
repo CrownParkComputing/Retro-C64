@@ -117,7 +117,6 @@ flutter:
     # product decision, not an oversight. The Music tab ALSO plays whatever
     # the user imports, so this is a starting playlist rather than the only
     # source.
-    - assets/sids/
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg

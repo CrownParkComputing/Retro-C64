@@ -33,7 +33,8 @@ class MusicScreen extends StatefulWidget {
   const MusicScreen({super.key});
 
   /// (title, artist, filename-within-the-music-folder). All 20 ship inside
-  /// the app as assets/sids/ (see ViceNativePaths.extractBundledSidDir), so
+  /// the app (see ViceNativePaths.extractBundledSidDir -- nothing is bundled
+  /// now, the tunes that were there are commercial recordings), so
   /// the playlist works out of the box on every platform.
   /// The playlist lives in MusicLibrary now: the workbench starts tunes
   /// too, and two copies of the list is how the two screens end up

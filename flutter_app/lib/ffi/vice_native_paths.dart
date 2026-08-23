@@ -266,15 +266,23 @@ class ViceNativePaths {
   /// would otherwise skip extraction forever and never see the new tunes.
   static const String _sidMarkerName = '.extracted';
 
-  /// Extracts the bundled SID tunes (assets/sids/, declared in pubspec.yaml)
-  /// into a real directory, once, and returns it.
+  /// Extracts any SID tunes bundled as assets into a real directory, once,
+  /// and returns it.
   ///
-  /// The SID player reads these by path via vice_vsid_launch(), so they
-  /// genuinely have to be files on disk -- an asset-bundle handle is not
-  /// something the native core can open.
+  /// NOTHING IS BUNDLED. The app used to ship 20 tunes whose own file headers
+  /// credit their composers and publishers -- "Rob Hubbard, 1985 Elite",
+  /// "Martin Galway, 1986 Imagine" -- which are commercial recordings still in
+  /// copyright and not ours to redistribute. They were removed rather than
+  /// declared to Apple as licensed third-party content.
   ///
-  /// Imported tunes live elsewhere and are found separately; see
-  /// music_screen.dart, which searches both.
+  /// The mechanism is kept because it costs nothing and is the right shape if
+  /// freely-licensed tunes are ever bundled: with no matching assets the loop
+  /// simply writes nothing and hands back an empty directory. Every caller
+  /// already merges this with the user's own imported tunes.
+  ///
+  /// The SID player reads by path via vice_vsid_launch(), so tunes genuinely
+  /// have to be files on disk -- an asset-bundle handle is not something the
+  /// native core can open.
   static Future<String> extractBundledSidDir() async {
     final sidRoot = await sidDir();
     final marker = File(p.join(sidRoot, _sidMarkerName));
