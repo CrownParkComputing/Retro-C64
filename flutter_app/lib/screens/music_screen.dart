@@ -140,8 +140,13 @@ class _MusicScreenState extends State<MusicScreen> {
   /// vsid core keeps playing across tab changes, so restarting here would
   /// jump back to bar one every time the user glanced at another tab. And it
   /// must not report an error when there is simply nothing to play -- the
-  /// grid already shows every card as "not downloaded", which says it better
-  /// than a red status line would.
+  /// grid already shows every card as "not in your library", which says it
+  /// better than a red status line would.
+  ///
+  /// That wording is deliberate. The cards are a catalogue of well-known
+  /// tunes, not an offer: nothing here downloads anything, and these are
+  /// commercial recordings whose composers hold the rights. "Not downloaded"
+  /// read as though the app would fetch them given the chance.
   Future<void> _autoStart() async {
     if (_vsid.currentPath != null) {
       // Already loaded from an earlier visit. Adopt it for the UI so the
@@ -181,7 +186,8 @@ class _MusicScreenState extends State<MusicScreen> {
 
   Future<void> _tap(String title, String? path) async {
     if (path == null) {
-      setState(() => _statusMessage = '$title: SID file not downloaded');
+      setState(() =>
+          _statusMessage = '$title: not in your library -- import the .sid');
       return;
     }
     if (!await _vsid.ensureLoaded()) {
@@ -440,7 +446,7 @@ class _MusicScreenState extends State<MusicScreen> {
                               ],
                             ),
                             Text(
-                              available ? artist : '$artist (not downloaded)',
+                              available ? artist : '$artist (not in your library)',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
