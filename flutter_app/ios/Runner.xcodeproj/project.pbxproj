@@ -18,8 +18,8 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		AC4777EC1C51FA9F3DDC0D6A /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA62C666F294AA08B030CC69 /* Pods_RunnerTests.framework */; };
-		C64R00012F0000000000001A /* libvicecore.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C64R00032F0000000000001A /* libvicecore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		C64R00022F0000000000001A /* libvicecore_vsid.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C64R00042F0000000000001A /* libvicecore_vsid.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		C64R00012F0000000000001A /* libvicecore.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C64R00032F0000000000001A /* libvicecore.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		C64R00022F0000000000001A /* libvicecore_vsid.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C64R00042F0000000000001A /* libvicecore_vsid.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,8 +39,8 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				C64R00012F0000000000001A /* libvicecore.dylib in Embed Frameworks */,
-				C64R00022F0000000000001A /* libvicecore_vsid.dylib in Embed Frameworks */,
+				C64R00012F0000000000001A /* libvicecore.xcframework in Embed Frameworks */,
+				C64R00022F0000000000001A /* libvicecore_vsid.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,8 +71,8 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C33954CE406D348B0ECEC7E4 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
-		C64R00032F0000000000001A /* libvicecore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libvicecore.framework; path = Frameworks/libvicecore.framework; sourceTree = "<group>"; };
-		C64R00042F0000000000001A /* libvicecore_vsid.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libvicecore_vsid.framework; path = Frameworks/libvicecore_vsid.framework; sourceTree = "<group>"; };
+		C64R00032F0000000000001A /* libvicecore.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libvicecore.xcframework; path = Frameworks/libvicecore.xcframework; sourceTree = "<group>"; };
+		C64R00042F0000000000001A /* libvicecore_vsid.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libvicecore_vsid.xcframework; path = Frameworks/libvicecore_vsid.xcframework; sourceTree = "<group>"; };
 		D06C4D2750E69B0932DC6C90 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		DA62C666F294AA08B030CC69 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -172,8 +172,8 @@
 		C64R00052F0000000000001A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				C64R00032F0000000000001A /* libvicecore.framework */,
-				C64R00042F0000000000001A /* libvicecore_vsid.framework */,
+				C64R00032F0000000000001A /* libvicecore.xcframework */,
+				C64R00042F0000000000001A /* libvicecore_vsid.xcframework */,
 				32C613C54674A7D63190571E /* Pods_Runner.framework */,
 				DA62C666F294AA08B030CC69 /* Pods_RunnerTests.framework */,
 			);

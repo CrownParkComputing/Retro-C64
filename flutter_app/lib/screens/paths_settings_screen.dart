@@ -1,3 +1,4 @@
+import 'dart:io';
 // Paths & Setup tab (WorkbenchCategory.paths). Shows what the setup wizard
 // currently has on file for this platform's storage strategy, lets the user
 // change folders directly with real Browse buttons (rather than only being
@@ -227,27 +228,63 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     widget.onLibraryShouldRescan?.call();
   }
 
+  /// Below this the header stacks. Measured against the panel an iPhone
+  /// leaves once the rail has taken its share, which is where the title was
+  /// being squeezed to a single character per line.
+  static const double _stackHeaderBelow = 360.0;
+
+
+  /// Where a ROM folder is, said in terms the reader can act on.
+  ///
+  /// The ROMs live under Application Support, which the Files app does not
+  /// publish -- so on iOS the absolute path is somewhere the user cannot go,
+  /// and printing it only exposes the container (and, on a build machine, the
+  /// account name, which is how one reached an App Store screenshot). Import
+  /// is the only route in on that platform, and the buttons above do it.
+  ///
+  /// On a desktop the path IS the mechanism, so it is shown unchanged.
+  String _romLocationLabel(String folder) {
+    if (Platform.isIOS || Platform.isAndroid) {
+      return 'inside the app (use Import above)';
+    }
+    return '$_romDirPath/$folder/';
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text('Paths & Setup',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
-            ),
-            if (widget.onRerunSetup != null)
-              OutlinedButton.icon(
-                onPressed: _rerunSetup,
-                icon: const Icon(Icons.replay, size: 16),
-                label: const Text('Run setup again'),
-              ),
-          ],
+        // Stacked on a narrow panel, side by side when there is room.
+        //
+        // Expanded gives the title whatever the button leaves, and "Run setup
+        // again" is not small: inside an iPhone's content column the title was
+        // left about 30pt and wrapped ONE CHARACTER PER LINE -- "Pa/th/s/&/
+        // Se/tu/p" down the screen. Expanded does not prevent that; it causes
+        // it, because a tight width is still a width the text will use.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final title = Text('Paths & Setup',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold));
+            final button = widget.onRerunSetup == null
+                ? null
+                : OutlinedButton.icon(
+                    onPressed: _rerunSetup,
+                    icon: const Icon(Icons.replay, size: 16),
+                    label: const Text('Run setup again'),
+                  );
+            if (button == null) return title;
+            if (constraints.maxWidth < _stackHeaderBelow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [title, const SizedBox(height: 8), button],
+              );
+            }
+            return Row(children: [Expanded(child: title), button]);
+          },
         ),
         const SizedBox(height: 10),
         if (_loading)
@@ -259,7 +296,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             label: 'C64 ROMs',
             value: _romsInstalled
                 ? 'Installed -- kernal, basic and chargen found'
-                : 'MISSING in $_romDirPath/C64/',
+                : 'MISSING in ${_romLocationLabel('C64')}',
             valueColor:
                 _romsInstalled ? ViceColors.accentTeal : Colors.orangeAccent,
             actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
@@ -277,7 +314,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             value: _driveRomInstalled
                 ? 'Installed -- disk images can load ($_driveRomFile)'
                 : _drivesDirFiles.isEmpty
-                    ? 'MISSING in $_romDirPath/DRIVES/ -- .d64 files will fail '
+                    ? 'MISSING in ${_romLocationLabel('DRIVES')} -- .d64 files will fail '
                         'with ?DEVICE NOT PRESENT'
                     : 'MISSING -- DRIVES/ holds '
                         '${_drivesDirFiles.join(", ")}, but none of those is '
@@ -309,7 +346,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                                 color: Colors.white70,
                                 fontWeight: FontWeight.bold),
                           ),
-                          TextSpan(text: '  ->  $_romDirPath/${req.folder}/\n'),
+                          TextSpan(text: '  ->  ${_romLocationLabel(req.folder)}\n'),
                           TextSpan(text: req.why),
                         ],
                       ),
