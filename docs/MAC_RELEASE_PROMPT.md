@@ -50,7 +50,7 @@ Podfile and runs `pod install` for `file_picker`, `shared_preferences` and
    that landed with the shared-sidebar refactor) and the app is now
    called Retro-C64.** A bundle ID can NEVER be changed once an App Store
    Connect record exists. Ask the owner whether to rename it (e.g.
-   `com.crownparkcomputing.c64retro`) BEFORE creating the record. If renaming,
+   `com.crownparkcomputing.c64-retro`) BEFORE creating the record. If renaming,
    change it in `ios/Runner.xcodeproj/project.pbxproj` and
    `android/app/build.gradle.kts` together, or the two stores diverge.
 2. **No `DEVELOPMENT_TEAM` is committed** — deliberately, it is
