@@ -32,13 +32,31 @@ REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 BRIDGE="${BRIDGE:-$REPO_ROOT/native/vice_core/bridge}"
 VICE_SRC="${VICE_SRC_HOST:-$HOME/AndroidStudioProjects/VICE-source/vice-3.10}"
 VICE_BUILD_DIR="${VICE_BUILD_DIR:?set VICE_BUILD_DIR to the simulator VICE build}"
-OUT_DIR="${OUT_DIR:-$REPO_ROOT/flutter_app/ios/vicecore/iphonesimulator}"
+IOS_MIN="${IOS_MIN:-15.0}"
+
+# Device or simulator, from one script. The linking is identical bar the
+# triple, the SDK and where the result lands -- and the device core needs
+# rebuilding on a Mac for the same reason the simulator one does: the binaries
+# are COMMITTED, so they drift behind native/vice_core/bridge, and a core
+# missing vice_core_set_prg_inject leaves the bundled demo dying at
+# "?DEVICE NOT PRESENT" with nothing naming a stale library as the cause.
+IOS_PLATFORM="${IOS_PLATFORM:-iphonesimulator}"
+case "$IOS_PLATFORM" in
+  # LD_PLATFORM is ld's own spelling and is NOT the same string as the triple:
+  # ld wants "ios-simulator" or "ios" for -platform_version. Leaving it fixed at
+  # ios-simulator is what made a device build fail deep in the rename step with
+  # "building for iOS Simulator, but linking in object file built for iOS".
+  iphonesimulator) TARGET="arm64-apple-ios${IOS_MIN}-simulator"; LD_PLATFORM="ios-simulator" ;;
+  iphoneos)        TARGET="arm64-apple-ios${IOS_MIN}";           LD_PLATFORM="ios" ;;
+  *) echo "IOS_PLATFORM must be iphoneos or iphonesimulator" >&2; exit 1 ;;
+esac
+
+OUT_DIR="${OUT_DIR:-$REPO_ROOT/flutter_app/ios/vicecore/$IOS_PLATFORM}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
-IOS_MIN="${IOS_MIN:-15.0}"
-TARGET="arm64-apple-ios${IOS_MIN}-simulator"
-SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+
+SDK="$(xcrun --sdk "$IOS_PLATFORM" --show-sdk-path)"
 
 VS="$VICE_BUILD_DIR/src"
 [ -f "$VS/lib.o" ] || { echo "no VICE objects in $VS" >&2; exit 1; }
@@ -62,7 +80,7 @@ rename_object() {
     done
     if [ -z "$args" ]; then cp "$src" "$dst"; return 0; fi
     # shellcheck disable=SC2086
-    ld -r -arch arm64 -platform_version ios-simulator "$IOS_MIN" "$IOS_MIN" \
+    ld -r -arch arm64 -platform_version "$LD_PLATFORM" "$IOS_MIN" "$IOS_MIN" \
         "$src" -o "$dst" $args
 }
 
@@ -140,7 +158,7 @@ unwrap_bridge_object() {
     done
     if [ -z "$args" ]; then return 0; fi
     # shellcheck disable=SC2086
-    ld -r -arch arm64 -platform_version ios-simulator "$IOS_MIN" "$IOS_MIN" \
+    ld -r -arch arm64 -platform_version "$LD_PLATFORM" "$IOS_MIN" "$IOS_MIN" \
         "$1" -o "$1.unwrapped" $args
     mv "$1.unwrapped" "$1"
 }

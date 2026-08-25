@@ -22,6 +22,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FRAMEWORKS="$ROOT/flutter_app/ios/Frameworks"
 SIM_DIR="$ROOT/flutter_app/ios/vicecore/iphonesimulator"
+DEV_DIR="$ROOT/flutter_app/ios/vicecore/iphoneos"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
@@ -29,8 +30,8 @@ trap 'rm -rf "$STAGE"' EXIT
 # Apple's validator then demands a SwiftSupport folder Xcode will not generate
 # (rejection 90426). So the simulator slice is wrapped as a framework too,
 # which also keeps the dlopen path identical on both platforms.
-wrap_simulator_framework() {
-  local name="$1" dylib="$2" dest="$3"
+wrap_framework() {
+  local name="$1" dylib="$2" dest="$3" platform="${4:-iPhoneSimulator}"
   # A CFBundleIdentifier may hold only alphanumerics, hyphen and period, and
   # libvicecore_vsid has an underscore. Xcode's embed validation rejects it:
   #   "had an invalid CFBundleIdentifier in its Info.plist"
@@ -53,7 +54,7 @@ wrap_simulator_framework() {
 	<key>CFBundlePackageType</key><string>FMWK</string>
 	<key>CFBundleShortVersionString</key><string>1.0</string>
 	<key>CFBundleVersion</key><string>1</string>
-	<key>CFBundleSupportedPlatforms</key><array><string>iPhoneSimulator</string></array>
+	<key>CFBundleSupportedPlatforms</key><array><string>$platform</string></array>
 	<key>MinimumOSVersion</key><string>15.0</string>
 </dict>
 </plist>
@@ -61,8 +62,20 @@ PLIST
 }
 
 for name in libvicecore libvicecore_vsid; do
+  device_dylib="$DEV_DIR/$name.dylib"
   device="$FRAMEWORKS/$name.framework"
   sim_dylib="$SIM_DIR/$name.dylib"
+
+  # Prefer a freshly built device dylib over the committed .framework. The
+  # committed one is what went stale -- it was missing
+  # vice_core_set_prg_inject while the bridge source had it -- so when a rebuild
+  # is present it wins, and the .framework is only a fallback for a checkout
+  # that has not rebuilt.
+  if [ -f "$device_dylib" ]; then
+    rm -rf "$STAGE/dev"
+    wrap_framework "$name" "$device_dylib" "$STAGE/dev" iPhoneOS
+    device="$STAGE/dev/$name.framework"
+  fi
   out="$FRAMEWORKS/$name.xcframework"
 
   [ -f "$device/$name" ] || { echo "missing device slice: $device/$name" >&2; exit 1; }
@@ -78,7 +91,7 @@ for name in libvicecore libvicecore_vsid; do
   mkdir -p "$STAGE/$name"
   cp -R "$device" "$STAGE/$name/device.framework.tmp"
   mv "$STAGE/$name/device.framework.tmp" "$STAGE/$name/$name.framework"
-  wrap_simulator_framework "$name" "$sim_dylib" "$STAGE/$name/sim"
+  wrap_framework "$name" "$sim_dylib" "$STAGE/$name/sim" iPhoneSimulator
 
   rm -rf "$out"
   xcodebuild -create-xcframework \
