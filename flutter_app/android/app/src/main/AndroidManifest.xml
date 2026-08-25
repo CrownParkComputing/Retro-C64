@@ -20,7 +20,7 @@
         android:maxSdkVersion="32" />
     <application
         android:requestLegacyExternalStorage="true"
-        android:label="Retro-C64"
+        android:label="Retro-64"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -1,5 +1,5 @@
 name: retro_c64
-description: "Retro-C64 -- a Commodore 64 emulator and workbench for Linux, Android and iOS."
+description: "Retro-64 -- a Commodore 64 emulator and workbench for Linux, Android and iOS."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -21,7 +21,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # App Store Connect refuses a CFBundleVersion it has already seen, and it says
 # so after the upload rather than before it. Xcode Cloud takes CFBundleVersion
 # from here via ios/ci_scripts/ci_post_clone.sh, so the bump has to live here.
-version: 1.0.0+45
+version: 1.0.0+46
 
 environment:
   sdk: ^3.13.0

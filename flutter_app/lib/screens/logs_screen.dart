@@ -109,7 +109,7 @@ class _LogsViewState extends State<LogsView> {
           // an email.
           SelectableText(
             Platform.isIOS
-                ? 'Also saved in the Files app under "Retro-C64 '
+                ? 'Also saved in the Files app under "Retro-64 '
                     'Emulator": ${_basename(path)}'
                 : path,
             style: const TextStyle(color: Colors.white38, fontSize: 11),

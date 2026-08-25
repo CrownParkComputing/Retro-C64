@@ -37,10 +37,13 @@ android {
     }
 
     defaultConfig {
-        // Retro-C64 is a fresh Play Store listing. applicationId is also the
-        // namespace Play Console keys on, so changing it later would mean
-        // publishing as a brand-new app. Pick once and keep.
-        applicationId = "com.retroc64"
+        // MUST match the package name the Play Console listing was created
+        // under -- Play keys on applicationId, and the listing for Retro-64
+        // is registered as com.crownparkcomputing.c64retro. An earlier
+        // com.retroc64 here is why androidpublisher 404'd: it was addressing
+        // a package that does not exist on the account. Changing it now means
+        // publishing as a brand-new app, so pick once and keep.
+        applicationId = "com.crownparkcomputing.c64retro"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // 26, matching the API the native core is actually built against

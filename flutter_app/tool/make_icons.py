@@ -175,7 +175,7 @@ def artwork(width):
     layer = Image.new("RGBA", (width, width), (0, 0, 0, 0))
 
     script = retro_script(round(width * 0.80))
-    name = chrome_text("C64", round(width * 0.46), round(width * 0.19))
+    name = chrome_text("64", round(width * 0.46), round(width * 0.19))
     screen = ready_screen(round(width * 0.62))
 
     stack = script.height + name.height + screen.height + round(width * 0.05)

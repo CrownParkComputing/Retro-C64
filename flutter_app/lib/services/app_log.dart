@@ -62,7 +62,7 @@ class AppLog {
       // the user is actually reporting, and rotation is more machinery than
       // this needs.
       await file.writeAsString(
-        '=== Retro-C64 log -- ${DateTime.now().toIso8601String()} ===\n'
+        '=== Retro-64 log -- ${DateTime.now().toIso8601String()} ===\n'
         'platform: ${Platform.operatingSystem} '
         '${Platform.operatingSystemVersion}\n',
       );

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Retro-C64</string>
+	<string>Retro-64</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIcons</key>
@@ -57,11 +57,11 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Retro-C64 does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
+	<string>Retro-64 does not use the camera. This permission is only requested if you choose to import a file from a source that offers the camera.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Retro-C64 does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
+	<string>Retro-64 does not use your location and never requests it. This entry is required because a bundled file-picker component links against the location framework.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Retro-C64 only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
+	<string>Retro-64 only reads a photo or file you select yourself when importing disk images, ROMs or SID tunes. Nothing is read from your library without you picking it.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
