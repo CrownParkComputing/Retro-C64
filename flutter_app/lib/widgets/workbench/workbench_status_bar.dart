@@ -37,24 +37,42 @@ class WorkbenchStatusBar extends StatelessWidget {
             // the library, and a mode you can forget you are in is a mode
             // that gets reported as a fault -- "where have my games gone".
             if (vm.demoMode) ...[
-              InkWell(
-                onTap: () => vm.setCategory(WorkbenchCategory.compliance),
-                borderRadius: BorderRadius.circular(3),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0x3300FFCC),
-                    border: Border.all(color: ViceColors.accentTeal),
+              // Flexible, and shortened when the bar is narrow.
+              //
+              // The full label is 27 characters that cannot shrink, and this
+              // Row also carries the sidebar toggle, the media name and the
+              // emulator control strip. On an iPhone that overflowed by 80
+              // pixels -- the yellow-and-black stripe, on screen, in compliance
+              // mode, which is precisely the mode a store reviewer is asked to
+              // turn on. Flexible alone would ellipsise it to nonsense
+              // ("COMPLIANCE MODE — FREE RO..."), so a narrow bar gets the
+              // short form instead and keeps a badge that still reads.
+              Flexible(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => InkWell(
+                    onTap: () => vm.setCategory(WorkbenchCategory.compliance),
                     borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const Text(
-                    'COMPLIANCE MODE — FREE ROMS',
-                    style: TextStyle(
-                      color: ViceColors.accentTeal,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0x3300FFCC),
+                        border: Border.all(color: ViceColors.accentTeal),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        constraints.maxWidth < 220
+                            ? 'FREE ROMS'
+                            : 'COMPLIANCE MODE — FREE ROMS',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: ViceColors.accentTeal,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
                   ),
                 ),

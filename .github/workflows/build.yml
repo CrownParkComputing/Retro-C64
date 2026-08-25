@@ -218,6 +218,42 @@ jobs:
 
       # Unsigned build always runs, so iOS compilation breakage is caught even
       # without Apple credentials configured.
+      # The committed core must export every symbol the Dart side looks up.
+      #
+      # vice_bindings.dart looks these up SOFTLY -- a missing one becomes a
+      # no-op rather than a crash, which is deliberate and is also how this
+      # goes wrong quietly. The cores are prebuilt and committed while the
+      # bridge source moves on, so they drift.
+      #
+      # It has now happened twice. The second time, libvicecore was missing
+      # vice_core_set_prg_inject: setPrgInject did nothing, the bundled demo
+      # fell back to a virtual drive the free ROMs cannot serve, and the
+      # reviewer flow -- the one the App Store notes tell Apple to follow --
+      # ended at "?DEVICE NOT PRESENT". Nothing anywhere pointed at a stale
+      # binary as the reason.
+      - name: Verify the committed core exports what Dart calls
+        run: |
+          set -euo pipefail
+          cd flutter_app
+          grep -oE "'vice_[a-z_0-9]+'" lib/ffi/vice_bindings.dart \
+            | tr -d "'" | sort -u > /tmp/wanted.txt
+          echo "Dart references $(wc -l < /tmp/wanted.txt) vice_* symbols"
+          rc=0
+          for slice in ios-arm64 ios-arm64-simulator; do
+            core="ios/Frameworks/libvicecore.xcframework/$slice/libvicecore.framework/libvicecore"
+            nm -gU "$core" | awk '{print $NF}' | sed 's/^_//' | sort -u > /tmp/have.txt
+            missing=$(comm -23 /tmp/wanted.txt /tmp/have.txt || true)
+            if [ -n "$missing" ]; then
+              echo "::error::$slice is stale -- it does not export:"
+              echo "$missing" | while read -r sym; do echo "::error::    $sym"; done
+              echo "::error::Rebuild the core from native/vice_core/bridge and commit it."
+              rc=1
+            else
+              echo "$slice: all symbols present"
+            fi
+          done
+          exit $rc
+
       - name: Build iOS (no codesign)
         working-directory: flutter_app
         run: flutter build ios --release --no-codesign
