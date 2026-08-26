@@ -47,6 +47,13 @@ void main() {
     for (var i = 0; i < 60; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
+    // The wizard now opens on the family's welcome page (the Amiga
+    // pattern); these tests are about the console screen behind it, so
+    // take the returning-user shortcut through.
+    await tester.tap(find.text('I have done this before'));
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     addTearDown(() => tester.pumpWidget(const SizedBox()));
   }
 

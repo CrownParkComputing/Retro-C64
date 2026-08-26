@@ -1,23 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!--
-      MANAGE_EXTERNAL_STORAGE ("All files access") is deliberately NOT
-      requested. Play treats it as a sensitive permission: an undeclared one
-      blocks the release outright, and declaring it means passing a review
-      aimed at file managers, backup and antivirus apps. A games folder is
-      not worth gating every future update on that review.
-
-      Scoped storage will not let this app read a shared folder without it -
-      it can LIST such a directory, which is why the library grid used to
-      fill up while every file failed to open. So the user grants one folder
-      through the system picker instead and its contents are copied into the
-      app's own storage, which needs no permission at all. See
-      MediaFolderAccess.kt and _AndroidSafStorage.
+      The library is read IN PLACE from wherever the user keeps it -- often
+      an SD card -- so the app asks for all-files access the way the whole
+      Retro-* family now does (Retro-Amiga shipped this way and passed
+      Play's sensitive-permission review with the "Core functionality"
+      declaration: reading the user's existing game library in place).
+      The SAF folder grant (MediaFolderAccess.kt / _AndroidSafStorage)
+      remains as the no-permission fallback for anyone who declines.
 
       READ_EXTERNAL_STORAGE stays as the legacy path for API <= 32.
     -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <application
         android:requestLegacyExternalStorage="true"
         android:label="Retro-64"

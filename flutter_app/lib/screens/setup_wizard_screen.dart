@@ -24,6 +24,9 @@
 // automatically right as the "INPUT A$" line finishes typing, same beat as
 // BASIC's own INPUT statement blocking for input.
 import 'dart:async';
+
+import 'package:retro_c64/screens/getting_started.dart';
+import 'package:retro_c64/services/permissions_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -76,10 +79,16 @@ class SetupWizardScreen extends StatefulWidget {
 /// opened into the app from elsewhere (Documents/Inbox), or pushed over USB.
 /// Downloads is reachable only through the picker, which is what
 /// "Import from Files..." opens.
+/// The family's phased shape, from Retro-Amiga: introduce, teach, then the
+/// C64's own BASIC screen asks the one question.
+enum _Phase { welcome, primer, console }
+
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
+  _Phase _phase = _Phase.welcome;
   bool _busy = false;
 
-  bool get _isFolderScan => getIt<StorageAccess>().kind == StorageStrategyKind.folderScan;
+  bool get _isFolderScan =>
+      getIt<StorageAccess>().kind == StorageStrategyKind.folderScan;
 
   @override
   void initState() {
@@ -99,6 +108,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
   }
 
   Future<void> _finishSetup() async {
+    // Start means "use my own ROMs and games" -- which means reading them
+    // in place, so ask for the access first. Declining is allowed: the SAF
+    // folder grant in Paths remains as the no-permission fallback.
+    await PermissionsService.ensure();
     // Start means "use my own ROMs and games", so it also leaves compliance
     // mode. Without this the flag survived, the next launch quietly booted
     // the free ROMs again, and the user would be looking at a library that
@@ -134,10 +147,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     widget.onComplete();
   }
 
-
-
-
-
   String _consoleText() {
     final buffer = StringBuffer()
       ..writeln('    **** RETRO-C64 BASIC V2 ****')
@@ -152,9 +161,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln()
       ..writeln('PRESS "START" TO USE YOUR OWN')
       ..writeln('ROMS AND GAMES.')
-      ..writeln(_isFolderScan
-          ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
-          : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).')
+      ..writeln(
+        _isFolderScan
+            ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
+            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).',
+      )
       ..writeln()
       ..writeln('OR PRESS "STORE COMPLIANCE" TO RUN')
       ..writeln('ON FREE, OPEN SOURCE ROMS -')
@@ -167,27 +178,102 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     return Scaffold(
       backgroundColor: _borderBlue,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Container(
-            width: double.infinity,
-            color: _screenBlue,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: _TypedConsole(
-                      key: ValueKey(_consoleText().length),
-                      text: _consoleText(),
-                    ),
-                  ),
+        child: switch (_phase) {
+          _Phase.welcome => _welcomeView(),
+          _Phase.primer => _primerView(),
+          _Phase.console => _consoleView(),
+        },
+      ),
+    );
+  }
+
+  Widget _welcomeView() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Image.asset(
+                  'assets/images/app_icon.png',
+                  height: 104,
+                  width: 104,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                  errorBuilder: (c, e, st) =>
+                      const Icon(Icons.computer, size: 72),
                 ),
-                _footer(),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 20),
+            Text(
+              'Retro-64',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'A Commodore 64, running on this device. Free ROMs are built '
+              'in, so it boots right now — and your own disks, tapes and '
+              'cartridges are read where they already are.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, height: 1.5),
+            ),
+            const SizedBox(height: 32),
+            FilledButton(
+              onPressed: () => setState(() => _phase = _Phase.primer),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Text('Get started'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => setState(() => _phase = _Phase.console),
+              child: const Text('I have done this before'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _primerView() {
+    return GettingStartedGuide(
+      steps: [
+        GettingStartedSteps.whatYouNeed(),
+        GettingStartedSteps.whereFilesGo(),
+      ],
+      closeLabel: 'READY.',
+      onClose: () => setState(() => _phase = _Phase.console),
+      onBack: () => setState(() => _phase = _Phase.welcome),
+    );
+  }
+
+  Widget _consoleView() {
+    return Padding(
+      padding: const EdgeInsets.all(22),
+      child: Container(
+        width: double.infinity,
+        color: _screenBlue,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: _TypedConsole(
+                  key: ValueKey(_consoleText().length),
+                  text: _consoleText(),
+                ),
+              ),
+            ),
+            _footer(),
+          ],
         ),
       ),
     );
@@ -269,7 +355,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white))
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
           : Text(label),
     );
   }
@@ -307,10 +396,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 class _TypedConsole extends StatefulWidget {
   final String text;
 
-  const _TypedConsole({
-    super.key,
-    required this.text,
-  });
+  const _TypedConsole({super.key, required this.text});
 
   @override
   State<_TypedConsole> createState() => _TypedConsoleState();
