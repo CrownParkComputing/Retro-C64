@@ -9,22 +9,6 @@ import 'package:retro_c64/services/service_locator.dart';
 import 'package:retro_c64/services/video_settings.dart';
 
 /// Live view of the C64 framebuffer.
-///
-/// Approach used (first pass): a periodic Timer polls
-/// vice_core_get_framebuffer(), decodes the copied RGBA8888 bytes into a
-/// ui.Image via decodeImageFromPixels, and repaints a CustomPaint with it.
-/// This is NOT zero-copy -- every tick allocates a new GPU texture via the
-/// image decode pipeline, which is wasteful compared to a true Flutter
-/// `Texture` widget backed by an external OpenGL/Vulkan texture the native
-/// side writes into directly (the way the SDL3 viewer or a real
-/// FlutterTexture registrar would).
-///
-/// That path exists for embedder-level (platform-channel + native texture
-/// registration) integration and was out of scope to stand up correctly in
-/// this pass without also writing platform-specific (GL context sharing)
-/// code per target OS. decodeImageFromPixels is the simplest thing that
-/// proves FFI + rendering end-to-end; swapping it for a real Texture is the
-/// next milestone's headline item.
 class FramebufferView extends StatefulWidget {
   final ViceCore core;
   final Duration pollInterval;
@@ -103,7 +87,7 @@ class _FramebufferViewState extends State<FramebufferView> {
       );
     }
     // Every knob below is a real render-path setting shared with the Video
-    // settings tab and the in-game Quick Settings panel (see
+    // settings tab and the Video settings screen (see
     // services/video_settings.dart).
     final settings = getIt<VideoSettings>();
     return AnimatedBuilder(

@@ -17,21 +17,34 @@ Future<void> showGameMediaSheet(
   BuildContext context, {
   required MediaEntry entry,
   required VoidCallback onPlay,
+  VoidCallback? onRename,
+  VoidCallback? onDelete,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: const Color(0xFF11161B),
-    builder: (context) => _GameMediaSheet(entry: entry, onPlay: onPlay),
+    builder: (context) => _GameMediaSheet(
+        entry: entry, onPlay: onPlay, onRename: onRename, onDelete: onDelete),
   );
 }
 
 class _GameMediaSheet extends StatefulWidget {
-  const _GameMediaSheet({required this.entry, required this.onPlay});
+  const _GameMediaSheet({
+    required this.entry,
+    required this.onPlay,
+    this.onRename,
+    this.onDelete,
+  });
 
   final MediaEntry entry;
   final VoidCallback onPlay;
+
+  /// The per-title file actions, popped-then-run so the dialog they open is
+  /// not underneath this sheet. Null hides the row (compliance mode).
+  final VoidCallback? onRename;
+  final VoidCallback? onDelete;
 
   @override
   State<_GameMediaSheet> createState() => _GameMediaSheetState();
@@ -82,6 +95,27 @@ class _GameMediaSheetState extends State<_GameMediaSheet> {
                           fontWeight: FontWeight.bold),
                     ),
                   ),
+                  if (widget.onRename != null)
+                    IconButton(
+                      tooltip: 'Rename file',
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        widget.onRename!();
+                      },
+                      icon: const Icon(Icons.drive_file_rename_outline,
+                          size: 20),
+                      color: Colors.white70,
+                    ),
+                  if (widget.onDelete != null)
+                    IconButton(
+                      tooltip: 'Delete file',
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        widget.onDelete!();
+                      },
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      color: Colors.white70,
+                    ),
                   FilledButton.icon(
                     onPressed: () {
                       Navigator.of(context).pop();

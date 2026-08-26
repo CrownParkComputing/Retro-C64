@@ -51,11 +51,12 @@ void main() {
     await pumpLibrary(tester);
 
     expect(find.text('Game Library'), findsOneWidget);
-    expect(find.text('8 of 8 files | IGDB deferred (placeholder tiles)'),
-        findsOneWidget);
-    // The format tabs this view used to open on are gone for good.
-    for (final tab in MediaTab.values) {
-      expect(find.text(tab.label), findsNothing);
+    expect(find.text('8 of 8 files'), findsOneWidget);
+    // The format tabs this view used to open on are gone for good -- the
+    // enum itself went with them.
+    // 'PRG' is excluded: it appears on media-card kind badges.
+    for (final label in ['All', 'Disks', 'Tapes', 'Carts']) {
+      expect(find.text(label), findsNothing);
     }
     // Every title is on screen at once.
     expect(find.text('Boulder Dash'), findsOneWidget);
@@ -88,7 +89,7 @@ void main() {
     expect(find.text('IK+'), findsOneWidget);
     expect(find.text('International Karate'), findsOneWidget);
     expect(find.text('Boulder Dash'), findsNothing);
-    expect(find.text('2 of 8 files | IGDB deferred (placeholder tiles)'),
+    expect(find.text('2 of 8 files'),
         findsOneWidget);
 
     // Tapping the same letter again clears it -- the row is a filter, not a
@@ -116,13 +117,15 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'karate');
+    // Search debounces 150 ms.
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     // Case-insensitive, and it narrows within the letter rather than
     // replacing it: IK+ starts with I but does not match "karate".
     expect(find.text('International Karate'), findsOneWidget);
     expect(find.text('IK+'), findsNothing);
-    expect(find.text('1 of 8 files | IGDB deferred (placeholder tiles)'),
+    expect(find.text('1 of 8 files'),
         findsOneWidget);
   });
 
@@ -130,6 +133,7 @@ void main() {
       (tester) async {
     await pumpLibrary(tester);
     await tester.enterText(find.byType(TextField), 'nothing matches this');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
     expect(find.text('No media in this category.'), findsOneWidget);
   });

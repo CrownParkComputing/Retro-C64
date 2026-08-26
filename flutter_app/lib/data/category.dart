@@ -51,20 +51,5 @@ enum WorkbenchCategory {
 /// MainActivity.showLauncherCategory's activeFormatFilter assignment.
 enum MediaFormatFilter { none, disk, tape, cartridge, prg }
 
-/// The horizontal tabs across the top of the games library. `all` is the
-/// unfiltered view the "Games" sidebar entry used to provide on its own.
-enum MediaTab {
-  all('All', MediaFormatFilter.none, 'Game Library'),
-  disks('💾 Disks', MediaFormatFilter.disk, 'Disk Images'),
-  tapes('📼 Tapes', MediaFormatFilter.tape, 'Tape Images'),
-  carts('🕹️ Carts', MediaFormatFilter.cartridge, 'Cartridges'),
-  programs('⌨️ PRG', MediaFormatFilter.prg, 'Programs');
-
-  final String label;
-  final MediaFormatFilter filter;
-  final String title;
-  const MediaTab(this.label, this.filter, this.title);
-}
-
 bool isLibraryCategory(WorkbenchCategory cat) =>
     cat == WorkbenchCategory.games;

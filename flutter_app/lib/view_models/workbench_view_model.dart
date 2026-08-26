@@ -32,6 +32,10 @@ class WorkbenchViewModel extends ChangeNotifier {
   WorkbenchCategory _category = WorkbenchCategory.games;
   List<MediaEntry> _library = [];
   int _unreadableCount = 0;
+
+  /// What went wrong on the last scan, surfaced rather than swallowed --
+  /// "no games found" and "the scan failed" need different fixes.
+  String? _scanError;
   bool _sessionOpen = false;
   bool _sidebarHidden = false;
   bool _screensaverActive = false;
@@ -145,6 +149,7 @@ class WorkbenchViewModel extends ChangeNotifier {
   WorkbenchCategory get category => _category;
   List<MediaEntry> get library => _library;
   int get unreadableCount => _unreadableCount;
+  String? get scanError => _scanError;
   bool get sidebarHidden => _sidebarHidden;
   bool get screensaverActive => _screensaverActive;
   bool get driveRomInstalled => _driveRomInstalled;
@@ -232,23 +237,38 @@ class WorkbenchViewModel extends ChangeNotifier {
     // folder therefore changed nothing and the user's own games kept
     // appearing. The demo folder is inside the app's own storage, so it can
     // be read directly with no SAF grant at all.
-    if (!_demoMode && Platform.isAndroid && await MediaFolder.hasFolder()) {
-      final imported = await getIt<StorageAccess>().scanFolder(scanDir ?? '');
-      result = LibraryScanResult(
-        entries: [
-          for (final f in imported)
-            MediaEntry(
-              displayName: f.displayName,
-              path: f.path,
-              mediaType: MediaEntry.filterForExtension(f.displayName.split('.').last),
-            ),
-        ],
-        unreadableCount: 0,
-      );
-    } else {
-      result = scanDir == null
-          ? LibraryScanResult.empty
-          : await LibraryScanner.scan(scanDir);
+    //
+    // The SCAN itself is guarded like the resolution above: a throw here
+    // left _isLibraryLoading true for ever -- an infinite spinner with no
+    // message, which reads as a hang rather than as a failure.
+    try {
+      if (!_demoMode && Platform.isAndroid && await MediaFolder.hasFolder()) {
+        final imported = await getIt<StorageAccess>().scanFolder(scanDir ?? '');
+        result = LibraryScanResult(
+          entries: [
+            for (final f in imported)
+              MediaEntry(
+                displayName: f.displayName,
+                path: f.path,
+                mediaType: MediaEntry.filterForExtension(f.displayName.split('.').last),
+              ),
+          ],
+          unreadableCount: 0,
+        );
+      } else {
+        result = scanDir == null
+            ? LibraryScanResult.empty
+            : await LibraryScanner.scan(scanDir);
+      }
+      _scanError = null;
+    } catch (e) {
+      AppLog.log('library scan failed: $e');
+      _scanError = 'The library scan failed: $e';
+      _library = const [];
+      _unreadableCount = 0;
+      _isLibraryLoading = false;
+      notifyListeners();
+      return;
     }
 
     _library = result.entries;

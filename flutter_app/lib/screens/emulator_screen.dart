@@ -20,8 +20,7 @@ import 'package:retro_c64/widgets/media_activity_overlay.dart';
 
 /// The in-emulator screen: full-screen framebuffer, on-screen wobble
 /// joystick + A/B action buttons, an optional full C64 keyboard overlay,
-/// external-gamepad support, and a slide-out Quick Settings panel -- port
-/// of ViceMenuPanel.java's Host interface (joypad/screen-size/bezel/CRT
+//// of ViceMenuPanel.java's Host interface (joypad/screen-size/bezel/CRT
 /// toggles + reset + back-to-library), each row showing its own
 /// current-state label like the Android version.
 class EmulatorScreen extends StatefulWidget {
@@ -59,7 +58,7 @@ class EmulatorScreen extends StatefulWidget {
   final VoidCallback? onScreenTouched;
 
   /// Keyboard-up / editing-layout, shared with the control strip that lives
-  /// outside this view (see EmulatorControlStrip). Null is for callers that
+  /// outside this view (see session tool rail). Null is for callers that
   /// show no strip -- tests, mostly -- and gets a private instance so the
   /// in-view behaviour is identical either way.
   final EmulatorUiState? ui;
@@ -236,9 +235,11 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
     final gamepadConnected = widget.gamepad?.connected;
     return ListenableBuilder(
       listenable: _ui,
-      builder: (context, _) => Scaffold(
-        backgroundColor: Colors.black,
-        body: Column(
+      // ColoredBox, not a nested Scaffold: this widget lives inside the
+      // session screen's own Scaffold.
+      builder: (context, _) => ColoredBox(
+        color: Colors.black,
+        child: Column(
           children: [
             Expanded(
               child: Stack(
@@ -455,7 +456,7 @@ class _EmulatorScreenState extends State<EmulatorScreen> {
               ),
             ),
             // The control strip is NOT here. It lives in the workbench shell,
-            // outside the content panel's border -- see EmulatorControlStrip.
+            // outside the content panel's border -- see session tool rail.
             // The border is the edge of the machine; chrome inside it reads as
             // part of the picture.
             // The keyboard extends the same strip downwards rather than

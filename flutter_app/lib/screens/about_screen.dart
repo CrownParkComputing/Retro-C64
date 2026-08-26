@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:retro_c64/screens/getting_started.dart';
 import 'package:retro_c64/services/platform_info.dart';
 import 'logs_screen.dart';
 import 'music_screen.dart';
@@ -26,6 +27,38 @@ class AboutScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // The guide setup shows, re-readable any time -- the questions it
+        // answers ("where do I put my files?") are asked most often long
+        // after setup.
+        Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Getting started guide'),
+            subtitle: const Text(
+                'What a C64 needs, where files go, and how to play.',
+                style: TextStyle(fontSize: 11, color: Colors.white54)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) => Scaffold(
+                  backgroundColor: const Color(0xFF0B0D10),
+                  body: SafeArea(
+                    child: GettingStartedGuide(
+                      steps: [
+                        GettingStartedSteps.whatYouNeed(),
+                        GettingStartedSteps.whereFilesGo(),
+                        GettingStartedSteps.firstGame(),
+                      ],
+                      onClose: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
         const Text('About',
             style:
                 TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),

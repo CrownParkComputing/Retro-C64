@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -32,17 +33,33 @@ class _LogsViewState extends State<LogsView> {
   String _text = 'Loading...';
   bool _loading = true;
 
+  /// The log updates itself while on screen -- pressing Refresh to see
+  /// whether anything happened was the tell that it should. 2 Hz is plenty
+  /// for reading.
+  Timer? _tail;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _tail = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!_loading) _load(silent: true);
+    });
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _tail?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
     final text = await AppLog.read();
     if (!mounted) return;
+    final trimmed = text.trimRight();
+    if (silent && trimmed == _text) return;
     setState(() {
-      _text = text.trimRight();
+      _text = trimmed;
       _loading = false;
     });
   }
@@ -135,7 +152,13 @@ class _LogsViewState extends State<LogsView> {
               ? const Center(
                   child: Text('Loading...',
                       style: TextStyle(color: Colors.white38)))
-              : SingleChildScrollView(
+              // Bounded and newest-at-the-bottom: unbounded inside About's
+              // ListView, this never scrolled on its own and just grew the
+              // page with the log.
+              : SizedBox(
+                  height: 320,
+                  child: SingleChildScrollView(
+                  reverse: true,
                   child: SelectableText(
                     _text.isEmpty ? '(nothing logged yet)' : _text,
                     style: const TextStyle(
@@ -145,6 +168,7 @@ class _LogsViewState extends State<LogsView> {
                       height: 1.35,
                     ),
                   ),
+                ),
                 ),
         ),
       ],

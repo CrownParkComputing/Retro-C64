@@ -237,12 +237,6 @@ class InputSettingsScreen extends StatelessWidget {
             },
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-              'Full remap-any-key UI and per-device configuration deferred to a later milestone.',
-              style: TextStyle(color: Colors.white38)),
-        ),
       ],
     );
   }

@@ -122,7 +122,7 @@ void main() {
         // The emulator view takes the full width and everything the strip
         // below it does not need -- not the whole window any more, but never
         // the 0x0 this file exists for.
-        final body = tester.getSize(find.byType(Scaffold));
+        final body = tester.getSize(find.byType(EmulatorScreen));
         expect(body.width, greaterThan(screenSize.width * 0.8),
             reason: 'the emulator screen must fill everything the rail '
                 'beside it does not need, in every joypad-visibility branch');
@@ -212,7 +212,7 @@ void main() {
           core: FakeViceCore(),
           padMode: OnScreenPadMode.always,
           leftHanded: true);
-      expect(tester.getSize(find.byType(Scaffold)).width,
+      expect(tester.getSize(find.byType(EmulatorScreen)).width,
           greaterThan(screenSize.width * 0.8));
 
       final joystick = tester.getCenter(find.byType(WobbleJoystick));
@@ -261,7 +261,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('RUN/STOP'), findsOneWidget);
-      expect(tester.getSize(find.byType(Scaffold)).width,
+      expect(tester.getSize(find.byType(EmulatorScreen)).width,
           greaterThan(screenSize.width * 0.8));
     });
   });

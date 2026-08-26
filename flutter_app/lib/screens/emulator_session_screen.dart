@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:retro_c64/data/category.dart';
+import 'package:retro_c64/services/save_state_service.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:retro_c64/services/video_settings.dart';
 import 'package:retro_c64/screens/emulator_screen.dart';
 import 'package:retro_c64/widgets/session_tool_rail.dart';
 import 'package:retro_c64/theme/vice_theme.dart';
@@ -54,6 +59,7 @@ class _EmulatorSessionScreenState extends State<EmulatorSessionScreen> {
     // duration and give them back on the way out. Sticky, because an edge
     // swipe on a handheld is easy to do by accident mid-game.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _findSiblingDisks();
     _restartControlsTimer();
   }
 
@@ -62,6 +68,115 @@ class _EmulatorSessionScreenState extends State<EmulatorSessionScreen> {
     _controlsTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  /// Other disks of the SAME game: multi-disk sets ship as "Title (Disk
+  /// 1 Side A)", "Title (Disk 2)"...; strip the marker and everything in
+  /// the folder sharing the stem is this game's set.
+  List<String> _siblingDisks = const [];
+
+  static final RegExp _diskMarker = RegExp(
+      r'[\(\[]?\s*(disk|disc|side)\s*[a-z0-9]+[\)\]]?',
+      caseSensitive: false);
+
+  static String _diskStem(String path) {
+    final base = path.split('/').last;
+    final dot = base.lastIndexOf('.');
+    final name = dot > 0 ? base.substring(0, dot) : base;
+    return name
+        .replaceAll(_diskMarker, '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
+  }
+
+  void _findSiblingDisks() {
+    final entry = vm.currentEntry;
+    if (entry == null) return;
+    if (entry.mediaType != MediaFormatFilter.disk) return;
+    if (!_diskMarker.hasMatch(entry.path.split('/').last)) return;
+    final stem = _diskStem(entry.path);
+    try {
+      final disks = <String>[];
+      for (final f in Directory(entry.path).parent.listSync(followLinks: false)) {
+        if (f is! File) continue;
+        final lower = f.path.toLowerCase();
+        if (!lower.endsWith('.d64') &&
+            !lower.endsWith('.g64') &&
+            !lower.endsWith('.d71') &&
+            !lower.endsWith('.d81')) {
+          continue;
+        }
+        if (_diskStem(f.path) == stem) disks.add(f.path);
+      }
+      disks.sort();
+      if (disks.length > 1 && mounted) {
+        setState(() => _siblingDisks = disks);
+      }
+    } on FileSystemException {
+      // A folder that cannot be listed just means no swap entry.
+    }
+  }
+
+  /// The pause menu's Swap disk: attach another image to drive 8 -- the
+  /// running program keeps going, exactly like flipping the real disk.
+  Future<void> _swapDisk() async {
+    final String? chosen = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF11161B),
+      builder: (BuildContext context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(title: Text('Swap disk')),
+              const Divider(height: 1),
+              for (final d in _siblingDisks)
+                ListTile(
+                  leading: Icon(d == vm.currentEntry?.path
+                      ? Icons.album
+                      : Icons.album_outlined),
+                  title: Text(d.split('/').last,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onTap: () => Navigator.pop(context, d),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    final rc = vm.core.attachDisk(chosen);
+    if (rc != 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not attach that disk (error $rc).')),
+      );
+    }
+  }
+
+  /// Save state without leaving: the same rolling capture Save-and-exit
+  /// makes, but the game carries on and the Resume screen lists it.
+  Future<void> _saveStateInPlace() async {
+    final entry = vm.currentEntry;
+    if (entry == null) return;
+    try {
+      await SaveStateService.capture(
+        core: vm.core,
+        title: entry.displayName,
+        mediaPath: entry.path,
+        mediaType: entry.mediaType,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Saved — the Resume screen lists it.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save: $e')),
+      );
+    }
   }
 
   void _restartControlsTimer() {
@@ -153,6 +268,47 @@ class _EmulatorSessionScreenState extends State<EmulatorSessionScreen> {
                   children: [
                     _ResumeButton(onTap: () => _setMenu(false)),
                     const SizedBox(height: 28),
+                    // Occasional actions live HERE, not on the rail: the
+                    // rail keeps only the tools touched mid-play.
+                    _MenuChoice(
+                      icon: Icons.save_outlined,
+                      label: 'Save state',
+                      detail: 'Keep your place and stay in the game '
+                          '(listed on the Resume screen)',
+                      onTap: () {
+                        // Resume first: the capture reads a running core.
+                        _setMenu(false);
+                        unawaited(_saveStateInPlace());
+                      },
+                    ),
+                    if (_siblingDisks.length > 1) ...[
+                      const SizedBox(height: 12),
+                      _MenuChoice(
+                        icon: Icons.album,
+                        label: 'Swap disk',
+                        detail:
+                            'Put another disk of this game in the drive',
+                        onTap: () {
+                          _setMenu(false);
+                          unawaited(_swapDisk());
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    _MenuChoice(
+                      icon: Icons.aspect_ratio,
+                      label: 'Screen shape: '
+                          '${getIt<VideoSettings>().aspect.label}',
+                      detail: 'Tap for the next mode',
+                      onTap: () {
+                        final settings = getIt<VideoSettings>();
+                        final modes = AspectMode.values;
+                        settings.setAspect(modes[
+                            (settings.aspect.index + 1) % modes.length]);
+                        setState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     _MenuChoice(
                       icon: Icons.bookmark_add_outlined,
                       label: 'Save and exit',

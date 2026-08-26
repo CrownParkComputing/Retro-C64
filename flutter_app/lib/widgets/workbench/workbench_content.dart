@@ -40,10 +40,47 @@ class WorkbenchContent extends StatelessWidget {
       final grid = LibraryGrid(
         allEntries: vm.library,
         onLaunch: (entry) => vm.launch(entry, context),
+        // Null in compliance mode: the demo files are the app's own, and
+        // rescan/rename/delete are user-library affordances.
+        onRescan: vm.demoMode ? null : vm.scanLibrary,
       );
 
       if (vm.isLibraryLoading) {
         return const Center(child: CircularProgressIndicator());
+      }
+
+      final scanError = vm.scanError;
+      if (scanError != null) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A2E12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF8A6D2F)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.orangeAccent, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(scanError,
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 12)),
+                ),
+                TextButton(
+                  onPressed: vm.scanLibrary,
+                  child: const Text('RETRY'),
+                ),
+              ]),
+            ),
+            Expanded(child: grid),
+          ],
+        );
       }
 
       if (vm.unreadableCount == 0) return grid;

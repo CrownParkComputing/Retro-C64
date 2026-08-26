@@ -378,8 +378,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
         const _Body(
           'No accounts, no sign-in, no analytics, no tracking, no data '
           'collected and none transmitted. The app makes no network request '
-          'of its own. The one feature that can is cover artwork, which does '
-          'nothing until you enter a URL of your own in Settings.',
+          'of its own. The app makes no network request at all: cover artwork comes from a local zip pack the user supplies in Paths.',
         ),
 
         if (widget.onRerunSetup != null) ...[

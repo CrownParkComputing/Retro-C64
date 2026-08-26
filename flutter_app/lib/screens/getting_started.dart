@@ -1,6 +1,6 @@
 // getting_started.dart — The paged guide the setup wizard teaches with,
 // ported from Retro-Amiga. The generic widget is copied verbatim; the steps
-// speak Saturn.
+// speak Commodore 64.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -216,6 +216,40 @@ class GettingStartedSteps {
                   'so no emulator on the App Store has a JIT. Everything here '
                   'is set up to run as well as it can without one.',
             ),
+        ],
+      );
+
+  /// "I finished setup -- now what?"
+  static GuideStep firstGame() => GuideStep(
+        title: 'Playing your first game',
+        icon: Icons.sports_esports_outlined,
+        body: <Widget>[
+          _p('From the Games shelf, tap a title. Disks, tapes, cartridges '
+              'and .prg files all autostart -- no LOAD"*",8,1 needed '
+              '(though the keyboard is right there if you want the '
+              'nostalgia).'),
+          _point(
+            Icons.menu,
+            'The corner button',
+            'While playing, the button in the top-left corner opens the '
+                'pause menu: resume, save your place, swap disks, screen '
+                'shape, or leave.',
+          ),
+          _point(
+            Icons.videogame_asset_outlined,
+            'The tool rail',
+            'Down the right edge while playing: the C64 keyboard, the '
+                'on-screen pad, the joystick port swap, and moving the '
+                'controls. "Nothing moves" almost always means the wrong '
+                'port -- tap P1/P2.',
+          ),
+          _point(
+            Icons.save_outlined,
+            'Your place is kept',
+            'Save and exit keeps your place, and the last five sessions '
+                'are kept automatically either way. The Resume screen '
+                'lists them with pictures.',
+          ),
         ],
       );
 

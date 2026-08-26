@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:retro_c64/services/app_prefs.dart';
+import 'package:retro_c64/services/service_locator.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:retro_c64/data/media_entry.dart';
 import 'package:retro_c64/theme/vice_theme.dart';
@@ -20,10 +25,16 @@ class LibraryGrid extends StatefulWidget {
   final List<MediaEntry> allEntries;
   final void Function(MediaEntry entry) onLaunch;
 
+  /// Rescans the games folder. Files change under the app -- a copy
+  /// finishes, a card is re-inserted -- and the trip to Paths was the long
+  /// way round.
+  final VoidCallback? onRescan;
+
   const LibraryGrid({
     super.key,
     required this.allEntries,
     required this.onLaunch,
+    this.onRescan,
   });
 
   @override
@@ -37,7 +48,45 @@ class _LibraryGridState extends State<LibraryGrid> {
   /// title must start with, case-insensitive.
   String? _letterFilter;
 
-  List<MediaEntry> get _filtered {
+  /// Search waits for the typing to pause: filtering (and SORTING) per
+  /// keystroke walked the whole library once per character.
+  Timer? _searchDebounce;
+
+  List<MediaEntry> _filteredCache = const [];
+  List<String> _lettersCache = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _recompute();
+  }
+
+  @override
+  void didUpdateWidget(LibraryGrid old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.allEntries, widget.allEntries)) _recompute();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _recompute() {
+    _filteredCache = _filter();
+    _lettersCache = _letters();
+  }
+
+  void _setSearch(String v) {
+    _search = v;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) setState(_recompute);
+    });
+  }
+
+  List<MediaEntry> _filter() {
     final letter = _letterFilter;
     final entries = widget.allEntries.where((e) {
       if (letter != null && !_startsWith(e.displayName, letter)) return false;
@@ -63,7 +112,7 @@ class _LibraryGridState extends State<LibraryGrid> {
 
   /// Only the letters some title actually starts with, so no tile ever leads
   /// to an empty grid.
-  List<String> get _presentLetters {
+  List<String> _letters() {
     final alpha = <String>{};
     var other = false;
     for (final e in widget.allEntries) {
@@ -89,12 +138,14 @@ class _LibraryGridState extends State<LibraryGrid> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
-          for (final l in _presentLetters) ...[
+          for (final l in _lettersCache) ...[
             _LetterChip(
               label: l == '#' ? '#' : l.toUpperCase(),
               selected: _letterFilter == l,
-              onTap: () => setState(
-                  () => _letterFilter = _letterFilter == l ? null : l),
+              onTap: () => setState(() {
+                _letterFilter = _letterFilter == l ? null : l;
+                _recompute();
+              }),
             ),
             const SizedBox(width: 4),
           ],
@@ -102,7 +153,10 @@ class _LibraryGridState extends State<LibraryGrid> {
             _LetterChip(
               label: '\u00d7',
               selected: false,
-              onTap: () => setState(() => _letterFilter = null),
+              onTap: () => setState(() {
+                _letterFilter = null;
+                _recompute();
+              }),
               tooltip: 'Clear letter filter',
             ),
         ],
@@ -117,12 +171,86 @@ class _LibraryGridState extends State<LibraryGrid> {
       context,
       entry: entry,
       onPlay: () => widget.onLaunch(entry),
+      onRename: widget.onRescan == null
+          ? null
+          : () => unawaited(_renameEntry(entry)),
+      onDelete: widget.onRescan == null
+          ? null
+          : () => unawaited(_deleteEntry(entry)),
     );
+  }
+
+  Future<void> _renameEntry(MediaEntry entry) async {
+    final controller = TextEditingController(text: p.basename(entry.path));
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Rename file'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'File name'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Rename')),
+        ],
+      ),
+    );
+    if (newName == null || newName.isEmpty || !mounted) return;
+    try {
+      final target = p.join(p.dirname(entry.path), newName);
+      if (File(target).existsSync()) {
+        throw const FileSystemException('a file with that name already exists');
+      }
+      await File(entry.path).rename(target);
+      widget.onRescan?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not rename: $e')));
+    }
+  }
+
+  Future<void> _deleteEntry(MediaEntry entry) async {
+    if (await getIt<AppPrefs>().getConfirmDelete()) {
+      if (!mounted) return;
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          title: const Text('Delete this file?'),
+          content: Text('${p.basename(entry.path)} will be deleted from '
+              'disk. This cannot be undone.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete')),
+          ],
+        ),
+      );
+      if (sure != true) return;
+    }
+    if (!mounted) return;
+    try {
+      await File(entry.path).delete();
+      widget.onRescan?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not delete: $e')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final entries = _filtered;
+    final entries = _filteredCache;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -134,14 +262,14 @@ class _LibraryGridState extends State<LibraryGrid> {
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
-        if (_presentLetters.length > 1) _letterRow(),
+        if (_lettersCache.length > 1) _letterRow(),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
-                  onChanged: (v) => setState(() => _search = v),
+                  onChanged: _setSearch,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: const InputDecoration(
                     hintText: 'Search games...',
@@ -152,6 +280,15 @@ class _LibraryGridState extends State<LibraryGrid> {
                   ),
                 ),
               ),
+              if (widget.onRescan != null) ...[
+                const SizedBox(width: 6),
+                IconButton(
+                  onPressed: widget.onRescan,
+                  icon: const Icon(Icons.refresh, size: 20),
+                  color: ViceColors.sidebarLabelIdle,
+                  tooltip: 'Rescan games folder',
+                ),
+              ],
             ],
           ),
         ),
@@ -160,7 +297,7 @@ class _LibraryGridState extends State<LibraryGrid> {
           child: Text(
             widget.allEntries.isEmpty
                 ? 'No C64 media found. Supported: PRG, P00, D64, G64, D71, D81, TAP, T64, CRT.'
-                : '${entries.length} of ${widget.allEntries.length} files | IGDB deferred (placeholder tiles)',
+                : '${entries.length} of ${widget.allEntries.length} files',
             style: const TextStyle(color: ViceColors.textMuted2, fontSize: 12),
           ),
         ),

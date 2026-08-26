@@ -60,6 +60,8 @@ abstract class AppPrefs {
   Future<void> setWorkbenchMusic(bool value);
   Future<JoystickStyle> getJoystickStyle();
   Future<void> setJoystickStyle(JoystickStyle style);
+  Future<bool> getConfirmDelete();
+  Future<void> setConfirmDelete(bool value);
   Future<Map<String, Offset>> getControlPositions();
   Future<void> setControlPosition(String id, Offset fraction);
   Future<void> clearControlPositions();
@@ -86,6 +88,7 @@ class SharedPrefsImpl implements AppPrefs {
   static const _keyJoystickStyle = 'joystick_style';
   static const _keyWorkbenchMusic = 'workbench_music';
   static const _keyControlPositions = 'on_screen_control_positions';
+  static const _keyConfirmDelete = 'confirm_delete';
 
   static const int _mappingDefault = -1;
 
@@ -182,6 +185,14 @@ class SharedPrefsImpl implements AppPrefs {
 
   @override
   Future<void> setJoystickStyle(JoystickStyle style) async => await _prefs.setInt(_keyJoystickStyle, style.index);
+
+  @override
+  Future<bool> getConfirmDelete() async =>
+      _prefs.getBool(_keyConfirmDelete) ?? true;
+
+  @override
+  Future<void> setConfirmDelete(bool value) async =>
+      await _prefs.setBool(_keyConfirmDelete, value);
 
   @override
   Future<Map<String, Offset>> getControlPositions() async {
