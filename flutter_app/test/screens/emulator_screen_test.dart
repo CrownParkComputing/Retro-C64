@@ -22,7 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/widgets/assignable_action_button.dart';
 import 'package:retro_c64/widgets/custom_key_button.dart';
 import 'package:retro_c64/data/emulator_ui_state.dart';
-import 'package:retro_c64/widgets/emulator_control_strip.dart';
+import 'package:retro_c64/widgets/session_tool_rail.dart';
 import 'package:retro_c64/widgets/framebuffer_view.dart';
 import 'package:retro_c64/widgets/wobble_joystick.dart';
 
@@ -62,14 +62,14 @@ void main() {
     tester.view.physicalSize = screenSize;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    // Mirrors the workbench: the machine's picture, and the control strip as
-    // a SIBLING below it rather than a child of it. Sharing one
+    // Mirrors the session screen: the machine's picture, and the tool rail
+    // as a SIBLING beside it rather than a child of it. Sharing one
     // EmulatorUiState is the whole reason that split works.
     final ui = EmulatorUiState();
     addTearDown(ui.dispose);
     await tester.pumpWidget(MaterialApp(
       home: Material(
-        child: Column(
+        child: Row(
           children: [
             Expanded(
               child: EmulatorScreen(
@@ -85,9 +85,8 @@ void main() {
                 ui: ui,
               ),
             ),
-            EmulatorControlStrip(
+            SessionToolRail(
               ui: ui,
-              onPause: onBackToLibrary ?? () {},
               padMode: padMode,
               joystickPort: joystickPort,
               onJoystickPortChanged: onJoystickPortChanged,
@@ -124,11 +123,11 @@ void main() {
         // below it does not need -- not the whole window any more, but never
         // the 0x0 this file exists for.
         final body = tester.getSize(find.byType(Scaffold));
-        expect(body.width, screenSize.width,
-            reason: 'the emulator screen must fill the window in every '
-                'joypad-visibility branch');
-        expect(body.height, greaterThan(screenSize.height * 0.8));
-        expect(body.height, lessThan(screenSize.height));
+        expect(body.width, greaterThan(screenSize.width * 0.8),
+            reason: 'the emulator screen must fill everything the rail '
+                'beside it does not need, in every joypad-visibility branch');
+        expect(body.width, lessThan(screenSize.width));
+        expect(body.height, screenSize.height);
 
         // The framebuffer is laid out with real area -- a 0x0 framebuffer is
         // a black screen even when the Scaffold itself is fine.
@@ -136,15 +135,16 @@ void main() {
         expect(picture.width, greaterThan(0));
         expect(picture.height, greaterThan(0));
 
-        // ...and so is the chrome, which sits UNDER the picture rather than
+        // ...and so is the chrome, which sits BESIDE the picture rather than
         // over it. The loaded title is deliberately NOT named here: the
         // workbench's status strip already does that, and the emulator
         // screen printing it again put the same string on screen twice.
         expect(find.text('Boulder Dash.d64'), findsNothing);
-        expect(find.byIcon(Icons.pause), findsOneWidget);
-        expect(tester.getTopLeft(find.byIcon(Icons.pause)).dy,
-            greaterThan(tester.getBottomLeft(find.byType(FramebufferView)).dy),
-            reason: 'the control strip belongs below the picture');
+        expect(find.byType(SessionToolRail), findsOneWidget);
+        expect(tester.getTopLeft(find.byType(SessionToolRail)).dx,
+            greaterThanOrEqualTo(
+                tester.getTopRight(find.byType(FramebufferView)).dx),
+            reason: 'the tool rail belongs beside the picture');
       });
     }
 
@@ -212,7 +212,8 @@ void main() {
           core: FakeViceCore(),
           padMode: OnScreenPadMode.always,
           leftHanded: true);
-      expect(tester.getSize(find.byType(Scaffold)).width, screenSize.width);
+      expect(tester.getSize(find.byType(Scaffold)).width,
+          greaterThan(screenSize.width * 0.8));
 
       final joystick = tester.getCenter(find.byType(WobbleJoystick));
       final fire = tester.getCenter(find.byType(ActionButton).first);
@@ -222,22 +223,6 @@ void main() {
   });
 
   group('in-game controls', () {
-    testWidgets('pause returns to the workbench, with no menu in between',
-        (tester) async {
-      var back = 0;
-      await pumpEmulator(tester,
-          core: FakeViceCore(), onBackToLibrary: () => back++);
-
-      // There is no hamburger and no panel. Every row the old Quick Settings
-      // held is now either a button in this corner or a settings page, so a
-      // menu in front of them was purely an extra tap.
-      expect(find.byIcon(Icons.menu), findsNothing);
-
-      await tester.tap(find.byIcon(Icons.pause));
-      await tester.pumpAndSettle();
-      expect(back, 1);
-    });
-
     testWidgets('the port button shows the port and swaps it', (tester) async {
       int? swapped;
       await pumpEmulator(tester,
@@ -276,7 +261,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('RUN/STOP'), findsOneWidget);
-      expect(tester.getSize(find.byType(Scaffold)).width, screenSize.width);
+      expect(tester.getSize(find.byType(Scaffold)).width,
+          greaterThan(screenSize.width * 0.8));
     });
   });
 
@@ -290,7 +276,7 @@ void main() {
     // didUpdateWidget (the thing under test) would never run.
     await tester.pumpWidget(MaterialApp(
       home: Material(
-        child: Column(
+        child: Row(
           children: [
             Expanded(
               child: EmulatorScreen(
@@ -300,9 +286,8 @@ void main() {
                 joystickPort: 1,
               ),
             ),
-            EmulatorControlStrip(
+            SessionToolRail(
               ui: EmulatorUiState(),
-              onPause: () {},
               padMode: OnScreenPadMode.auto,
               joystickPort: 1,
             ),

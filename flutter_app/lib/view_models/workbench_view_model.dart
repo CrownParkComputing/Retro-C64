@@ -1,3 +1,4 @@
+import 'package:retro_c64/screens/emulator_session_screen.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -31,14 +32,12 @@ class WorkbenchViewModel extends ChangeNotifier {
   WorkbenchCategory _category = WorkbenchCategory.games;
   List<MediaEntry> _library = [];
   int _unreadableCount = 0;
-  bool _inEmulator = false;
-  bool _chromeVisible = true;
+  bool _sessionOpen = false;
   bool _sidebarHidden = false;
   bool _screensaverActive = false;
   bool _driveRomInstalled = true;
   bool _isLibraryLoading = false;
 
-  Timer? _chromeTimer;
   Timer? _idleTimer;
   static const _backdropIdleDelay = Duration(milliseconds: 30000);
 
@@ -146,8 +145,6 @@ class WorkbenchViewModel extends ChangeNotifier {
   WorkbenchCategory get category => _category;
   List<MediaEntry> get library => _library;
   int get unreadableCount => _unreadableCount;
-  bool get inEmulator => _inEmulator;
-  bool get chromeVisible => _chromeVisible;
   bool get sidebarHidden => _sidebarHidden;
   bool get screensaverActive => _screensaverActive;
   bool get driveRomInstalled => _driveRomInstalled;
@@ -160,13 +157,8 @@ class WorkbenchViewModel extends ChangeNotifier {
   String get lastMediaName => _lastMediaName;
   String get emulatorLabel => _emulatorLabel;
 
-  bool get hideChrome => _inEmulator && _category == WorkbenchCategory.resume && !_chromeVisible;
-
   // Actions
   void setCategory(WorkbenchCategory next) {
-    if (_inEmulator && next != WorkbenchCategory.resume) {
-      backToLibrary();
-    }
     _category = next;
     notifyListeners();
   }
@@ -176,29 +168,15 @@ class WorkbenchViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void wakeChrome() {
-    _chromeTimer?.cancel();
-    _chromeTimer = Timer(const Duration(seconds: 3), () {
-      if (_inEmulator) {
-        _chromeVisible = false;
-        notifyListeners();
-      }
-    });
-    if (!_chromeVisible) {
-      _chromeVisible = true;
-      notifyListeners();
-    }
-  }
-
   void scheduleIdle() {
     _idleTimer?.cancel();
     if (_screensaverActive) {
       _screensaverActive = false;
       notifyListeners();
     }
-    if (!_inEmulator) {
+    if (!_sessionOpen) {
       _idleTimer = Timer(_backdropIdleDelay, () {
-        if (!_inEmulator) {
+        if (!_sessionOpen) {
           _screensaverActive = true;
           notifyListeners();
         }
@@ -327,25 +305,23 @@ class WorkbenchViewModel extends ChangeNotifier {
       return;
     }
 
-    _inEmulator = true;
-    _chromeVisible = true;
-    _category = WorkbenchCategory.resume;
     _emulatorLabel = entry.displayName;
     _lastMediaName = entry.displayName;
     _currentEntry = entry;
     _idleTimer?.cancel();
     notifyListeners();
+    if (!context.mounted) return;
+    await _openSession(context);
   }
 
-  void resumeCurrent() {
+  Future<void> resumeCurrent(BuildContext context) async {
     if (_currentEntry == null) return;
     _silenceWorkbenchMusic();
     core.setPaused(false);
-    _inEmulator = true;
-    _chromeVisible = true;
-    _category = WorkbenchCategory.resume;
     _idleTimer?.cancel();
     notifyListeners();
+    if (!context.mounted) return;
+    await _openSession(context);
   }
 
   Future<void> resumeSaved(SaveStateEntry entry, BuildContext context) async {
@@ -378,14 +354,13 @@ class WorkbenchViewModel extends ChangeNotifier {
       return;
     }
 
-    _inEmulator = true;
-    _chromeVisible = true;
-    _sidebarHidden = true;
     _emulatorLabel = entry.title;
     _lastMediaName = entry.title;
     _currentEntry = mediaEntry;
     _idleTimer?.cancel();
     notifyListeners();
+    if (!context.mounted) return;
+    await _openSession(context);
   }
 
   Future<bool> _waitForFirstFrame() async {
@@ -400,12 +375,33 @@ class WorkbenchViewModel extends ChangeNotifier {
     return false;
   }
 
-  Future<void> backToLibrary() async {
-    emulatorUi.reset();
-    _chromeTimer?.cancel();
-    _inEmulator = false;
-    _chromeVisible = true;
+  /// Hands the session its own screen -- the family pattern shared with
+  /// Retro-Amiga and Retro-Saturn. Every way into a game funnels through
+  /// here, so pausing and closing land back on the workbench in exactly one
+  /// place.
+  Future<void> _openSession(BuildContext context) async {
+    if (_sessionOpen) return;
+    _sessionOpen = true;
+    final SessionExit? how = await Navigator.of(context).push<SessionExit>(
+      MaterialPageRoute<SessionExit>(
+        fullscreenDialog: true,
+        builder: (BuildContext context) => EmulatorSessionScreen(vm: this),
+      ),
+    );
+    _sessionOpen = false;
+    if (how != SessionExit.paused) {
+      // Closed (or popped some other way): the workbench forgets the entry.
+      _currentEntry = null;
+      _emulatorLabel = '';
+    }
     scheduleIdle();
+    notifyListeners();
+  }
+
+  /// Snapshot, silence and pause -- shared by both ways out of a session.
+  /// The session screen calls this before it pops.
+  Future<void> endSession() async {
+    emulatorUi.reset();
     _resumeWorkbenchMusic();
     await _captureSaveState(_currentEntry);
     core.setPaused(true);
@@ -547,7 +543,6 @@ class WorkbenchViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _idleTimer?.cancel();
-    _chromeTimer?.cancel();
     gamepad.dispose();
     super.dispose();
   }

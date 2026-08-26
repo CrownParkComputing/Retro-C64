@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:retro_c64/data/category.dart';
 import 'package:retro_c64/screens/about_screen.dart';
 import 'package:retro_c64/screens/core_settings_screen.dart';
-import 'package:retro_c64/screens/emulator_screen.dart';
 import 'package:retro_c64/screens/history_screen.dart';
 import 'package:retro_c64/screens/input_settings_screen.dart';
 import 'package:retro_c64/screens/compliance_screen.dart';
@@ -25,14 +24,12 @@ class WorkbenchContent extends StatelessWidget {
     final vm = context.watch<WorkbenchViewModel>();
 
     return Container(
-      padding: EdgeInsets.all(vm.hideChrome ? 0 : 10),
-      decoration: vm.hideChrome
-          ? const BoxDecoration(color: ViceColors.panelFill)
-          : BoxDecoration(
-              color: ViceColors.panelFill,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: ViceColors.panelStroke),
-            ),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: ViceColors.panelFill,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ViceColors.panelStroke),
+      ),
       clipBehavior: Clip.antiAlias,
       child: _buildBody(context, vm),
     );
@@ -65,25 +62,9 @@ class WorkbenchContent extends StatelessWidget {
 
     return switch (vm.category) {
       WorkbenchCategory.games => const SizedBox.shrink(), // Handled above
-      WorkbenchCategory.resume => vm.inEmulator
-          ? EmulatorScreen(
-              core: vm.core,
-              mediaLabel: vm.emulatorLabel,
-              onScreenTouched: vm.wakeChrome,
-              onBackToLibrary: vm.backToLibrary,
-              leftHanded: vm.leftHanded,
-              gamepad: vm.gamepad,
-              padMode: vm.padMode,
-              onPadModeChanged: vm.setPadMode,
-              customButtons: vm.customButtons,
-              onCustomButtonsChanged: vm.setCustomButtons,
-              joystickPort: vm.joystickPort,
-              onJoystickPortChanged: vm.setJoystickPort,
-              ui: vm.emulatorUi,
-            )
-          : ResumeScreen(
+      WorkbenchCategory.resume => ResumeScreen(
               currentTitle: vm.currentEntry?.displayName,
-              onResumeCurrent: vm.resumeCurrent,
+              onResumeCurrent: () => vm.resumeCurrent(context),
               onResumeSaved: (entry) => vm.resumeSaved(entry, context),
               // Filtered to the machine that is running: in compliance mode
               // the user's own saved sessions belong to a machine booted on

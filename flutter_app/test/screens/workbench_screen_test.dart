@@ -7,10 +7,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:retro_c64/screens/emulator_screen.dart';
+import 'package:retro_c64/screens/emulator_session_screen.dart';
 import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import 'package:retro_c64/screens/workbench_screen.dart';
@@ -65,6 +67,22 @@ void main() {
     await GetIt.instance.reset();
 
     games = Directory.systemTemp.createTempSync('vice_workbench_test');
+    // Closing a session snapshots it, and the snapshot path comes from
+    // path_provider -- whose platform channel has no handler in a test, so
+    // the await inside endSession() would hang and the session route would
+    // never pop. Answer it here.
+    TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (call) async => games.path,
+    );
+    // The mocked support dir makes the drive-ROM check REAL (it used to
+    // fail open when path_provider hung), so give it the 1541 ROM the .d64
+    // launches in these tests depend on.
+    Directory(p.join(games.path, 'vice', 'DRIVES')).createSync(recursive: true);
+    File(p.join(games.path, 'vice', 'DRIVES',
+            'dos1541-325302-01+901229-05.bin'))
+        .writeAsStringSync('rom');
     File(p.join(games.path, 'Boulder Dash.d64')).writeAsStringSync('C64');
     // In a subfolder, which is where the non-recursive scan used to lose it.
     Directory(p.join(games.path, 'Hewson')).createSync();
@@ -177,19 +195,34 @@ void main() {
     expect(find.byType(Sidebar), findsOneWidget);
   });
 
-  testWidgets('the in-game strip offers Pause and no Close', (tester) async {
-    // There is exactly one way out of a session, and it keeps your place.
-    // A close button that dropped the session without a snapshot answered a
-    // question the rolling save states already answer.
-    await pumpWorkbench(tester, FakeViceCore(isRunning: false));
+  testWidgets('the session screen offers the pause menu from its handle',
+      (tester) async {
+    // The corner handle is the one control that is always reachable; it
+    // opens the pause menu (machine paused for real), and the menu offers
+    // Resume, Save and exit, and Close. Both exits snapshot -- the rolling
+    // save states keep the session either way.
+    final core = FakeViceCore(isRunning: false);
+    await pumpWorkbench(tester, core);
     await tester.tap(find.text('Boulder Dash'));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
 
-    expect(find.byTooltip('Pause and return to the workbench'), findsOneWidget);
-    expect(find.byTooltip('Close the game'), findsNothing);
-    expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byType(EmulatorSessionScreen), findsOneWidget);
+    expect(find.text('Save and exit'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pump();
+    expect(core.isPaused, isTrue,
+        reason: 'the pause menu freezes the machine for real');
+    expect(find.text('Save and exit'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+
+    // Resume is the same corner, now a play glyph.
+    await tester.tap(find.byIcon(Icons.play_arrow).last);
+    await tester.pump();
+    expect(core.isPaused, isFalse);
+    expect(find.text('Save and exit'), findsNothing);
   });
 
   testWidgets('picking a different title ends the running one', (tester) async {
@@ -202,13 +235,22 @@ void main() {
     }
     expect(core.startCount, 1);
 
-    // Back to the shelf and straight into a second game. The core is handed
-    // the new media, which detaches the old one and resets -- the first game
-    // is not left running underneath.
-    await tester.tap(find.text('Games'));
-    for (var i = 0; i < 5; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-    }
+    // Close the session from its pause menu, then straight into a second
+    // game from the shelf. The core is handed the new media, which detaches
+    // the old one and resets -- the first game is not left running
+    // underneath.
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pump();
+    await tester.tap(find.text('Close'));
+    // The close path snapshots the session (real file IO through the mocked
+    // support dir) before it pops, and the route then animates away --
+    // runAsync bridges the file IO the same way pumpWorkbench's scan needs.
+    await tester.runAsync(() async {
+      for (var i = 0; i < 8; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    });
     expect(find.text('Uridium'), findsOneWidget, reason: 'back on the shelf');
     await tester.tap(find.text('Uridium'));
     for (var i = 0; i < 8; i++) {

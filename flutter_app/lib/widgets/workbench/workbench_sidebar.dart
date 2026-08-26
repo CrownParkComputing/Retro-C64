@@ -14,7 +14,7 @@ class WorkbenchSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final vm = context.watch<WorkbenchViewModel>();
 
-    if (vm.sidebarHidden || vm.hideChrome) return const SizedBox.shrink();
+    if (vm.sidebarHidden) return const SizedBox.shrink();
 
     return Row(
       children: [

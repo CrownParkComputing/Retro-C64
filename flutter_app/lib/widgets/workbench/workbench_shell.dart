@@ -29,7 +29,7 @@ class WorkbenchShell extends StatelessWidget {
               onPointerHover: (_) => vm.scheduleIdle(),
               child: SafeArea(
                 child: Padding(
-                  padding: EdgeInsets.all(vm.hideChrome ? 0 : ViceMetrics.rootPadding),
+                  padding: const EdgeInsets.all(ViceMetrics.rootPadding),
                   child: Column(
                     children: [
                       Expanded(
