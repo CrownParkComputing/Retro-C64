@@ -97,7 +97,7 @@ class _RetroC64AppState extends State<RetroC64App>
   /// Whether the emulator core was already paused before we backgrounded, so
   /// coming back doesn't un-pause something the user had deliberately paused
   /// (e.g. they left a game sitting in the workbench).
-  bool _corePausedBeforeBackground = false;
+  bool _pausedByLifecycle = false;
 
   @override
   void initState() {
@@ -124,18 +124,32 @@ class _RetroC64AppState extends State<RetroC64App>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    final foreground = state == AppLifecycleState.resumed;
-    if (!foreground) {
-      // inactive / paused / hidden / detached -- all mean "not on screen".
-      _corePausedBeforeBackground = _core?.isPaused ?? false;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // Only a REAL backgrounding pauses the machine. `inactive` fires for a
+      // notification shade, a permission dialog, or losing window focus on
+      // desktop -- pausing there freezes the game under a still-visible
+      // window, which is the bug Retro-Amiga's live release taught us about.
+      //
+      // Tracked as "did WE pause it" rather than "was it paused before": one
+      // backgrounding delivers several non-resumed events, and re-reading
+      // core.isPaused on the second one sees the pause we just applied and
+      // records it as the user's -- the resume then refuses to un-pause and
+      // the machine stays frozen for good.
       getIt<VsidService>().pause();
-      if (!_corePausedBeforeBackground) _core?.setPaused(true);
-    } else {
+      if (!_pausedByLifecycle && !(_core?.isPaused ?? true)) {
+        _core?.setPaused(true);
+        _pausedByLifecycle = true;
+      }
+    } else if (state == AppLifecycleState.resumed) {
       // Music deliberately does NOT auto-resume: it's a background track the
       // user chose to start, and silently restarting it on every app switch
       // is more annoying than leaving it stopped. The game core does resume,
       // but only if we were the ones who paused it.
-      if (!_corePausedBeforeBackground) _core?.setPaused(false);
+      if (_pausedByLifecycle) {
+        _core?.setPaused(false);
+        _pausedByLifecycle = false;
+      }
     }
   }
 

@@ -130,11 +130,22 @@ class AppLog {
     final path = _filePath;
     if (path == null) return;
     try {
-      File(path).writeAsStringSync('$line\n', mode: FileMode.append);
+      // Async, deliberately: this ran a synchronous append on the UI thread
+      // for every single log line, and the log file can live on an SD card --
+      // one busy moment on the card and every logged event became a UI stall
+      // (the Retro-Saturn log learned this first). Ordering is preserved by
+      // the future chain; a log write must never block the frame it is
+      // reporting on.
+      _pendingWrite = _pendingWrite.then(
+        (_) => File(path).writeAsString('$line\n', mode: FileMode.append),
+      );
     } catch (_) {
       // A log write must never take the app down.
     }
   }
+
+  /// Serialises the async file appends so lines land in order.
+  static Future<void> _pendingWrite = Future<void>.value();
 
   static void _append(String line) {
     _lines.add(line);

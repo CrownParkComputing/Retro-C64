@@ -24,6 +24,9 @@
 #include <dirent.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #include <stdarg.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -992,7 +995,32 @@ typedef struct {
     int argc;
 } core_thread_args_t;
 
+/* Lift the emulation thread above ordinary background work.
+ *
+ * VICE runs in-process beside Flutter's UI and raster threads; at equal
+ * priority a busy launcher frame starves the audio producer and the sound
+ * breaks up -- the exact failure Retro-Amiga's live release reports were
+ * about, fixed there with the same call. -2 lifts this thread above default
+ * work while leaving the platform's audio callback (higher still) alone.
+ *
+ * An app may do this to its own threads: Android raises RLIMIT_NICE for app
+ * processes precisely so it can. Where it may not (an unprivileged desktop)
+ * the call fails and the emulator runs exactly as it did.
+ */
+static void raise_emulation_thread_priority(void) {
+#if defined(__linux__)
+    errno = 0;
+    if (setpriority(PRIO_PROCESS, (id_t)syscall(SYS_gettid), -2) != 0 &&
+        errno != 0) {
+        LOGW("core thread: could not raise priority (%s)", strerror(errno));
+        return;
+    }
+    LOGI("core thread: priority raised to nice -2");
+#endif
+}
+
 static void *core_thread_main(void *arg) {
+    raise_emulation_thread_priority();
     core_thread_args_t *targs = (core_thread_args_t *)arg;
     g_core_tid = pthread_self();
     atomic_store_explicit(&g_core_tid_valid, true, memory_order_release);
