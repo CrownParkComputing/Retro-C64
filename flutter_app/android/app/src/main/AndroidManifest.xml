@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!--
-      The library is read IN PLACE from wherever the user keeps it -- often
-      an SD card -- so the app asks for all-files access the way the whole
+      The library is read IN PLACE from wherever the user keeps it - often
+      an SD card - so the app asks for all-files access the way the whole
       Retro-* family now does (Retro-Amiga shipped this way and passed
       Play's sensitive-permission review with the "Core functionality"
       declaration: reading the user's existing game library in place).
