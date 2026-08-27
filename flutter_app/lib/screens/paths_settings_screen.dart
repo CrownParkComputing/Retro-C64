@@ -1,3 +1,4 @@
+import 'dart:io';
 // Paths & Setup tab (WorkbenchCategory.paths). Shows what the setup wizard
 // currently has on file for this platform's storage strategy, lets the user
 // change folders directly with real Browse buttons (rather than only being
@@ -7,8 +8,10 @@ import 'package:flutter/material.dart';
 
 import 'package:retro_c64/services/app_prefs.dart';
 import 'package:retro_c64/services/artwork_service.dart';
+import 'package:retro_c64/services/drop_folders.dart';
 import 'package:retro_c64/services/rom_install_service.dart';
 import 'package:retro_c64/ffi/vice_native_paths.dart';
+import 'package:retro_c64/services/platform_info.dart';
 import 'package:retro_c64/services/permissions_service.dart';
 import 'package:retro_c64/services/storage_access.dart';
 import 'package:retro_c64/services/service_locator.dart';
@@ -50,6 +53,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   List<String> _drivesDirFiles = const [];
   String _romDirPath = '';
   int _artworkPacks = 0;
+  List<String> _dropFolders = const [];
 
   bool get _isFolderScan => _storage.kind == StorageStrategyKind.folderScan;
 
@@ -70,8 +74,10 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     final romPath = await ViceNativePaths.romDir();
     final artPacks = await ArtworkService.installedPackCount();
     int imported = 0;
+    var drops = const <String>[];
     if (!_isFolderScan) {
       imported = (await _storage.listImported(kGamesImportSubdir)).length;
+      drops = DropFolders.existing(await ViceNativePaths.iosDocumentsDirPath());
     }
     if (!mounted) return;
     setState(() {
@@ -85,6 +91,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       _drivesDirFiles = drivesFiles;
       _romDirPath = romPath;
       _artworkPacks = artPacks;
+      _dropFolders = drops;
       _loading = false;
     });
   }
@@ -195,10 +202,52 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     widget.onLibraryShouldRescan?.call();
   }
 
+  /// Creates the named drop folders in the app's own folder.
+  ///
+  /// Nothing downstream needs them -- every scan here already walks the
+  /// folder recursively -- so this buys exactly one thing: a first-time user
+  /// opening Retro-64 in the Files app sees three labelled folders and a
+  /// note in each, instead of an empty folder and no clue what it wants.
+  Future<void> _createDropFolders() async {
+    final docs = await ViceNativePaths.iosDocumentsDirPath();
+    final created = await DropFolders.create(docs);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(created.isEmpty
+            ? 'Drop folders were already there -- notes refreshed.'
+            : 'Created ${created.join(", ")} in the Retro-64 folder.'),
+      ),
+    );
+    await _load();
+  }
+
   Future<void> _grantStorage() async {
     await PermissionsService.requestStorageAccess();
     await _load();
     widget.onLibraryShouldRescan?.call();
+  }
+
+  /// Below this the header stacks. Measured against the panel an iPhone
+  /// leaves once the rail has taken its share, which is where the title was
+  /// being squeezed to a single character per line.
+  static const double _stackHeaderBelow = 360.0;
+
+
+  /// Where a ROM folder is, said in terms the reader can act on.
+  ///
+  /// The ROMs live under Application Support, which the Files app does not
+  /// publish -- so on iOS the absolute path is somewhere the user cannot go,
+  /// and printing it only exposes the container (and, on a build machine, the
+  /// account name, which is how one reached an App Store screenshot). Import
+  /// is the only route in on that platform, and the buttons above do it.
+  ///
+  /// On a desktop the path IS the mechanism, so it is shown unchanged.
+  String _romLocationLabel(String folder) {
+    if (Platform.isIOS || Platform.isAndroid) {
+      return 'inside the app (use Import above)';
+    }
+    return '$_romDirPath/$folder/';
   }
 
   @override
@@ -206,22 +255,36 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text('Paths & Setup',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
-            ),
-            if (widget.onRerunSetup != null)
-              OutlinedButton.icon(
-                onPressed: _rerunSetup,
-                icon: const Icon(Icons.replay, size: 16),
-                label: const Text('Run setup again'),
-              ),
-          ],
+        // Stacked on a narrow panel, side by side when there is room.
+        //
+        // Expanded gives the title whatever the button leaves, and "Run setup
+        // again" is not small: inside an iPhone's content column the title was
+        // left about 30pt and wrapped ONE CHARACTER PER LINE -- "Pa/th/s/&/
+        // Se/tu/p" down the screen. Expanded does not prevent that; it causes
+        // it, because a tight width is still a width the text will use.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final title = Text('Paths & Setup',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold));
+            final button = widget.onRerunSetup == null
+                ? null
+                : OutlinedButton.icon(
+                    onPressed: _rerunSetup,
+                    icon: const Icon(Icons.replay, size: 16),
+                    label: const Text('Run setup again'),
+                  );
+            if (button == null) return title;
+            if (constraints.maxWidth < _stackHeaderBelow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [title, const SizedBox(height: 8), button],
+              );
+            }
+            return Row(children: [Expanded(child: title), button]);
+          },
         ),
         const SizedBox(height: 10),
         if (_loading)
@@ -233,7 +296,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             label: 'C64 ROMs',
             value: _romsInstalled
                 ? 'Installed -- kernal, basic and chargen found'
-                : 'MISSING in $_romDirPath/C64/',
+                : 'MISSING in ${_romLocationLabel('C64')}',
             valueColor:
                 _romsInstalled ? ViceColors.accentTeal : Colors.orangeAccent,
             actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
@@ -251,7 +314,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             value: _driveRomInstalled
                 ? 'Installed -- disk images can load ($_driveRomFile)'
                 : _drivesDirFiles.isEmpty
-                    ? 'MISSING in $_romDirPath/DRIVES/ -- .d64 files will fail '
+                    ? 'MISSING in ${_romLocationLabel('DRIVES')} -- .d64 files will fail '
                         'with ?DEVICE NOT PRESENT'
                     : 'MISSING -- DRIVES/ holds '
                         '${_drivesDirFiles.join(", ")}, but none of those is '
@@ -283,7 +346,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                                 color: Colors.white70,
                                 fontWeight: FontWeight.bold),
                           ),
-                          TextSpan(text: '  ->  $_romDirPath/${req.folder}/\n'),
+                          TextSpan(text: '  ->  ${_romLocationLabel(req.folder)}\n'),
                           TextSpan(text: req.why),
                         ],
                       ),
@@ -352,14 +415,34 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
               actionLabel: 'Scan',
               onAction: _importFiles,
             ),
+            // Offered rather than done automatically: these are folders in
+            // the user's own Files space, and an app that silently grows
+            // three of them there has helped itself to somebody else's desk.
+            _Row(
+              label: 'Drop folders',
+              value: _dropFolders.length == DropFolders.folders.length
+                  ? 'Ready -- ${_dropFolders.join(", ")} in the Retro-64 '
+                      'folder'
+                  : _dropFolders.isEmpty
+                      ? 'Not created -- make ROMs, Games and Music folders to '
+                          'drop files into'
+                      : 'Partly there -- ${_dropFolders.join(", ")}; the rest '
+                          'are missing',
+              valueColor: _dropFolders.length == DropFolders.folders.length
+                  ? ViceColors.accentTeal
+                  : null,
+              actionLabel: _dropFolders.isEmpty ? 'Create folders' : 'Repair',
+              onAction: _createDropFolders,
+            ),
             // The whole growing-the-library story, told where the button is.
             // Nothing here is a control - it is the answer to "how do I add
             // more?", asked at the moment it gets asked.
-            const Padding(
-              padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
               child: Text(
                 'Adding more games and music\n'
-                '1.  In the Files app, open On My iPad > Retro-64.\n'
+                '1.  In the Files app, open '
+                '${filesAppDeviceName(context)} > Retro-64.\n'
                 '2.  Drop in a zip - add games to your games zip, tunes to '
                 'your music zip, or bring a whole new zip; the name does '
                 'not matter.\n'
@@ -411,6 +494,16 @@ class _Row extends StatelessWidget {
     this.onAction,
   });
 
+  /// Below this the label and its button stop sharing a line.
+  ///
+  /// A button sizes to its text and will not shrink, so on a phone in
+  /// portrait -- where the rail already takes 118 of the width -- "Scan for
+  /// artwork" beside a two-line value simply did not fit, and the card
+  /// overflowed to the right on EVERY iPhone width (29px at 440pt, 149px at
+  /// 320pt). Stacking gives the text the whole width and costs one row of
+  /// height, which a ListView has to spare and a Row does not.
+  static const double _stackBelow = 360.0;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -422,40 +515,66 @@ class _Row extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: ViceColors.cardStroke),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 13)),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: valueColor ?? ViceColors.textMuted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            if (actionLabel != null) ...[
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: onAction,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0xFF526173)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final text = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: valueColor ?? ViceColors.textMuted, fontSize: 12),
                 ),
-                child: Text(actionLabel!),
+              ],
+            );
+
+            if (actionLabel == null) {
+              return Row(children: [Expanded(child: text)]);
+            }
+
+            final button = OutlinedButton(
+              onPressed: onAction,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFF526173)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
               ),
-            ],
-          ],
+              // Ellipsised rather than wrapped: a two-line button label next
+              // to a two-line value reads as a paragraph with a border.
+              child: Text(actionLabel!,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            );
+
+            if (constraints.maxWidth < _stackBelow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  text,
+                  const SizedBox(height: 8),
+                  // Left-aligned, not stretched full width: a button as wide
+                  // as the card reads as a banner rather than an action.
+                  Align(alignment: Alignment.centerLeft, child: button),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: text),
+                const SizedBox(width: 8),
+                // Flexible as well as the width test above: a long label under
+                // a large text scale can outgrow even a wide card.
+                Flexible(child: button),
+              ],
+            );
+          },
         ),
       ),
     );

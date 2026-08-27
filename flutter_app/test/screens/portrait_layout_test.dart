@@ -58,6 +58,21 @@ void main() {
       (call) async => support.path,
     );
 
+    // About shows the app version via package_info_plus; unmocked, its
+    // future fails AFTER the test body on slow layouts (the SE), arriving
+    // once FlutterError.onError is restored - the binding then trips its
+    // onError invariant and the run used to sit out its whole timeout.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('dev.fluttercommunity.plus/package_info'),
+      (call) async => <String, dynamic>{
+        'appName': 'Retro-64',
+        'packageName': 'com.crownparkcomputing.c64retro',
+        'version': '1.0.0',
+        'buildNumber': '46',
+      },
+    );
+
     File(p.join(games.path, 'Boulder Dash.d64')).writeAsStringSync('C64');
     SharedPreferences.setMockInitialValues({
       'setup_completed': true,
@@ -120,7 +135,6 @@ void main() {
       final collected = <FlutterErrorDetails>[];
       final previousOnError = FlutterError.onError;
       FlutterError.onError = collected.add;
-      addTearDown(() => FlutterError.onError = previousOnError);
 
       if (!GetIt.instance.isRegistered<AppPrefs>()) {
         await setupServiceLocator();
@@ -146,7 +160,16 @@ void main() {
         drain(collected, '[${entry.key}] $dest');
       }
 
-      addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+      // Tear the tree down while the collector is still ours, and give the
+      // pipeline a beat: dispose-time errors then land in the report instead
+      // of arriving after the test with no handler to route them - which is
+      // what tripped the binding's onError invariant and hung the run for
+      // its whole ten-minute timeout.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
+      drain(collected, '[${entry.key}] teardown');
+      FlutterError.onError = previousOnError;
 
       // The report is for the human reading the run; this is what keeps the
       // bug from coming back. Overflows only -- an unreachable label is a
