@@ -52,7 +52,12 @@ class ViceMetrics {
   // dp(150) / a quarter of the screen), floor dp(88) -- and on a real
   // 853dp-wide device the fixed value left a wide dead strip beside every
   // label. These are the clamp bounds for that measurement.
-  static const double sidebarMinWidth = 118.0;
+  /// 128, not 118: the floor has to clear the widest label the rail actually
+  /// carries. "Compliance" needs about 122pt once the icon column and side
+  /// padding are counted, so at 118 the longest entry rendered as "Com..." on
+  /// every screen of every phone -- and so in every store screenshot -- while
+  /// looking like a deliberate width rather than a fault.
+  static const double sidebarMinWidth = 128.0;
 
   /// Upper bound for the measured rail, never below [sidebarMinWidth].
   ///
@@ -68,8 +73,12 @@ class ViceMetrics {
   /// takes its minimum and gives up a little more of the width, which is the
   /// intended trade: the labels stay readable either way.
   static double sidebarMaxWidth(double screenWidth) {
-    final quarter = screenWidth * 0.25;
-    final capped = quarter < 190.0 ? quarter : 190.0;
+    // A third, not a quarter. The rail sizes itself to its widest label, and a
+    // quarter of any iPhone is below what "Compliance" needs, so the cap was
+    // binding on all of them. A third still leaves two thirds for content, and
+    // the ceiling keeps a wide tablet from growing a needlessly fat rail.
+    final share = screenWidth / 3;
+    final capped = share < 190.0 ? share : 190.0;
     return capped < sidebarMinWidth ? sidebarMinWidth : capped;
   }
 

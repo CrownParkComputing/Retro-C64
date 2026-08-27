@@ -57,6 +57,13 @@ build. Phases 3-7 are the release loop.
 It can never change afterwards, and must match across iOS and Android or the
 two stores diverge.
 
+`docs/NEW_APP_RECORD.md` is this phase written out in full: registering the
+bundle ID (scriptable), creating the record (**browser only** -- the API
+refuses `POST /v1/apps` outright, so `asc.rb` cannot do it), the account-level
+gates a brand-new record has all unset, and what starting over costs. Read it
+before creating a record to escape a bundle ID mismatch -- reverting the
+project is usually the cheaper fix.
+
 ## Phase 1 -- One-time machine setup
 
 ### Signing without an Xcode account

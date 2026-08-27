@@ -149,7 +149,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   String _consoleText() {
     final buffer = StringBuffer()
-      ..writeln('    **** RETRO-C64 BASIC V2 ****')
+      ..writeln('    **** RETRO-64 BASIC V2 ****')
       ..writeln()
       ..writeln('64K RAM SYSTEM  38911 BASIC BYTES FREE')
       ..writeln()
@@ -164,7 +164,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln(
         _isFolderScan
             ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
-            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).',
+            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-64).',
       )
       ..writeln()
       ..writeln('OR PRESS "STORE COMPLIANCE" TO RUN')

@@ -26,7 +26,6 @@ set -eu
 
 DEVICE="${1:-iPhone 17 Pro Max}"
 ROMZIP="${2:-}"
-BUNDLE_ID="com.vicemultiplatform.app"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 APPDIR="$REPO/flutter_app"
@@ -55,6 +54,13 @@ xcrun simctl status_bar "$UDID" override --time "09:41" \
 echo "--- building for simulator"
 ( cd "$APPDIR" && flutter build ios --simulator --debug >/dev/null )
 APP="$APPDIR/build/ios/iphonesimulator/Runner.app"
+
+# Read the bundle ID off the bundle just built, rather than keeping a copy
+# here. The hardcoded one was still com.vicemultiplatform.app after the app
+# was renamed, so install worked and every simctl call that took the ID --
+# get_app_container, uninstall, launch -- addressed an app that was not there.
+BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw -o - "$APP/Info.plist")"
+echo "--- bundle id $BUNDLE_ID"
 
 echo "--- swapping in the simulator cores"
 for n in libvicecore libvicecore_vsid; do

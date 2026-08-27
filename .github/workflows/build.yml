@@ -35,6 +35,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+
       - name: Install dependencies
         working-directory: flutter_app
         run: flutter pub get
@@ -132,17 +133,61 @@ jobs:
 
   ios:
     name: iOS (archive + IPA)
-    runs-on: macos-14
+    runs-on: macos-26
     needs: analyze
     env:
       HAS_IOS_SIGNING: ${{ secrets.APPSTORE_CERT_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
+
+      # Apple rejects any upload built against an iOS SDK older than 26, and
+      # says so only AFTER the whole IPA has transferred. So the toolchain is
+      # checked first, where it fails in seconds.
+      #
+      # The image default comes first deliberately: the runner carries a dozen
+      # side-by-side Xcodes and only the default has its iOS platform
+      # components downloaded. Picking another gets one that lists the iOS 26
+      # SDK and still cannot build for a device.
+      - name: Select an Xcode with the iOS 26 SDK or newer
+        run: |
+          set -euo pipefail
+          sdk_major() {
+            DEVELOPER_DIR="$1/Contents/Developer" xcodebuild -showsdks 2>/dev/null \
+              | sed -n 's/.*-sdk iphoneos\([0-9][0-9]*\).*/\1/p' | sort -n | tail -1
+          }
+          pick=""
+          if [ -d /Applications/Xcode.app ]; then
+            v=$(sdk_major /Applications/Xcode.app || true)
+            if [ -n "$v" ] && [ "$v" -ge 26 ]; then pick=/Applications/Xcode.app; fi
+          fi
+          if [ -z "$pick" ]; then
+            for app in $(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V); do
+              v=$(sdk_major "$app" || true)
+              [ -n "$v" ] && [ "$v" -ge 26 ] || continue
+              pick="$app"
+            done
+          fi
+          if [ -z "$pick" ]; then
+            echo "::error::No Xcode on this runner has the iOS 26 SDK."
+            exit 1
+          fi
+          sudo xcode-select -s "$pick/Contents/Developer"
+          echo "selected $pick"
+          xcodebuild -version
+          sdks="$(xcode-select -p)/Platforms/iPhoneOS.platform/Developer/SDKs"
+          ls "$sdks" || { echo "::error::no iPhoneOS SDKs under $sdks"; exit 1; }
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+
+      # gamepads_ios has not adopted Swift Package Manager, which Flutter 3.47
+      # enables by default. The mixed registrant then fails to compile for
+      # device with "Module 'gamepads_ios' not found", which Flutter reports as
+      # the far less specific "No Xcode build settings have been found".
+      - name: Use CocoaPods rather than Swift Package Manager
+        run: flutter config --no-enable-swift-package-manager
 
       - name: Install dependencies
         working-directory: flutter_app
@@ -173,6 +218,56 @@ jobs:
 
       # Unsigned build always runs, so iOS compilation breakage is caught even
       # without Apple credentials configured.
+      # The committed cores must export every symbol the Dart side looks up.
+      #
+      # These lookups are SOFT on purpose -- a missing symbol degrades one
+      # feature instead of killing the app -- which is also how a prebuilt core
+      # and the bridge source drift apart in silence. Retro-C64 is the proof:
+      # its core was missing vice_core_set_prg_inject, so setPrgInject did
+      # nothing, the bundled demo fell back to a drive the free ROMs cannot
+      # serve, and the flow the App Store notes tell Apple to follow ended at
+      # "?DEVICE NOT PRESENT".
+      #
+      # Two details this got wrong first time round, both worth keeping:
+      #   - the lookup wraps onto the next line, so the symbol has to be read
+      #     from `.lookup` plus its continuation, not from any quoted string.
+      #     Matching bare strings picked up prose in comments and failed the
+      #     build on a symbol that never existed.
+      #   - an app can ship MORE THAN ONE core, and Retro-C64 does. The symbols
+      #     have to be checked against the union, or the SID player's API looks
+      #     absent because it lives in the other binary.
+      - name: Verify the committed cores export what Dart calls
+        run: |
+          set -euo pipefail
+          cd flutter_app
+          grep -rhA1 "\.lookup" lib/ffi/ \
+            | grep -oE "'vice_[a-z_0-9]+'" | tr -d "'" | sort -u > /tmp/wanted.txt
+          echo "Dart looks up $(wc -l < /tmp/wanted.txt) vice_* symbols"
+          rc=0
+          for slice in ios-arm64 ios-arm64-simulator; do
+            : > /tmp/have.txt
+            found=0
+            for xc in ios/Frameworks/*.xcframework; do
+              name="$(basename "$xc" .xcframework)"
+              bin="$xc/$slice/$name.framework/$name"
+              [ -f "$bin" ] || continue
+              found=1
+              nm -gU "$bin" | awk '{print $NF}' | sed 's/^_//' >> /tmp/have.txt
+            done
+            [ "$found" = 1 ] || { echo "::error::no cores found for $slice"; exit 1; }
+            sort -u /tmp/have.txt -o /tmp/have.txt
+            missing=$(comm -23 /tmp/wanted.txt /tmp/have.txt || true)
+            if [ -n "$missing" ]; then
+              echo "::error::$slice is stale -- no core exports:"
+              echo "$missing" | while read -r s; do echo "::error::    $s"; done
+              echo "::error::Rebuild from the bridge source and commit the result."
+              rc=1
+            else
+              echo "$slice: all $(wc -l < /tmp/wanted.txt) symbols present"
+            fi
+          done
+          exit $rc
+
       - name: Build iOS (no codesign)
         working-directory: flutter_app
         run: flutter build ios --release --no-codesign
@@ -219,21 +314,136 @@ jobs:
           KEYCHAIN=build.keychain
           security create-keychain -p actions "$KEYCHAIN"
           security default-keychain -s "$KEYCHAIN"
+          security set-keychain-settings "$KEYCHAIN"     # no auto-lock mid-build
           security unlock-keychain -p actions "$KEYCHAIN"
           echo "$CERT_BASE64" | base64 -d > cert.p12
           security import cert.p12 -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
             -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: \
+          # codesign: belongs in this list. Without it the key imports,
+          # `security find-identity` calls it valid, and every signing attempt
+          # fails with errSecInternalComponent -- which reads as a broken
+          # certificate and is not one.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k actions "$KEYCHAIN"
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROFILE_BASE64" | base64 -d \
             > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
           rm cert.p12
 
+      # A build can upload with "UPLOAD SUCCEEDED with no errors", be given a
+      # delivery UUID, and then be discarded during processing -- reported by
+      # email only, so CI goes green and no build ever appears. Missing purpose
+      # strings (ITMS-90683) do exactly that, and file_picker embeds
+      # DKImagePickerController, which links the photo library APIs whether
+      # this app calls them or not.
+      - name: Verify the bundle cannot be discarded in processing
+        run: |
+          set -euo pipefail
+          plist=flutter_app/build/ios/iphoneos/Runner.app/Info.plist
+          # One entry per framework that drags in a protected API, because
+          # missing ANY of them is the same ITMS-90683 and each is reported
+          # only after a delivery that said it succeeded. The photo library one
+          # discarded the build outright; the Bluetooth one came back as a
+          # warning on a delivery Apple had already accepted -- so checking
+          # only the first is how the second reached a shipped build.
+          need_string() {   # <framework dir> <Info.plist key>
+            [ -d "flutter_app/build/ios/iphoneos/Runner.app/Frameworks/$1" ] || return 0
+            /usr/bin/plutil -extract "$2" raw -o - "$plist" >/dev/null 2>&1 && return 0
+            echo "::error::$1 is embedded but $2 is missing from Info.plist."
+            echo "::error::Apple reports this as ITMS-90683, by email, after the upload."
+            exit 1
+          }
+          need_string DKImagePickerController.framework NSPhotoLibraryUsageDescription
+          need_string gamepads_ios.framework NSBluetoothAlwaysUsageDescription
+          /usr/bin/plutil -extract ITSAppUsesNonExemptEncryption raw -o - "$plist" >/dev/null 2>&1 \
+            || { echo "::error::ITSAppUsesNonExemptEncryption is missing"; exit 1; }
+          /usr/bin/plutil -extract CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconName raw -o - "$plist" >/dev/null 2>&1 \
+            || { echo "::error::no app icon declared in the built bundle"; exit 1; }
+          echo "bundle looks deliverable"
+
+      # App Store Connect refuses a CFBundleVersion it has already seen, and
+      # says so only AFTER the whole upload has transferred. A UTC timestamp is
+      # monotonic without having to ask the server what it already holds.
+      - name: Choose a build number
+        if: env.HAS_IOS_SIGNING == 'true'
+        id: buildno
+        run: echo "n=$(date -u +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+
+      # xcodebuild archive + export, NOT `flutter build ipa`. The Runner target
+      # is set to Automatic signing and `flutter build ipa` honours that: it
+      # looks for a DEVELOPMENT certificate, finds none on a runner with no
+      # Apple ID, and stops -- while the distribution certificate and profile
+      # it actually needs sit right there, imported and installed.
       - name: Build signed IPA
         if: env.HAS_IOS_SIGNING == 'true'
         working-directory: flutter_app
-        run: flutter build ipa --release --export-method app-store
+        env:
+          TEAM_ID: 88A3T9K9C5
+          BUNDLE_ID: com.crownparkcomputing.c64-retro
+          PROFILE_NAME: Retro-C64 AppStore v2
+          IDENTITY: Apple Distribution
+        run: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign \
+            --build-number=${{ steps.buildno.outputs.n }}
+
+          # Archive UNSIGNED, then let -exportArchive do the signing. Signing
+          # settings on the xcodebuild command line apply to every target in
+          # the workspace, including the CocoaPods ones, and pods reject them
+          # outright: "package_info_plus does not support provisioning
+          # profiles", once per pod.
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="$TEAM_ID"
+
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>$IDENTITY</string>
+            <key>provisioningProfiles</key>
+            <dict><key>$BUNDLE_ID</key><string>$PROFILE_NAME</string></dict>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/ios/ipa
+
+          ls -l build/ios/ipa
+
+      - name: Upload to App Store Connect
+        if: env.HAS_IOS_SIGNING == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          # altool finds the key by this exact filename, derived from the key
+          # id -- it is not configurable.
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 -d \
+            > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          ipa=$(ls flutter_app/build/ios/ipa/*.ipa | head -1)
+          echo "uploading $ipa"
+          xcrun altool --upload-app -f "$ipa" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          rm -f ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
       - uses: actions/upload-artifact@v4
         with:

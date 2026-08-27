@@ -21,7 +21,14 @@ class StartupImport {
         stem == g || (stem.startsWith(g) && stem.length <= g.length + 14));
   }
 
-  Future<({int roms, int tunes, int games})> run() async {
+  /// [includeMedia] files the music and games zips as well as the ROM one.
+  /// Launch passes false: those two carry content the user is still
+  /// arranging in the Files app, and filing them on every launch made the
+  /// shelf populate itself out from under them. An explicit Scan asks for
+  /// the lot.
+  Future<({int roms, int tunes, int games})> run({
+    bool includeMedia = true,
+  }) async {
     var roms = 0;
     if (!await ViceNativePaths.romsInstalled()) {
       final scanned = await getIt<RomInstallService>().scanAndImport();
@@ -31,6 +38,7 @@ class StartupImport {
 
     var tunes = 0;
     var games = 0;
+    if (!includeMedia) return (roms: roms, tunes: tunes, games: games);
     if (!Platform.isIOS) return (roms: roms, tunes: tunes, games: games);
     final String docsPath = await ViceNativePaths.iosDocumentsDirPath();
 
