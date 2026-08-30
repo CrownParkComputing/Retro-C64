@@ -165,6 +165,17 @@ void main() {
 
     final onWizard = button('Store Compliance').evaluate().isNotEmpty;
     if (onWizard) {
+      // Let the BASIC text finish typing first. _TypedConsole writes one
+      // character at a time off a Timer, so pumpAndSettle returns while the
+      // screen still reads "AN EMULA" -- and the store's very first
+      // screenshot went out looking like a truncated string.
+      final deadline = DateTime.now().add(const Duration(seconds: 15));
+      while (DateTime.now().isBefore(deadline) &&
+          find.textContaining('IT NEEDS NOTHING FROM YOU').evaluate().isEmpty) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      expect(find.textContaining('IT NEEDS NOTHING FROM YOU'), findsOneWidget,
+          reason: 'the console should have finished typing before capture');
       // The console, not the welcome card: the BASIC screen is the one that
       // looks like a C64 rather than like every other app's first run.
       await shoot(tester, '01-setup-wizard');

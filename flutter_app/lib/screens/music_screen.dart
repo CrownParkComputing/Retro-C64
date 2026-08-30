@@ -147,6 +147,19 @@ class _MusicScreenState extends State<MusicScreen> {
   /// tunes, not an offer: nothing here downloads anything, and these are
   /// commercial recordings whose composers hold the rights. "Not downloaded"
   /// read as though the app would fetch them given the chance.
+  /// "20 tunes" was a claim about the catalogue, not about this device, so a
+  /// player holding nothing still announced twenty of them. Says what is
+  /// actually here.
+  String _heading() {
+    final total = MusicScreen.playlist.length;
+    final have = MusicScreen.playlist
+        .where((t) => _pathFor(t.$3) != null)
+        .length;
+    if (have == 0) return 'SID Workstation - no tunes in your library';
+    if (have == total) return 'SID Workstation - $total tunes';
+    return 'SID Workstation - $have of $total tunes';
+  }
+
   Future<void> _autoStart() async {
     if (_vsid.currentPath != null) {
       // Already loaded from an earlier visit. Adopt it for the UI so the
@@ -350,7 +363,7 @@ class _MusicScreenState extends State<MusicScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Text(
-                  'SID Workstation - ${MusicScreen.playlist.length} tunes',
+                  _heading(),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -441,8 +454,15 @@ class _MusicScreenState extends State<MusicScreen> {
                                   const Icon(Icons.graphic_eq, color: ViceColors.accentCyan, size: 14)
                                 else if (paused)
                                   const Icon(Icons.pause, color: Colors.orangeAccent, size: 14)
-                                else if (!available)
-                                  const Icon(Icons.download_outlined, color: Colors.white38, size: 14),
+                                // Deliberately NO icon for an absent tune. It
+                                // used to be Icons.download_outlined, which
+                                // said the opposite of what the card means:
+                                // these are commercial recordings the app does
+                                // not ship and will not fetch, and a download
+                                // glyph on twenty named Hubbard and Galway
+                                // titles reads as an offer to get them. The
+                                // dimmed card and "(not in your library)"
+                                // already carry it.
                               ],
                             ),
                             Text(

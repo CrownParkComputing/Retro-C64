@@ -40,13 +40,29 @@ echo "simulator $UDID -> $OUT"
 # So: poll for the container, and copy the moment it appears. The test waits
 # for the files rather than assuming them.
 #
-# Note it is the CONTENTS of SHOT_SEED that land in Documents -- point it at
-# the folder CONTAINING Retro-Saturn/, not at Retro-Saturn/ itself.
+# Note it is the CONTENTS of SHOT_SEED that land in Documents, and on iOS the
+# app's Documents directory IS the "Retro-C64" folder the Files app shows. So
+# SHOT_SEED holds the drop folders themselves:
+#
+#     $SHOT_SEED/Games/...    $SHOT_SEED/Music/...    $SHOT_SEED/ROMs/...
+#
+# NOT $SHOT_SEED/Retro-C64/Games. Nesting it one level deeper puts everything
+# in Documents/Retro-C64/Games, which nothing scans -- the run then completes
+# green with a library reading "No C64 media found", and the fault is only
+# visible in the screenshots themselves. (This note used to name Retro-Saturn,
+# copied from the sibling app, which is how that mistake got made.)
 seeder() {
   local last="" deadline=$((SECONDS + 600))
   while [ "$SECONDS" -lt "$deadline" ]; do
     local c
     c=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data 2>/dev/null || true)
+    # ONCE per container, deliberately. Re-copying while the app is running
+    # replaces a directory it already has open -- and because Apple's
+    # filesystem is case-insensitive, the seed's games/ IS the app's own
+    # games/, so a repeat ditto pulls the floor out from under it and the run
+    # dies with PathNotFoundException from _destinationDir. That path is
+    # created with recursive:true, so it fails only when the directory is
+    # being replaced underneath, not when a parent is merely absent.
     if [ -n "$c" ] && [ "$c" != "$last" ]; then
       mkdir -p "$c/Documents"
       # ditto, not `cp -R`. The app creates Documents/<App>/{BIOS,Games} on

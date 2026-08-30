@@ -36,6 +36,7 @@ import 'package:retro_c64/services/demo_roms_service.dart';
 import 'package:retro_c64/view_models/workbench_view_model.dart';
 import 'package:retro_c64/services/service_locator.dart';
 import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/services/platform_info.dart';
 import 'package:retro_c64/theme/vice_theme.dart';
 
 const String kGamesImportSubdir = 'games';
@@ -175,7 +176,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln(
         _isFolderScan
             ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
-            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).',
+            // filesAppDeviceName, not a literal. This said "ON MY IPAD" on
+            // every device, so an iPhone was directed to a folder that is not
+            // on it. It was dynamic before the phased-wizard merge and the
+            // merge flattened it.
+            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > '
+                '${filesAppDeviceName(context).toUpperCase()} >\nRETRO-C64).',
       )
       ..writeln()
       ..writeln('OR PRESS "STORE COMPLIANCE" TO RUN')
