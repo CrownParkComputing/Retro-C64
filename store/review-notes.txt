@@ -1,79 +1,37 @@
-This is a hardware emulator for the Commodore 64 (1982), permitted under
-App Review Guideline 4.7. It ships with no games and no Commodore ROMs.
+GUIDELINE 4.7.4 -- INDEX OF GAMES AND SOFTWARE AVAILABLE IN THE APP
 
-HOW TO SEE A WORKING EMULATOR IN UNDER A MINUTE, WITH NOTHING TO DOWNLOAD
+This app does not offer, download, stream, or link to any non-embedded games or software. There is no content catalogue, store, or server. All executable content is embedded in the app binary:
 
-First run opens on a welcome screen. Tap "I have done this before" to go
-straight to the setup console (or "Get started", then "READY." at the end of
-the two-page primer -- both arrive at the same place).
+1. VICE (the Commodore 64 emulator core)
+   Developer: The VICE Team
+   Licence: GNU GPL v2 or later
+   URL: https://vice-emu.sourceforge.io
 
-That console screen has two buttons. Tap "Store Compliance", the left-hand
-one -- it is the only one that asks nothing of you. The app switches to a
-free, open-source ROM set, puts a small demo program in the games list, and
-lands on the Compliance page. There, tap "Open Games", then tap
-"Retro-C64 Demo". A real emulated C64 boots and runs it.
+2. Open ROMs (free clean-room replacement for the C64 BASIC, KERNAL and character set -- no Commodore code)
+   Developers: Paul Gardner-Stephen and Roman Standzikowski / FeralChild64, of the MEGA65 project
+   Licence: GNU LGPL v3
+   URL: https://github.com/MEGA65/open-roms
 
-THE COMPLIANCE PAGE
+3. DEMO.PRG (demo program)
+   Developer: Crown Park Computing (this app's developer) -- an original work written for this app
+   URL: https://github.com/CrownParkComputing/Retro-C64 (source included)
 
-Open the app and tap "Compliance" in the sidebar. One page, on the device,
-needing no network connection, that answers everything this submission
-turns on:
+No Commodore ROMs, commercial games, music, or third-party game data are included or offered. Users may open their own C64 files from local device storage via the system file picker; the app does not supply, index, or link to any such content. The only optional network feature is user-configured cover artwork, which is inert unless the user enters a URL of their own; it never delivers software. We will attach an up-to-date copy of this index in the Review Notes of every future submission.
 
-  1. A switch that puts the app on the free ROMs. It boots from its own
-     ROM folder, so it cannot touch or depend on any ROMs a user has
-     installed. The page then says which file to open and where, with an
-     "Open Games" button: Games in the sidebar, then "Retro-C64 Demo". A
-     real emulated C64 boots and runs it, loaded the same way any tape or
-     disk is loaded -- nothing is typed in or started for you.
-  2. The demo's files are listed by name with their full path, in a folder
-     you can open and read -- the free ROMs, their licence texts and the
-     demo program itself.
-  3. What the free ROMs are, who wrote them and under which licence.
-  4. That Commodore's ROMs are never shipped, and the legitimate ways to
-     obtain them.
-  5. That no games are shipped.
-  6. The free-software licences and where the source is.
-  7. The privacy position.
+----------------------------------------------------------------------
 
-There is also a link to it from About.
+REVIEW ENVIRONMENT (summary of our earlier reply)
 
-Setup can be re-run at any time from Paths ("Run setup again"), and its
-"Store Compliance" button switches to the free ROMs and starts the demo
-immediately.
+Retro-C64 is a hardware emulator for the Commodore 64 (1982) under Guideline 4.7. No account, login, credentials or files are needed: the app runs immediately on a clean install. First run opens on a welcome screen: tap "I have done this before" to reach the setup console (or "Get started", then "READY." at the end of the primer -- both arrive at the same place). That console has two buttons; tap "Store Compliance", the left-hand one. It switches the emulator to the bundled free Open ROMs and lands on the Compliance page, where "Open Games" takes you to the demo. Tap "Retro-C64 Demo" and an emulated C64 boots and runs it. To use their own software, users import their own Commodore ROM set and files via the Files app (the original Commodore ROMs are Commodore's copyright and are NOT included, which is the only reason the app ever asks for a file).
 
-Nothing else is needed: no files, no accounts, no network, no ROMs of your
-own. That path exists specifically so the app can be evaluated by someone
-who has no Commodore hardware to take ROMs from.
+The app makes no network request of its own: no authentication, payments, analytics, advertising, AI, or third-party data. The single optional network feature is cover artwork, inert unless the user types their own URL into Settings. No regional differences; free everywhere; English (UK) only.
 
-WHY THE APP ASKS FOR ROMS AT ALL
+We do not own a physical iOS device: development is verified on the iOS Simulator (iPhone 17 Pro Max and iPad Pro 13-inch (M5), iOS 26.5, Xcode 26.6), and physical-device testing is done by our public TestFlight group.
 
-The C64's own BASIC and KERNAL are still under copyright and cannot legally
-be distributed, so commercial C64 software needs the user to supply them,
-exactly as with every other C64 emulator. The built-in set used by the demo
-is the MEGA65 project's Open ROMs -- an independent, clean-room
-reimplementation, not Commodore's code. It boots and runs the demo, but it
-is an unfinished project and much commercial software will not run on it,
-which is why the app still offers to import a real set.
+The Music tab lists well-known SID tunes only as a catalogue of what the player recognises; none is bundled and nothing is downloaded — an entry plays only if the user has imported that .sid themselves.
 
-To evaluate with a real ROM set instead, place one (kernal, basic, chargen,
-and dos1541 for disk images) in the app's Documents folder via the Files
-app, then use Paths > Scan for ROMs. A zipped set works as-is.
+----------------------------------------------------------------------
 
-The app never shows a black screen for want of ROMs: without them it shows
-setup guidance, and now also the working demo above. Nothing in that state
-is a crash or a non-functional screen.
+WHAT CHANGED SINCE THE 4.3(a) REJECTION
 
-OTHER
-
-No accounts, no login and no server, so no demo account is needed. The app
-collects no data at all and sends none anywhere; the privacy policy is at
-https://www.crownparkcomputing.com/privacy
-
-The app makes no network request of its own. There is one optional feature
-that can: in Settings you may enter a URL of your own for cover artwork, and
-only then does the app fetch from it. It is empty by default and nothing is
-contacted unless you fill it in.
-
-The app is built on free software (VICE, reSID, Open ROMs). The licences
-and the links to the complete source are listed in the app under About >
-Licences and source.
+The interface is now drawn entirely in the VIC-II's own sixteen colours (Pepto's measurements of the real chip, the values VICE renders with), replacing a palette this app shared with our other titles. The Music tab's absent entries no longer carry a download icon -- nothing is fetched, and the icon said otherwise -- and its heading now counts the tunes actually present on the device rather than always claiming twenty.
