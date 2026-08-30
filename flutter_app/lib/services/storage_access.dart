@@ -204,7 +204,7 @@ abstract class StorageAccess {
   /// container but not yet imported into [destinationSubdir].
   ///
   /// These arrive without the document picker ever being involved -- dragged
-  /// into "Retro-64" in the Files app, opened into the app from
+  /// into "Retro-C64" in the Files app, opened into the app from
   /// another app (which lands them in Documents/Inbox), or pushed over USB.
   /// The custom import sheet lists these so a user can bring them in without
   /// going through UIDocumentPickerViewController, which cannot see files

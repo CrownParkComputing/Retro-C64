@@ -272,7 +272,7 @@ class GettingStartedSteps {
           _point(
             Icons.looks_two_outlined,
             'Tap "On My iPhone" or "On My iPad"',
-            'Then open the folder named Retro-64. The app creates it on '
+            'Then open the folder named Retro-C64. The app creates it on '
                 'first run.',
           ),
           _point(
@@ -309,7 +309,7 @@ class GettingStartedSteps {
             'The app reads your games in place rather than copying them — '
                 'and Android requires the All files access permission for '
                 'that. The wizard opens the system page; switch it on for '
-                'Retro-64 and come back. If you would rather not grant it, '
+                'Retro-C64 and come back. If you would rather not grant it, '
                 'a single folder can be granted through the system picker '
                 'in Paths instead.',
           ),

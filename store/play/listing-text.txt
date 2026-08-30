@@ -1,6 +1,6 @@
 APP NAME (max 30)
 ============================================================
-Retro-64
+Retro-C64
 
 SHORT DESCRIPTION (64/80)
 ============================================================
@@ -8,7 +8,7 @@ Commodore 64 emulator for the disks, tapes and SID music you own
 
 FULL DESCRIPTION (2014/4000)
 ============================================================
-Put a working Commodore 64 on your Android device. Retro-64 is built on VICE, the emulator that has been the reference for C64 accuracy for over thirty years.
+Put a working Commodore 64 on your Android device. Retro-C64 is built on VICE, the emulator that has been the reference for C64 accuracy for over thirty years.
 
 WORKS THE MOMENT YOU OPEN IT
 The app ships free, open-source ROMs and a small demo program. Together they boot a real emulated Commodore 64 and run it straight away, with no files, no account and no network. You can watch a C64 come up before you decide anything.
@@ -32,6 +32,6 @@ Commercial C64 software was written against Commodore's own BASIC and KERNAL, wh
 
 This app ships with no copyrighted software and no games. Add your own legally owned C64 titles to begin.
 
-Retro-64 is built on the VICE emulator and released under the GNU General Public License.
+Retro-C64 is built on the VICE emulator and released under the GNU General Public License.
 
 https://github.com/CrownParkComputing/ViceMultiplatform

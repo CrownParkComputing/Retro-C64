@@ -46,7 +46,7 @@ rm -f "$OUT"
   ( cd "$WORK" && zip -qr "$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")" C64 DRIVES )
 echo "--- wrote $OUT"
 echo
-echo "Drop it in the app's folder (Files -> On My iPad -> C64-Retro Emulator)"
+echo "Drop it in the app's folder (Files -> On My iPad -> Retro-C64)"
 echo "and use Scan for ROMs. No unpacking: the scan reads the zip."
 echo
 echo "Without the drive ROM the machine boots and only .d64 fails, with"

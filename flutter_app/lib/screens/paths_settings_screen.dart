@@ -206,7 +206,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
   ///
   /// Nothing downstream needs them -- every scan here already walks the
   /// folder recursively -- so this buys exactly one thing: a first-time user
-  /// opening Retro-64 in the Files app sees three labelled folders and a
+  /// opening Retro-C64 in the Files app sees three labelled folders and a
   /// note in each, instead of an empty folder and no clue what it wants.
   Future<void> _createDropFolders() async {
     final docs = await ViceNativePaths.iosDocumentsDirPath();
@@ -216,7 +216,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
       SnackBar(
         content: Text(created.isEmpty
             ? 'Drop folders were already there -- notes refreshed.'
-            : 'Created ${created.join(", ")} in the Retro-64 folder.'),
+            : 'Created ${created.join(", ")} in the Retro-C64 folder.'),
       ),
     );
     await _load();
@@ -421,7 +421,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
             _Row(
               label: 'Drop folders',
               value: _dropFolders.length == DropFolders.folders.length
-                  ? 'Ready -- ${_dropFolders.join(", ")} in the Retro-64 '
+                  ? 'Ready -- ${_dropFolders.join(", ")} in the Retro-C64 '
                       'folder'
                   : _dropFolders.isEmpty
                       ? 'Not created -- make ROMs, Games and Music folders to '
@@ -442,7 +442,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
               child: Text(
                 'Adding more games and music\n'
                 '1.  In the Files app, open '
-                '${filesAppDeviceName(context)} > Retro-64.\n'
+                '${filesAppDeviceName(context)} > Retro-C64.\n'
                 '2.  Drop in a zip - add games to your games zip, tunes to '
                 'your music zip, or bring a whole new zip; the name does '
                 'not matter.\n'

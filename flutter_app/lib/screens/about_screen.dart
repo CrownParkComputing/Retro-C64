@@ -63,7 +63,7 @@ class AboutScreen extends StatelessWidget {
             style:
                 TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        const Text('Retro-64', style: TextStyle(color: Colors.white70)),
+        const Text('Retro-C64', style: TextStyle(color: Colors.white70)),
         const SizedBox(height: 4),
         // The running version, shown because a build you cannot identify is
         // a build you cannot report a bug against -- and because the setup

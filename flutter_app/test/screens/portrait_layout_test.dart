@@ -66,8 +66,8 @@ void main() {
         .setMockMethodCallHandler(
       const MethodChannel('dev.fluttercommunity.plus/package_info'),
       (call) async => <String, dynamic>{
-        'appName': 'Retro-64',
-        'packageName': 'com.crownparkcomputing.c64retro',
+        'appName': 'Retro-C64',
+        'packageName': 'com.crownparkcomputing.c64-retro',
         'version': '1.0.0',
         'buildNumber': '46',
       },

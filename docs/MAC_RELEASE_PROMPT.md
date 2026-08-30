@@ -24,7 +24,7 @@ is therefore the only one that can be tapped, TestFlighted or shipped.
 
 ---
 
-You are building and shipping the first iOS release of **C64-Retro Emulator**,
+You are building and shipping the first iOS release of **Retro-C64**,
 a Commodore 64 emulator. The repo already builds green on Linux, Android and
 CI; nothing about the Dart or native code needs changing. Your job is the
 macOS-only half: a signed release IPA, and getting it to TestFlight.

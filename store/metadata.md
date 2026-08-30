@@ -26,7 +26,7 @@ returns says only "The specified pre-release build could not be added".
 
 ## Name (30 max)
 
-    C64-Retro Emulator                                    [18]
+    Retro-C64                                             [9]
 
 ## Subtitle (30 max)
 
@@ -44,7 +44,7 @@ both families, which is also why the description opens "iPhone and iPad".
 
 ## Description (4000 max)
 
-    C64-Retro Emulator brings the Commodore 64 to iPad, built on VICE, the
+    Retro-C64 brings the Commodore 64 to iPad, built on VICE, the
     emulator that has been the reference for C64 accuracy for over thirty
     years.
 

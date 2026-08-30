@@ -302,7 +302,7 @@ class _RetroC64AppState extends State<RetroC64App>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Retro-64',
+      title: 'Retro-C64',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
       home: _buildHome(),

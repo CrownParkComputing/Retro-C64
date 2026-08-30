@@ -1,6 +1,6 @@
 # Shipping an iOS app to TestFlight and the App Store
 
-A complete runbook, written across two apps -- C64-Retro and Amiga-Retro --
+A complete runbook, written across two apps -- Retro-C64 and Amiga-Retro --
 and roughly a dozen rejections, nearly all avoidable. Deliberately generic:
 nothing here is specific to either project, so it should serve the next app.
 

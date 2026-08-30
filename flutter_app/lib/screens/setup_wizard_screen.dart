@@ -75,7 +75,7 @@ class SetupWizardScreen extends StatefulWidget {
 /// Downloads. That folder belongs to the Files app and the sandbox forbids
 /// reaching into it, so no amount of scanning will find it. What this screen
 /// scans is everywhere the app genuinely can read -- its own container,
-/// including anything dropped into "Retro-64" in the Files app,
+/// including anything dropped into "Retro-C64" in the Files app,
 /// opened into the app from elsewhere (Documents/Inbox), or pushed over USB.
 /// Downloads is reachable only through the picker, which is what
 /// "Import from Files..." opens.
@@ -149,7 +149,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 
   String _consoleText() {
     final buffer = StringBuffer()
-      ..writeln('    **** RETRO-64 BASIC V2 ****')
+      ..writeln('    **** RETRO-C64 BASIC V2 ****')
       ..writeln()
       ..writeln('64K RAM SYSTEM  38911 BASIC BYTES FREE')
       ..writeln()
@@ -164,7 +164,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       ..writeln(
         _isFolderScan
             ? 'POINT THE APP AT YOUR FOLDER FROM\nPATHS IN THE SIDEBAR.'
-            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-64).',
+            : 'DROP YOUR FILES INTO THIS APP\'S\nFOLDER (FILES > ON MY IPAD >\nRETRO-C64).',
       )
       ..writeln()
       ..writeln('OR PRESS "STORE COMPLIANCE" TO RUN')
@@ -211,7 +211,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Retro-64',
+              'Retro-C64',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
