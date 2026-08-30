@@ -163,7 +163,7 @@ class _UnreadableBanner extends StatelessWidget {
           ),
           TextButton(
             onPressed: onGrant,
-            child: const Text('GRANT', style: TextStyle(color: ViceColors.accentTeal)),
+            child: const Text('GRANT', style: TextStyle(color: ViceColors.accentCyan)),
           ),
         ],
       ),

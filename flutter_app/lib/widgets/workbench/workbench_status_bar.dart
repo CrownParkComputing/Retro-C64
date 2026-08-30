@@ -39,13 +39,13 @@ class WorkbenchStatusBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0x3300FFCC),
-                  border: Border.all(color: ViceColors.accentTeal),
+                  border: Border.all(color: ViceColors.accentCyan),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: const Text(
                   'COMPLIANCE MODE — FREE ROMS',
                   style: TextStyle(
-                    color: ViceColors.accentTeal,
+                    color: ViceColors.accentCyan,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,

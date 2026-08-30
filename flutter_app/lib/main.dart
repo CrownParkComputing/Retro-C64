@@ -20,6 +20,7 @@ import 'services/video_settings.dart';
 import 'services/vsid_service.dart';
 
 import 'view_models/workbench_view_model.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 void main() async {
   // Persisted video preferences have to be read before the first frame is
@@ -335,7 +336,7 @@ class _LoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Color(0xFF050607),
+      backgroundColor: ViceColors.rootBackground,
       body: Center(child: CircularProgressIndicator()),
     );
   }
@@ -347,7 +348,7 @@ class _ErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF050607),
+      backgroundColor: ViceColors.rootBackground,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

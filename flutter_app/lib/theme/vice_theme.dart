@@ -11,35 +11,72 @@ import 'package:flutter/material.dart';
 class ViceColors {
   ViceColors._();
 
-  // Root background (LauncherLayoutHelper.createLauncher: rootStack bg).
-  static const Color rootBackground = Color(0xFF050607);
+  // ---------------------------------------------------------------------
+  // The VIC-II's own sixteen colours.
+  //
+  // These are Pepto's measurements of the real chip's composite output --
+  // the same values VICE itself uses -- not an artist's impression of
+  // "retro". A C64 could display these and nothing else, so an interface
+  // built from them is the machine's own palette rather than a theme laid
+  // over a generic shell.
+  //
+  // Kept as the complete set, including the colours nothing currently
+  // draws with, because the point is the palette, not a selection from it.
+  // ---------------------------------------------------------------------
+  static const Color c64Black = Color(0xFF000000);
+  static const Color c64White = Color(0xFFFFFFFF);
+  static const Color c64Red = Color(0xFF68372B);
+  static const Color c64Cyan = Color(0xFF70A4B2);
+  static const Color c64Purple = Color(0xFF6F3D86);
+  static const Color c64Green = Color(0xFF588D43);
+  static const Color c64Blue = Color(0xFF352879);
+  static const Color c64Yellow = Color(0xFFB8C76F);
+  static const Color c64Orange = Color(0xFF6F4F25);
+  static const Color c64Brown = Color(0xFF433900);
+  static const Color c64LightRed = Color(0xFF9A6759);
+  static const Color c64DarkGrey = Color(0xFF444444);
+  static const Color c64Grey = Color(0xFF6C6C6C);
+  static const Color c64LightGreen = Color(0xFF9AD284);
+  static const Color c64LightBlue = Color(0xFF6C5EB5);
+  static const Color c64LightGrey = Color(0xFF959595);
 
-  // Sidebar / content panel background (LauncherLayoutHelper.contentBackground).
-  static const Color panelFill = Color(0xCC0B0D10);
-  static const Color panelStroke = Color(0x44FFFFFF);
+  // ---------------------------------------------------------------------
+  // Roles, mapped onto the palette above.
+  //
+  // The arrangement is the machine's own boot screen: blue screen, lighter
+  // blue border and cursor. Panels sit DARKER than the root rather than
+  // lighter, which is what keeps body text legible -- light grey on the
+  // root blue is only 4.0:1, and on the panel fill it is 4.7:1.
+  // ---------------------------------------------------------------------
 
-  // Selected sidebar button (LauncherLayoutHelper.selectedBackground).
-  static const Color selectedFill = Color(0xFF24292E);
-  static const Color selectedStroke = Color(0xFF444D56);
+  /// The screen itself.
+  static const Color rootBackground = c64Blue;
 
-  // Sidebar label colors.
-  static const Color sidebarLabelIdle = Color(0xFF8C939D);
-  static const Color sidebarLabelSelected = Colors.white;
+  /// Panels sit inside the screen, so they are the same hue driven down.
+  static const Color panelFill = Color(0xE6251C55);
+  static const Color panelStroke = Color(0x806C5EB5);
 
-  // Shared accent colors used throughout (music EQ, status text, etc).
-  static const Color accentTeal = Color(0xFF00FFCC);
-  static const Color accentBlue = Color(0xFF2D8CFF);
+  /// The selected rail entry is the C64's cursor: a solid light-blue block.
+  static const Color selectedFill = c64LightBlue;
+  static const Color selectedStroke = Color(0xFF8B7FD0);
 
-  // Media / SID card chrome (MainActivity.createMediaCard / createSidCard).
-  static const Color cardFill = Color(0xFF191D22);
-  static const Color cardStroke = Color(0xFF353B44);
-  static const Color coverFill = Color(0xFF262C34);
-  static const Color coverStroke = Color(0xFF404853);
-  static const Color sidCardFill = Color(0xFF242A31);
-  static const Color sidCardStroke = Color(0xFF46505C);
+  static const Color sidebarLabelIdle = c64LightGrey;
+  static const Color sidebarLabelSelected = c64White;
 
-  static const Color textMuted = Color(0xFF9AA3AF);
-  static const Color textMuted2 = Color(0xFFBAC2CC);
+  /// The accent throughout. Cyan is the C64's, and it is the one colour in
+  /// this palette that carries at small sizes against the blue.
+  static const Color accentCyan = c64Cyan;
+
+  // Media / SID card chrome.
+  static const Color cardFill = Color(0xFF251C55);
+  static const Color cardStroke = Color(0x666C5EB5);
+  static const Color coverFill = Color(0xFF2E2465);
+  static const Color coverStroke = Color(0x806C5EB5);
+  static const Color sidCardFill = Color(0xFF2A2060);
+  static const Color sidCardStroke = Color(0x666C5EB5);
+
+  static const Color textMuted = c64LightGrey;
+  static const Color textMuted2 = Color(0xD9FFFFFF);
 }
 
 class ViceMetrics {

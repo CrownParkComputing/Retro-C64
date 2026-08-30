@@ -157,7 +157,7 @@ class _CoreSettingsScreenState extends State<CoreSettingsScreen> {
     child: Text(
       title.toUpperCase(),
       style: const TextStyle(
-        color: ViceColors.accentTeal,
+        color: ViceColors.accentCyan,
         fontSize: 12,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.2,
@@ -197,7 +197,7 @@ class _CoreSettingsScreenState extends State<CoreSettingsScreen> {
           switch (option.kind) {
             ViceResourceKind.toggle => Switch(
               value: value != 0,
-              activeThumbColor: ViceColors.accentTeal,
+              activeThumbColor: ViceColors.accentCyan,
               onChanged: (on) => _setInt(option.name, on ? 1 : 0),
             ),
             ViceResourceKind.choice => DropdownButton<int>(

@@ -30,29 +30,40 @@ returns says only "The specified pre-release build could not be added".
 
 ## Subtitle (30 max)
 
-    Commodore 64, iPhone & iPad                           [27]
-
-The old "Commodore 64, on your iPad" said iPad-only while the binary claims
-both families, which is also why the description opens "iPhone and iPad".
+    Commodore 64 and SID player           [27]
 
 ## Promotional text (170 max, editable without a new build)
 
-    A full Commodore 64 in your hands, working the moment you open it:
-    disk images, tapes, cartridges and SID music, with save states and a
-    library that organises itself.
-                                                          [166]
+    Two chips at once: the VIC-II colours the entire interface, and the SID
+    runs as its own emulator core, so a tune keeps playing while you browse
+    your library.
+                                                          [157]
 
 ## Description (4000 max)
 
-    Retro-C64 brings the Commodore 64 to iPad, built on VICE, the
-    emulator that has been the reference for C64 accuracy for over thirty
-    years.
+    Retro-C64 emulates two of the Commodore 64's chips at once, and builds
+    its whole interface out of one of them.
+
+    THE VIC-II COLOURS THE APP
+    Every colour you see is one of the sixteen the VIC-II could produce --
+    Pepto's measurements of the real chip's output, the same values VICE
+    renders with. The blue you are looking at is the C64's blue. Nothing
+    here is a dark theme with a retro name on it.
+
+    THE SID IS A SEPARATE EMULATOR
+    SID tunes are not recordings. They are 6502 code that drives a sound
+    chip, and Retro-C64 runs them the way the machine did -- through reSID,
+    on a second, independent emulator core. Because that core is separate
+    from the one running your games, a tune carries on playing while you
+    browse your library, change your settings or read a disk directory.
+    Point the app at a folder of .sid files and it becomes a chiptune player
+    that happens to also be a computer.
 
     LOAD WHAT YOU ALREADY HAVE
     Disk images (D64, D71, D81, G64), tapes (TAP, T64), cartridges (CRT),
     programs (PRG, P00) and SID music. Drop files in through the Files app
-    or open them in from anywhere on your device -- zipped downloads work
-    as they are, no unpacking required.
+    or open them in from anywhere on your device -- zipped downloads work as
+    they are, no unpacking required.
 
     A LIBRARY THAT ORGANISES ITSELF
     Everything you import is catalogued automatically, with artwork support
@@ -66,31 +77,26 @@ both families, which is also why the description opens "iPhone and iPad".
     for MFi and Bluetooth controllers.
 
     WORKS THE MOMENT YOU OPEN IT
-    Setup offers a demo that runs straight away, using a free,
-    open-source ROM set built into the app. Nothing to find, nothing to
-    download -- you can see a real emulated C64 boot before you decide
-    anything.
+    Setup offers a demo that runs straight away, on a free, open-source ROM
+    set built into the app. Nothing to find, nothing to download -- you can
+    see a real emulated C64 boot before you decide anything.
 
     ABOUT COMMODORE'S ROMS
     Commercial C64 software was written against Commodore's own BASIC and
     KERNAL, which are still under copyright and cannot be distributed with
     any emulator. To run your old games you supply those yourself -- dump
-    them from a C64 you own, use a licensed set such as C64 Forever, or
-    copy them from an existing VICE installation. The app scans for them
-    and files them in the right place automatically; a zipped ROM set
-    works without unpacking. The built-in open ROMs are an independent
+    them from a C64 you own, use a licensed set such as C64 Forever, or copy
+    them from an existing VICE installation. The app scans for them and
+    files them in the right place automatically; a zipped ROM set works
+    without unpacking. The built-in open ROMs are an independent
     reimplementation and will not run most commercial titles.
 
-The old closing line -- "Without those files the emulator will not boot.
-Please make sure you can supply them before buying or installing" -- was
-true when written and is not any more: the app now ships the MEGA65 Open
-ROMs and boots without anything from the user. Leaving it there would have
-been both wrong and the single most discouraging sentence on the page.
+    Retro-C64 ships no games and no Commodore ROMs.
 
 ## Keywords (100 max, comma separated, no spaces after commas)
 
-    c64,commodore,retro,emulator,vice,8bit,sid,d64,disk,tape,cartridge,classic,vintage,computer
-                                                          [91]
+    c64,commodore,sid,chiptune,emulator,vice,6581,d64,disk,tape,cartridge,retro,vintage,basic
+                                                          [89]
 
 ## URLs
 

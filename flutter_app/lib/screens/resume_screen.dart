@@ -155,7 +155,7 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text.toUpperCase(),
         style: const TextStyle(
-            color: ViceColors.accentTeal,
+            color: ViceColors.accentCyan,
             fontSize: 11,
             letterSpacing: 1.2,
             fontWeight: FontWeight.bold),
@@ -183,10 +183,10 @@ class _CurrentSessionCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF1B3A36),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: ViceColors.accentTeal),
+              border: Border.all(color: ViceColors.accentCyan),
             ),
             child: const Icon(Icons.play_arrow,
-                color: ViceColors.accentTeal, size: 26),
+                color: ViceColors.accentCyan, size: 26),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -205,7 +205,7 @@ class _CurrentSessionCard extends StatelessWidget {
           ),
           const Text('RESUME',
               style: TextStyle(
-                  color: ViceColors.accentTeal,
+                  color: ViceColors.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold)),
         ],
@@ -281,7 +281,7 @@ class _SavedSessionCard extends StatelessWidget {
               canResume ? 'RESUME' : 'RESTART',
               style: TextStyle(
                   color: canResume
-                      ? ViceColors.accentTeal
+                      ? ViceColors.accentCyan
                       : const Color(0xFFD9A441),
                   fontSize: 12,
                   fontWeight: FontWeight.bold),
@@ -347,7 +347,7 @@ class _Card extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF191D22),
+              color: ViceColors.cardFill,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF353B44)),
             ),

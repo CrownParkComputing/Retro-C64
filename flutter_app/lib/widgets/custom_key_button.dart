@@ -149,7 +149,7 @@ Future<CustomButton?> showC64KeyPicker(BuildContext context) {
                     child: Text(
                       'JOYSTICK DIRECTION',
                       style: TextStyle(
-                          color: ViceColors.accentTeal,
+                          color: ViceColors.accentCyan,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1),
@@ -177,7 +177,7 @@ Future<CustomButton?> showC64KeyPicker(BuildContext context) {
                       child: Text(
                         entry.key.toUpperCase(),
                         style: const TextStyle(
-                            color: ViceColors.accentTeal,
+                            color: ViceColors.accentCyan,
                             fontSize: 11,
                             letterSpacing: 1.1,
                             fontWeight: FontWeight.bold),

@@ -128,7 +128,7 @@ class _RailTool extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Material(
-              color: lit ? ViceColors.accentTeal : const Color(0x66000000),
+              color: lit ? ViceColors.accentCyan : const Color(0x66000000),
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: Tooltip(

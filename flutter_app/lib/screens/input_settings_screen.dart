@@ -41,7 +41,7 @@ class InputSettingsScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF191D22),
+          color: ViceColors.cardFill,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFF353B44)),
         ),
@@ -136,7 +136,7 @@ class InputSettingsScreen extends StatelessWidget {
               ),
               Switch(
                 value: leftHanded,
-                activeThumbColor: ViceColors.accentTeal,
+                activeThumbColor: ViceColors.accentCyan,
                 onChanged: onLeftHandedChanged,
               ),
             ],
@@ -189,8 +189,8 @@ class InputSettingsScreen extends StatelessWidget {
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add button'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: ViceColors.accentTeal,
-                    side: const BorderSide(color: ViceColors.accentTeal),
+                    foregroundColor: ViceColors.accentCyan,
+                    side: const BorderSide(color: ViceColors.accentCyan),
                   ),
                   onPressed: () async {
                     final binding = await showC64KeyPicker(context);
@@ -210,7 +210,7 @@ class InputSettingsScreen extends StatelessWidget {
                 children: [
                   Icon(
                     isConnected ? Icons.sports_esports : Icons.sports_esports_outlined,
-                    color: isConnected ? ViceColors.accentTeal : Colors.white38,
+                    color: isConnected ? ViceColors.accentCyan : Colors.white38,
                     size: 22,
                   ),
                   const SizedBox(width: 12),

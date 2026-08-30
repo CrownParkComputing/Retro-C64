@@ -227,7 +227,7 @@ class _MusicScreenState extends State<MusicScreen> {
     } else if (playing) {
       label = 'PLAYING -- $_nowPlayingTitle  (level ${_vsid.audioLevel})';
       icon = Icons.graphic_eq;
-      color = ViceColors.accentTeal;
+      color = ViceColors.accentCyan;
     } else {
       label = 'Stopped';
       icon = Icons.stop_circle;
@@ -309,7 +309,7 @@ class _MusicScreenState extends State<MusicScreen> {
             );
             final toggle = Switch(
               value: on ?? true,
-              activeThumbColor: ViceColors.accentTeal,
+              activeThumbColor: ViceColors.accentCyan,
               onChanged: on == null ? null : _setWorkbenchMusic,
             );
 
@@ -415,7 +415,7 @@ class _MusicScreenState extends State<MusicScreen> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: playing
-                                ? ViceColors.accentTeal
+                                ? ViceColors.accentCyan
                                 : paused
                                     ? Colors.orangeAccent
                                     : ViceColors.sidCardStroke,
@@ -438,7 +438,7 @@ class _MusicScreenState extends State<MusicScreen> {
                                           fontSize: 12)),
                                 ),
                                 if (playing)
-                                  const Icon(Icons.graphic_eq, color: ViceColors.accentTeal, size: 14)
+                                  const Icon(Icons.graphic_eq, color: ViceColors.accentCyan, size: 14)
                                 else if (paused)
                                   const Icon(Icons.pause, color: Colors.orangeAccent, size: 14)
                                 else if (!available)
@@ -451,7 +451,7 @@ class _MusicScreenState extends State<MusicScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                   color: available
-                                      ? ViceColors.accentTeal
+                                      ? ViceColors.accentCyan
                                       : Colors.white38,
                                   fontSize: 10),
                             ),

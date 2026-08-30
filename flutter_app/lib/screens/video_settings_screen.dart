@@ -22,7 +22,7 @@ class VideoSettingsScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF191D22),
+          color: ViceColors.cardFill,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFF353B44)),
         ),
@@ -53,7 +53,7 @@ class VideoSettingsScreen extends StatelessWidget {
         ),
         Switch(
           value: value,
-          activeThumbColor: ViceColors.accentTeal,
+          activeThumbColor: ViceColors.accentCyan,
           onChanged: onChanged,
         ),
       ],
@@ -125,14 +125,14 @@ class VideoSettingsScreen extends StatelessWidget {
                         Expanded(
                           child: Slider(
                             value: settings.scanlineIntensity,
-                            activeColor: ViceColors.accentTeal,
+                            activeColor: ViceColors.accentCyan,
                             onChanged: settings.setScanlineIntensity,
                           ),
                         ),
                         Text(
                           '${(settings.scanlineIntensity * 100).round()}%',
                           style: const TextStyle(
-                              color: ViceColors.accentTeal, fontSize: 12),
+                              color: ViceColors.accentCyan, fontSize: 12),
                         ),
                       ],
                     ),

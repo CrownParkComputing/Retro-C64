@@ -367,7 +367,7 @@ class _LetterChip extends StatelessWidget {
             color: selected ? ViceColors.selectedFill : ViceColors.cardFill,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: selected ? ViceColors.accentTeal : ViceColors.cardStroke,
+              color: selected ? ViceColors.accentCyan : ViceColors.cardStroke,
             ),
           ),
           child: Text(

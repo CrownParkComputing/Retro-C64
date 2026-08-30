@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// Full port of C64BackgroundView.java: the workbench backdrop that turns
 /// into a demo (raster bars, the Retro Recompilation logo, a sine scroller,
@@ -360,7 +361,7 @@ class _C64Painter extends CustomPainter {
         final shader = ui.Gradient.linear(
           Offset(0, bottom),
           Offset(0, bottom - barH),
-          const [Color(0xFF00FFCC), Color(0xFF2D8CFF)],
+          const [ViceColors.accentCyan, ViceColors.c64LightBlue],
         );
         canvas.drawRect(rect, Paint()..shader = shader);
       }

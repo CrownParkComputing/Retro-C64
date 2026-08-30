@@ -202,7 +202,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
           '${_demoMode ? "THE FREE ROMS." : _userRomsInstalled ? "your own ROMs." : "your own ROM directory (no ROM set found in it)."}',
         ),
         Card(
-          color: const Color(0xFF10151A),
+          color: ViceColors.cardFill,
           shape: RoundedRectangleBorder(
             side: const BorderSide(color: ViceColors.panelStroke),
             borderRadius: BorderRadius.circular(6),
@@ -220,7 +220,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                       : 'Off. The app is running on your own ROMs.',
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
-                activeThumbColor: ViceColors.accentTeal,
+                activeThumbColor: ViceColors.accentCyan,
               ),
               if (_demoMode)
                 Padding(
@@ -426,7 +426,7 @@ class _Head extends StatelessWidget {
         padding: const EdgeInsets.only(top: 22, bottom: 6),
         child: Text(text.toUpperCase(),
             style: const TextStyle(
-                color: ViceColors.accentTeal,
+                color: ViceColors.accentCyan,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.1)),
@@ -453,7 +453,7 @@ class _Mono extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF10151A),
+          color: ViceColors.cardFill,
           border: Border.all(color: ViceColors.panelStroke),
           borderRadius: BorderRadius.circular(4),
         ),

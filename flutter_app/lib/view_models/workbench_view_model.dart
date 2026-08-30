@@ -23,6 +23,7 @@ import 'package:retro_c64/services/service_locator.dart';
 import 'package:retro_c64/services/storage_access.dart';
 import 'package:retro_c64/services/demo_roms_service.dart';
 import 'package:retro_c64/services/vsid_service.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 class WorkbenchViewModel extends ChangeNotifier {
   final ViceCore core;
@@ -545,7 +546,7 @@ class WorkbenchViewModel extends ChangeNotifier {
         action: offerPermission
             ? SnackBarAction(
                 label: 'GRANT',
-                textColor: const Color(0xFF00FFCC),
+                textColor: ViceColors.accentCyan,
                 onPressed: requestStorageAccess,
               )
             : null,

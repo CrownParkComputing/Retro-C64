@@ -4,11 +4,17 @@ Retro-C64
 
 SHORT DESCRIPTION (64/80)
 ============================================================
-Commodore 64 emulator for the disks, tapes and SID music you own
+A Commodore 64 and a real SID chiptune player, in the machine's own colours
 
-FULL DESCRIPTION (2014/4000)
+FULL DESCRIPTION (2971/4000)
 ============================================================
-Put a working Commodore 64 on your Android device. Retro-C64 is built on VICE, the emulator that has been the reference for C64 accuracy for over thirty years.
+Retro-C64 emulates two of the Commodore 64's chips at once, and builds its whole interface out of one of them. It is built on VICE, the emulator that has been the reference for C64 accuracy for over thirty years.
+
+THE VIC-II COLOURS THE APP
+Every colour you see is one of the sixteen the VIC-II could produce - Pepto's measurements of the real chip's output, the same values VICE renders with. The blue you are looking at is the C64's blue. Nothing here is a dark theme with a retro name on it.
+
+THE SID IS A SEPARATE EMULATOR
+SID tunes are not recordings. They are 6502 code that drives a sound chip, and Retro-C64 runs them the way the machine did - through reSID, on a second, independent emulator core. Because that core is separate from the one running your games, a tune carries on playing while you browse your library, change your settings or read a disk directory. Point the app at a folder of .sid files and it becomes a chiptune player that happens to also be a computer.
 
 WORKS THE MOMENT YOU OPEN IT
 The app ships free, open-source ROMs and a small demo program. Together they boot a real emulated Commodore 64 and run it straight away, with no files, no account and no network. You can watch a C64 come up before you decide anything.
@@ -21,6 +27,8 @@ A full C64 keyboard laid out for the screen, a draggable on-screen joystick you 
 
 FEATURES
 - VICE-based Commodore 64 emulation (6510, VIC-II, SID, 1541)
+- A separate reSID core for .sid playback, which keeps playing across the app
+- An interface drawn entirely in the VIC-II's sixteen colours
 - D64, D71, D81, G64, TAP, T64, CRT, PRG, P00 and SID support
 - Free open-source ROMs and a demo built in, so it runs out of the box
 - On-screen C64 keyboard and a configurable touch joystick
@@ -34,4 +42,4 @@ This app ships with no copyrighted software and no games. Add your own legally o
 
 Retro-C64 is built on the VICE emulator and released under the GNU General Public License.
 
-https://github.com/CrownParkComputing/ViceMultiplatform
+https://github.com/CrownParkComputing/Retro-C64

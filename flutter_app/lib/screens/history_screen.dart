@@ -32,9 +32,9 @@ class HistoryScreen extends StatelessWidget {
           const TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelColor: ViceColors.accentTeal,
+            labelColor: ViceColors.accentCyan,
             unselectedLabelColor: Colors.white54,
-            indicatorColor: ViceColors.accentTeal,
+            indicatorColor: ViceColors.accentCyan,
             dividerColor: Color(0xFF353B44),
             labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
             tabs: [
@@ -94,7 +94,7 @@ class _MachineTab extends StatelessWidget {
                         width: 78,
                         child: Text(label,
                             style: const TextStyle(
-                                color: ViceColors.accentTeal,
+                                color: ViceColors.accentCyan,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold)),
                       ),
@@ -134,7 +134,7 @@ class _TimelineTab extends StatelessWidget {
                   width: 72,
                   child: Text(e.year,
                       style: const TextStyle(
-                          color: ViceColors.accentTeal,
+                          color: ViceColors.accentCyan,
                           fontSize: 12,
                           fontWeight: FontWeight.bold)),
                 ),
@@ -212,7 +212,7 @@ class _TopGamesTab extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text('${g.year}  ${g.credit}',
                               style: const TextStyle(
-                                  color: ViceColors.accentTeal, fontSize: 10)),
+                                  color: ViceColors.accentCyan, fontSize: 10)),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -262,7 +262,7 @@ class _ComposersTab extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(c.known,
                     style: const TextStyle(
-                        color: ViceColors.accentTeal, fontSize: 11)),
+                        color: ViceColors.accentCyan, fontSize: 11)),
                 const SizedBox(height: 2),
                 Text(c.note,
                     style: const TextStyle(
@@ -322,7 +322,7 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Text(label,
               style: const TextStyle(
-                  color: ViceColors.accentTeal,
+                  color: ViceColors.accentCyan,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.4)),
@@ -343,7 +343,7 @@ class _Panel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF191D22),
+        color: ViceColors.cardFill,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF353B44)),
       ),

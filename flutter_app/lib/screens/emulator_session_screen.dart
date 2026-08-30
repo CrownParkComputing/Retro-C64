@@ -401,7 +401,7 @@ class _ResumeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: ViceColors.accentTeal,
+      color: ViceColors.accentCyan,
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

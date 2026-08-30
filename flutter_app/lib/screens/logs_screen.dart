@@ -162,7 +162,7 @@ class _LogsViewState extends State<LogsView> {
                   child: SelectableText(
                     _text.isEmpty ? '(nothing logged yet)' : _text,
                     style: const TextStyle(
-                      color: ViceColors.accentTeal,
+                      color: ViceColors.accentCyan,
                       fontSize: 11,
                       fontFamily: 'monospace',
                       height: 1.35,

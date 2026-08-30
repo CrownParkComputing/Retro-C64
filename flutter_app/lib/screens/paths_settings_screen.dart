@@ -298,7 +298,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                 ? 'Installed -- kernal, basic and chargen found'
                 : 'MISSING in ${_romLocationLabel('C64')}',
             valueColor:
-                _romsInstalled ? ViceColors.accentTeal : Colors.orangeAccent,
+                _romsInstalled ? ViceColors.accentCyan : Colors.orangeAccent,
             actionLabel: _romsInstalled ? 'Rescan' : 'Scan for ROMs',
             onAction: _importRoms,
           ),
@@ -322,7 +322,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                         'different drive. Add dos1541 or .d64 files fail with '
                         '?DEVICE NOT PRESENT.',
             valueColor: _driveRomInstalled
-                ? ViceColors.accentTeal
+                ? ViceColors.accentCyan
                 : Colors.orangeAccent,
             actionLabel: _driveRomInstalled ? 'Rescan' : 'Scan for ROMs',
             onAction: _importRoms,
@@ -373,7 +373,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                 ? 'none installed -- tiles show format labels'
                 : '$_artworkPacks pack(s) installed',
             valueColor:
-                _artworkPacks == 0 ? null : ViceColors.accentTeal,
+                _artworkPacks == 0 ? null : ViceColors.accentCyan,
             actionLabel: 'Scan for artwork',
             onAction: _scanArtwork,
           ),
@@ -387,7 +387,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                   ? 'Granted -- game files are readable'
                   : 'NOT granted -- games can be listed but not opened',
               valueColor:
-                  _hasStorageAccess ? ViceColors.accentTeal : Colors.orangeAccent,
+                  _hasStorageAccess ? ViceColors.accentCyan : Colors.orangeAccent,
               actionLabel: _hasStorageAccess ? 'Re-check' : 'Grant access',
               onAction: _grantStorage,
             ),
@@ -429,7 +429,7 @@ class _PathsSettingsScreenState extends State<PathsSettingsScreen> {
                       : 'Partly there -- ${_dropFolders.join(", ")}; the rest '
                           'are missing',
               valueColor: _dropFolders.length == DropFolders.folders.length
-                  ? ViceColors.accentTeal
+                  ? ViceColors.accentCyan
                   : null,
               actionLabel: _dropFolders.isEmpty ? 'Create folders' : 'Repair',
               onAction: _createDropFolders,

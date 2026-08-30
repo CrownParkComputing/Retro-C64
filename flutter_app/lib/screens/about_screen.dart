@@ -5,6 +5,7 @@ import 'package:retro_c64/screens/getting_started.dart';
 import 'package:retro_c64/services/platform_info.dart';
 import 'logs_screen.dart';
 import 'music_screen.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 /// About / credits tab. Three things the user explicitly asked to be
 /// credited here: the VICE emulator project itself (this whole app is a
@@ -165,7 +166,7 @@ class _Card extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF191D22),
+        color: ViceColors.cardFill,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: accent ? const Color(0xFF3DDC97) : const Color(0xFF353B44)),
       ),
