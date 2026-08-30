@@ -3,10 +3,15 @@ App Review Guideline 4.7. It ships with no games and no Commodore ROMs.
 
 HOW TO SEE A WORKING EMULATOR IN UNDER A MINUTE, WITH NOTHING TO DOWNLOAD
 
-On the first-run setup screen, tap "See it working". The app installs a
-free, open-source ROM set and puts a small demo program in the games list.
-Tap "Go to games", then tap "Retro-C64 Demo". A real emulated C64 boots and
-runs it.
+First run opens on a welcome screen. Tap "I have done this before" to go
+straight to the setup console (or "Get started", then "READY." at the end of
+the two-page primer -- both arrive at the same place).
+
+That console screen has two buttons. Tap "Store Compliance", the left-hand
+one -- it is the only one that asks nothing of you. The app switches to a
+free, open-source ROM set, puts a small demo program in the games list, and
+lands on the Compliance page. There, tap "Open Games", then tap
+"Retro-C64 Demo". A real emulated C64 boots and runs it.
 
 THE COMPLIANCE PAGE
 
@@ -16,10 +21,10 @@ turns on:
 
   1. A switch that puts the app on the free ROMs. It boots from its own
      ROM folder, so it cannot touch or depend on any ROMs a user has
-     installed. The page then says which file to open and where: Games in
-     the sidebar, then "Retro-C64 Demo". A real emulated C64 boots and runs
-     it, loaded the same way any tape or disk is loaded -- nothing is typed
-     in or started for you.
+     installed. The page then says which file to open and where, with an
+     "Open Games" button: Games in the sidebar, then "Retro-C64 Demo". A
+     real emulated C64 boots and runs it, loaded the same way any tape or
+     disk is loaded -- nothing is typed in or started for you.
   2. The demo's files are listed by name with their full path, in a folder
      you can open and read -- the free ROMs, their licence texts and the
      demo program itself.
