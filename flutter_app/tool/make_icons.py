@@ -20,8 +20,30 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO = os.path.join(HERE, "assets", "images", "retro_recomp_logo.png")
-FONT = "/usr/share/fonts/liberation/LiberationSans-Bold.ttf"
-MONO = "/usr/share/fonts/TTF/DejaVuSansMono-Bold.ttf"
+# A bold sans, wherever this happens to run. The single Linux path that was
+# here meant the script died on macOS with "cannot open resource" -- which is
+# why the icon still read "Retro 64" long after everything else had been
+# renamed: nobody could regenerate it on this machine.
+FONT_CANDIDATES = [
+    "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+]
+FONT = next((f for f in FONT_CANDIDATES if os.path.exists(f)), None)
+if FONT is None:
+    raise SystemExit(
+        "no bold sans font found; looked for:\n  " + "\n  ".join(FONT_CANDIDATES))
+MONO_CANDIDATES = [
+    "/usr/share/fonts/TTF/DejaVuSansMono-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
+    "/System/Library/Fonts/Menlo.ttc",
+]
+MONO = next((f for f in MONO_CANDIDATES if os.path.exists(f)), None)
+if MONO is None:
+    raise SystemExit(
+        "no bold mono font found; looked for:\n  " + "\n  ".join(MONO_CANDIDATES))
 
 SIZE = 1024
 
@@ -175,7 +197,10 @@ def artwork(width):
     layer = Image.new("RGBA", (width, width), (0, 0, 0, 0))
 
     script = retro_script(round(width * 0.80))
-    name = chrome_text("64", round(width * 0.46), round(width * 0.19))
+    # "C64", not "64": the app is Retro-C64 everywhere else, and an icon
+    # reading "Retro 64" was the last place the old name survived. Three
+    # glyphs need a wider box to keep the same cap height as two did.
+    name = chrome_text("C64", round(width * 0.62), round(width * 0.19))
     screen = ready_screen(round(width * 0.62))
 
     stack = script.height + name.height + screen.height + round(width * 0.05)
@@ -272,6 +297,21 @@ def main():
     icon.convert("RGB").resize((512, 512), Image.LANCZOS).save(
         os.path.join(HERE, "android", "app", "src", "ic_launcher-playstore.png")
     )
+
+    # The copy the app itself draws, on the setup wizard's welcome screen.
+    # It was NOT generated here before, so it kept the old wordmark after
+    # every launcher icon had been redrawn -- the one place a user actually
+    # reads the name at size, still saying something else.
+    rounded(icon, 0.22).resize((512, 512), Image.LANCZOS).save(
+        os.path.join(HERE, "assets", "images", "app_icon.png")
+    )
+
+    # And the Play listing's 512, for the same reason.
+    play = os.path.join(os.path.dirname(HERE), "store", "play")
+    if os.path.isdir(play):
+        icon.convert("RGB").resize((512, 512), Image.LANCZOS).save(
+            os.path.join(play, "icon-512.png")
+        )
 
     # The adaptive icon composes a colour resource, not the gradient layer
     # written above, so derive that colour from the same BG_TOP the icon is

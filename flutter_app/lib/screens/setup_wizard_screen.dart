@@ -36,13 +36,24 @@ import 'package:retro_c64/services/demo_roms_service.dart';
 import 'package:retro_c64/view_models/workbench_view_model.dart';
 import 'package:retro_c64/services/service_locator.dart';
 import 'package:retro_c64/services/storage_access.dart';
+import 'package:retro_c64/theme/vice_theme.dart';
 
 const String kGamesImportSubdir = 'games';
 
-// The C64's own boot-screen colours -- the wizard is meant to read as "the
-// real BASIC screen", not a styled reskin.
-const Color _borderBlue = Color(0xFF4040E0);
-const Color _screenBlue = Color(0xFF6060FF);
+// The C64's own boot-screen colours, taken from the shared VIC-II palette so
+// the wizard is the same machine as the rest of the app rather than a second
+// blue that happens to be nearby.
+//
+// The border is the LIGHTER of the two and the screen the darker, which is the
+// way round a real C64 has it -- this was inverted before, with a dark frame
+// around a bright panel.
+//
+// The text is the one value not taken raw from the palette. A real C64 puts
+// light blue on blue, which measures 2.25:1 and is unreadable as body text, so
+// this is that colour lifted to 7.5:1. Everything framing it is authentic; the
+// characters are legible.
+const Color _borderBlue = ViceColors.c64LightBlue;
+const Color _screenBlue = ViceColors.c64Blue;
 const Color _textColor = Color(0xFFC7C7FF);
 const TextStyle _consoleStyle = TextStyle(
   fontFamily: 'monospace',

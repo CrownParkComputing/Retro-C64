@@ -149,8 +149,24 @@ void main() {
     // and pressed it. That switches the app to free-ROM mode, which hides
     // Paths, Video, Input, Core, Music and History from the rail -- so every
     // later step then failed to find a rail entry that was never missing.
+    // The wizard is THREE phases now -- welcome, primer, console -- and only
+    // the console carries the Store Compliance / Start pair. Detecting the
+    // wizard by "Store Compliance" alone therefore matched nothing on a fresh
+    // container: the whole setup step was skipped without complaint,
+    // '02-library' captured the welcome card, and the first rail lookup failed
+    // with "no rail entry titled Compliance" several steps later. tapIfPresent
+    // is what made it silent, so this asserts instead.
+    if (button('I have done this before').evaluate().isNotEmpty) {
+      await tester.tap(button('I have done this before'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      expect(button('Store Compliance'), findsOneWidget,
+          reason: 'the welcome phase should lead to the setup console');
+    }
+
     final onWizard = button('Store Compliance').evaluate().isNotEmpty;
     if (onWizard) {
+      // The console, not the welcome card: the BASIC screen is the one that
+      // looks like a C64 rather than like every other app's first run.
       await shoot(tester, '01-setup-wizard');
       // "Start", NOT "Store Compliance": the latter is a deliberate switch to
       // the bundled free ROMs, not a way past this screen.
