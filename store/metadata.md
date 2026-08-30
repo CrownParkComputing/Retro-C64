@@ -3,16 +3,19 @@
 Copy for App Store Connect. Field limits are Apple's; the counts in brackets
 are what the text below actually uses.
 
-App ID 6800389617 -- `com.vicemultiplatform.app`
+App ID 6804387539 -- `com.crownparkcomputing.c64-retro`
+
+The old `com.vicemultiplatform.app` record (App ID 6800389617, name
+"C64-Retro") is dead and is being removed. Nothing here addresses it.
 
 **This document is now the prose version.** The machine-readable copy lives in
 `store/metadata/` and is what actually gets applied, with the `asc` CLI
 (github.com/rorkai/App-Store-Connect-CLI):
 
     asc metadata validate --dir ./store/metadata
-    asc metadata plan     --app 6800389617 --version 1.0.0 --dir ./store/metadata
+    asc metadata plan     --app 6804387539 --version 1.0.0 --dir ./store/metadata
     asc metadata approve  --review-dir .asc/metadata/review --all
-    asc metadata apply    --app 6800389617 --version 1.0.0 --dir ./store/metadata \
+    asc metadata apply    --app 6804387539 --version 1.0.0 --dir ./store/metadata \
                           --review-dir .asc/metadata/review --confirm
 
 The locale is **en-GB**, not en-US: that is the app record's primary locale,
@@ -141,8 +144,8 @@ which is off unless they set it.
 
 # What is set, and what is left
 
-Everything below was applied through `asc` against app 6800389617, version
-1.0.0. `asc review doctor --app 6800389617` went from 34 blocking issues to 1.
+Everything below was applied through `asc` against app 6804387539, version
+1.0.0. `asc review doctor --app 6804387539` went from 34 blocking issues to 1.
 
 ## Applied
 
@@ -239,7 +242,7 @@ Data Not Collected. No analytics, no accounts, no tracking, no network calls
 except the optional artwork host the user configures themselves, which is off
 unless they set it. The public API cannot report whether this is published,
 so confirm at
-https://appstoreconnect.apple.com/apps/6800389617/appPrivacy before
+https://appstoreconnect.apple.com/apps/6804387539/appPrivacy before
 submitting. It must agree with the privacy policy page or Apple rejects the
 pair.
 

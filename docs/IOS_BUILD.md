@@ -161,7 +161,7 @@ TestFlight" below.
 attached, so launch it through MobAI with `debug: true`:
 
 ```json
-{"action": "open_app", "bundle_id": "com.vicemultiplatform.app", "debug": true}
+{"action": "open_app", "bundle_id": "com.crownparkcomputing.c64-retro", "debug": true}
 ```
 
 A release/AOT iOS build still needs macOS -- the `ios` job in

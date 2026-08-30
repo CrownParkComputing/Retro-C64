@@ -79,10 +79,10 @@ except Exception: sys.exit(0)
 apps = d.get("apps", d) if isinstance(d, dict) else d
 for a in apps if isinstance(apps, list) else []:
     b = a.get("bundleId", "") if isinstance(a, dict) else str(a)
-    if b.startswith("com.vicemultiplatform.app"):
+    if b.startswith("com.crownparkcomputing.c64-retro"):
         print(b); break
 ')"
-  bundle="${bundle:-com.vicemultiplatform.app}"
+  bundle="${bundle:-com.crownparkcomputing.c64-retro}"
   echo "    $bundle"
   curl -sS -m 180 -X POST "$API/devices/$DEVICE_ID/launch-app" \
     -H 'Content-Type: application/json' \
@@ -106,7 +106,7 @@ if [ "$ANDROID" = 1 ]; then
   fi
   adb install -r "$APK" || die "adb install failed."
   ok "installed $(basename "$APK")"
-  [ "$LAUNCH" = 1 ] && adb shell monkey -p com.vicemultiplatform.app -c android.intent.category.LAUNCHER 1 >/dev/null
+  [ "$LAUNCH" = 1 ] && adb shell monkey -p com.crownparkcomputing.c64retro -c android.intent.category.LAUNCHER 1 >/dev/null
   exit 0
 fi
 
