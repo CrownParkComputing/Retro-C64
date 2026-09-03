@@ -31,8 +31,13 @@ PROJECTS = {
         "glow": (190, 110, 220),
     },
     "dosbox": {
-        "icons": "/home/jon/StudioProjects/Retro-Dosbox/flutter_app/tool/make_icons.py",
-        "name": "DOSBOX",
+        # The Flutter app this used to point at is gone; the SDL3 rewrite keeps
+        # the same generator at the top of the repository instead.
+        "icons": "/home/jon/StudioProjects/Retro-Dosbox/tool/make_icons.py",
+        # DOS, not DOSBOX: the app renamed itself Retro-DOS, and a banner
+        # wordmark that disagrees with the store title and the launcher icon
+        # reads as a different app.
+        "name": "DOS",
         # prompt_screen takes a width and is 0.62 as tall, so it eats far more
         # of the banner than a tick does; asking for a shorter one is what
         # leaves room for the longer wordmark beside it.
