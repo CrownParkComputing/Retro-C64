@@ -11,7 +11,7 @@
 //   - Android: put libvicecore.so under android/app/src/main/jniLibs/<abi>/
 //     and load it by bare name ("libvicecore.so") -- the OS loader finds it.
 //     DONE: libvicecore.so / libvicecore_vsid.so now ship in jniLibs/
-//     arm64-v8a/ (built by native/vice_core/android/build.sh) and are
+//     arm64-v8a/ (built by core/retro/android/build.sh) and are
 //     loaded by bare name -- see gameCoreLibraryPath/vsidCoreLibraryPath
 //     below, which return null on Android on purpose.
 //   - iOS/macOS: build it into an .xcframework and link statically or via
@@ -327,7 +327,7 @@ class ViceNativePaths {
     for (final start in candidates) {
       Directory dir = start;
       for (int i = 0; i < 8; i++) {
-        if (Directory(p.join(dir.path, 'native', 'vice_core')).existsSync()) {
+        if (Directory(p.join(dir.path, 'core', 'retro')).existsSync()) {
           return dir;
         }
         final parent = dir.parent;
@@ -338,14 +338,14 @@ class ViceNativePaths {
     return null;
   }
 
-  /// Absolute path to libvicecore.so built by native/vice_core/linux, or
+  /// Absolute path to libvicecore.so built by core/retro/linux, or
   /// null if it can't be found (falls back to bare-name loading, which
   /// works if the .so happens to be on LD_LIBRARY_PATH). Always null on
   /// Android: the .so ships in jniLibs/arm64-v8a/ and is loaded by bare
   /// name ("libvicecore.so") via the OS loader, same as the reference
   /// VICEAndroid app -- there is no repo-relative dev path to find on a
   /// real device. (_findRepoRoot() would also naturally fail to find
-  /// native/vice_core under the app sandbox, but this is explicit.)
+  /// core/retro under the app sandbox, but this is explicit.)
   static String? get gameCoreLibraryPath {
     if (Platform.isAndroid) return null;
     if (Platform.isIOS) return _iosFrameworkLibrary('libvicecore');
@@ -374,7 +374,7 @@ class ViceNativePaths {
     final root = _findRepoRoot();
     if (root == null) return null;
     final path =
-        p.join(root.path, 'native', 'vice_core', 'linux', 'build', filename);
+        p.join(root.path, 'core', 'retro', 'linux', 'build', filename);
     return File(path).existsSync() ? path : null;
   }
 
@@ -418,7 +418,7 @@ class ViceNativePaths {
     final root = _findRepoRoot();
     if (root == null) return null;
     final path = p.join(
-        root.path, 'native', 'vice_core', 'linux', 'test', 'testdata');
+        root.path, 'core', 'retro', 'linux', 'test', 'testdata');
     return Directory(p.join(path, 'C64')).existsSync() ? path : null;
   }
 }

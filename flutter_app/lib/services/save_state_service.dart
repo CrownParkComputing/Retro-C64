@@ -2,7 +2,7 @@
 // machine snapshot so they resume at the exact cycle they were left at.
 //
 // The snapshot itself is written by the native core (see
-// vice_core_save_snapshot in native/vice_core/bridge/vice_bridge.c, which
+// vice_core_save_snapshot in core/retro/bridge/vice_bridge.c, which
 // hands the request to the core's own thread -- VICE machine state must
 // never be touched from the Flutter thread). Everything in this file is the
 // bookkeeping around that: where the files live, the index that maps them

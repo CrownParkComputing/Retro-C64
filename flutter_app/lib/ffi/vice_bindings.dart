@@ -1,4 +1,4 @@
-// dart:ffi bindings to native/vice_core/bridge/vice_bridge.h
+// dart:ffi bindings to core/retro/bridge/vice_bridge.h
 //
 // This binds the plain-C x64sc game core (libvicecore.so). The vsid
 // (SID-player) core has an analogous header (vice_vsid_bridge.h) and is not
@@ -8,7 +8,7 @@
 // TODO(bundling): for now this loads libvicecore.so via a path computed
 // relative to the Flutter project directory (see ViceLibraryPaths below),
 // which only works for `flutter run -d linux` from a checkout that has
-// native/vice_core/linux/build/libvicecore.so already built. Proper
+// core/retro/linux/build/libvicecore.so already built. Proper
 // packaging (bundling the .so next to the produced Linux binary, and the
 // equivalent for Android/iOS via jniLibs / an xcframework) is deferred to a
 // later milestone.

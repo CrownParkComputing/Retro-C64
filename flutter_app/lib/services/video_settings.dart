@@ -8,7 +8,7 @@
 //
 // Deliberately NOT here: VICE core resources such as the VIC-II border mode
 // and the C64 palette. Those live inside the emulator core, and the plain-C
-// bridge (native/vice_core/bridge/vice_bridge.h) exposes no resource
+// bridge (core/retro/bridge/vice_bridge.h) exposes no resource
 // setters at all -- there is no vice_core_set_* function to call. Adding
 // them means new bridge entry points and a rebuild of the native libs for
 // both Linux and Android, so they're left out of the UI rather than shipped

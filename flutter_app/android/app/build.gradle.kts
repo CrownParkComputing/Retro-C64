@@ -47,7 +47,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // 26, matching the API the native core is actually built against
-        // (native/vice_core/android/build.sh, ANDROID_API=26).
+        // (core/retro/android/build.sh, ANDROID_API=26).
         //
         // This was flutter.minSdkVersion, which is 24. The app therefore
         // declared support for API 24 and 25 devices that could never run it:
@@ -67,7 +67,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // libvicecore.so / libvicecore_vsid.so (native/vice_core/android/build.sh
+        // libvicecore.so / libvicecore_vsid.so (core/retro/android/build.sh
         // output) only exist for arm64-v8a -- the Retroid Pocket Flip2 and every
         // other device this app targets. AGP already auto-packages
         // src/main/jniLibs/<abi>/*.so with no extra sourceSets config needed

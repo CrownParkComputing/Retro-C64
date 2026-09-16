@@ -1,10 +1,10 @@
-// dart:ffi bindings to native/vice_core/bridge/vice_vsid_bridge.h -- the
+// dart:ffi bindings to core/retro/bridge/vice_vsid_bridge.h -- the
 // standalone SID-file player ("vsid") core, built as a SEPARATE shared
 // library (libvicecore_vsid.so) from the game core (libvicecore.so, see
 // vice_bindings.dart). It is a full independent static link of the VICE
 // base objects with a different machine table (VICE_MACHINE_VSID vs
 // VICE_MACHINE_C64), so it cannot be linked into the same binary as the
-// game core, and (per native/vice_core/linux/viewer/sdl_viewer.c's header
+// game core, and (per core/retro/linux/viewer/sdl_viewer.c's header
 // comment) both .so files export the same global symbol names with
 // different definitions.
 //

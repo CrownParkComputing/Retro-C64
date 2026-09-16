@@ -108,7 +108,7 @@ endforeach(bundled_library)
 
 # The VICE cores travel WITH the app, the same way they do on Android and
 # iOS. Without this the Linux build only ran from a dev checkout, because
-# ViceNativePaths fell back to hunting for native/vice_core/linux/build --
+# ViceNativePaths fell back to hunting for core/retro/linux/build --
 # a path that does not exist on a user's machine, so the app started with no
 # emulator at all. They are installed into lib/ next to libflutter_linux_gtk.so
 # and found there first at runtime.
@@ -117,7 +117,7 @@ endforeach(bundled_library)
 # still produce a runnable (if core-less) app rather than failing to install,
 # so this is a glob, not a hard dependency. See docs/NATIVE_BUILD.md.
 file(GLOB VICE_CORE_LIBS
-  "${CMAKE_CURRENT_SOURCE_DIR}/../../native/vice_core/linux/build/libvicecore*.so")
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../core/retro/linux/build/libvicecore*.so")
 foreach(vice_core_lib ${VICE_CORE_LIBS})
   install(FILES "${vice_core_lib}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"

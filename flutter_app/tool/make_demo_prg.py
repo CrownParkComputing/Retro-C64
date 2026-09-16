@@ -23,7 +23,7 @@ means it does not care whose ROMs are fitted: the same file is a working
 demo on Open ROMs and on a real dump.
 
 Re-verify after ANY change:
-    native/vice_core/linux/build/vice_openroms_demo_test <romdir> demo.prg out.ppm
+    core/retro/linux/build/vice_openroms_demo_test <romdir> demo.prg out.ppm
 """
 import pathlib
 
